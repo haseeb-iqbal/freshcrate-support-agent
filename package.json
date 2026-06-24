@@ -12,11 +12,14 @@
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx db/seed.ts",
     "db:reset": "npm run db:enable-vector && drizzle-kit push && npm run db:seed",
+    "kb:ingest": "tsx kb/ingest.ts",
+    "kb:test": "tsx scripts/test-retrieval.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
     "drizzle-orm": "^0.36.4",
+    "openai": "^4.77.0",
     "postgres": "^3.4.5"
   },
   "devDependencies": {

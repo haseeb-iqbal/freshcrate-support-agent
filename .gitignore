@@ -2,7 +2,15 @@ node_modules/
 .env
 .env.local
 .next/
+out/
 dist/
 *.log
 .DS_Store
 drizzle/.snapshot
+
+# typescript / next build artifacts
+next-env.d.ts
+*.tsbuildinfo
+
+# local editor / harness config
+.claude/

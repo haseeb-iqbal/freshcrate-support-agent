@@ -47,14 +47,40 @@ const TOOL_LABELS: Record<string, string> = {
   escalate_to_human: "Escalating to a human",
 };
 
-export default function Chat({ customers }: { customers: CustomerOption[] }) {
-  const [customerId, setCustomerId] = useState(customers[0]?.id ?? "");
+export default function Chat({ customers: initialCustomers }: { customers: CustomerOption[] }) {
+  const [customers, setCustomers] = useState(initialCustomers);
+  const [customerId, setCustomerId] = useState(initialCustomers[0]?.id ?? "");
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const activeCustomer = customers.find((c) => c.id === customerId);
+
+  function startNewChat() {
+    if (busy) return;
+    setMessages([]);
+    setInput("");
+  }
+
+  // Switching the signed-in customer starts a fresh session for them.
+  function switchCustomer(id: string) {
+    if (busy) return;
+    setCustomerId(id);
+    setMessages([]);
+    setInput("");
+  }
+
+  // A write tool (e.g. pause) may have changed a customer's status; refresh the
+  // selector so it reflects the current DB state.
+  async function refreshCustomers() {
+    try {
+      const res = await fetch("/api/customers");
+      if (res.ok) setCustomers((await res.json()) as CustomerOption[]);
+    } catch {
+      // non-fatal — the dropdown just keeps its current values
+    }
+  }
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -97,6 +123,8 @@ export default function Chat({ customers }: { customers: CustomerOption[] }) {
         buffer = events.pop() ?? "";
         for (const raw of events) handleEvent(raw);
       }
+      // A tool may have changed the customer's status — refresh the selector.
+      await refreshCustomers();
     } catch (err) {
       patchLast({
         content: `Sorry — connection error: ${err instanceof Error ? err.message : "unknown"}.`,
@@ -164,20 +192,32 @@ export default function Chat({ customers }: { customers: CustomerOption[] }) {
             </Link>
           </p>
         </div>
-        <label className="flex items-center gap-2 text-sm">
-          <span className="text-slate-500">Signed in as</span>
-          <select
-            value={customerId}
-            onChange={(e) => setCustomerId(e.target.value)}
-            className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm shadow-sm focus:border-brand focus:outline-none"
-          >
-            {customers.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name} · {c.subscriptionStatus}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="flex items-center gap-2">
+          {messages.length > 0 && (
+            <button
+              onClick={startNewChat}
+              disabled={busy}
+              className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-sm text-slate-600 shadow-sm transition hover:border-brand hover:text-brand disabled:opacity-50"
+            >
+              + New chat
+            </button>
+          )}
+          <label className="flex items-center gap-2 text-sm">
+            <span className="text-slate-500">Signed in as</span>
+            <select
+              value={customerId}
+              onChange={(e) => switchCustomer(e.target.value)}
+              disabled={busy}
+              className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm shadow-sm focus:border-brand focus:outline-none disabled:opacity-50"
+            >
+              {customers.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} · {c.subscriptionStatus}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
       </header>
 
       <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto py-6">

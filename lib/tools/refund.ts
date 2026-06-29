@@ -1,24 +1,26 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "../../db";
-import { orders, subscriptionEvents } from "../../db/schema";
+import { orders } from "../../db/schema";
+import { evaluateRefund } from "../guardrails/refund-policy";
 import type { Tool } from "./types";
 
 /**
- * Write tool: issue a (simulated) refund for one of the customer's orders by
- * logging a refund event. Scoped — the order must belong to the signed-in
- * customer. The human-in-the-loop confirmation and refund ceiling are added in
- * Phase 4; in Phase 3 the tool performs the write directly.
+ * Write-guarded refund. This tool NEVER writes — it only proposes.
+ *  - Over the ceiling → returns over_ceiling; the agent then escalates.
+ *  - At/under the ceiling → returns a proposal; the UI shows a confirmation
+ *    card and the actual write happens only via /api/actions/refund on the
+ *    customer's explicit approval (human-in-the-loop, PRD Section 12).
  */
 export const issueRefund: Tool = {
   definition: {
     name: "issue_refund",
     description:
-      "Issue a refund for a specific order belonging to the current customer (e.g. a damaged or undelivered box). Requires the order_id and a brief reason. If you don't have the order_id, look it up first.",
+      "Propose a refund for a specific order belonging to the current customer (e.g. a damaged or undelivered box). This does NOT immediately refund money — it asks the customer to confirm, and large refunds are routed to a human instead. Requires order_id and a brief reason; look the order up first if you don't have its id.",
     parameters: {
       type: "object",
       properties: {
         order_id: { type: "string", description: "The order to refund." },
-        reason: { type: "string", description: "Why the refund is being issued." },
+        reason: { type: "string", description: "Why the refund is being requested." },
       },
       required: ["order_id", "reason"],
       additionalProperties: false,
@@ -34,21 +36,37 @@ export const issueRefund: Tool = {
       .from(orders)
       .where(and(eq(orders.id, orderId), eq(orders.customerId, ctx.customerId)))
       .limit(1);
-
     if (!order) {
       return { ok: false, summary: `No order ${orderId} found for this customer` };
     }
 
-    await db.insert(subscriptionEvents).values({
-      customerId: ctx.customerId,
-      eventType: "refund",
-      metadata: { orderId, reason, amountCents: order.totalCents },
-    });
+    const decision = evaluateRefund({ totalCents: order.totalCents });
+    const amount = `$${(order.totalCents / 100).toFixed(2)}`;
 
+    if (decision.kind === "over_ceiling") {
+      return {
+        ok: true,
+        summary: `Refund ${amount} exceeds the self-service limit — needs a human`,
+        data: {
+          status: "over_ceiling",
+          amount_cents: order.totalCents,
+          ceiling_cents: decision.ceilingCents,
+          message:
+            "This refund is above the amount support can approve automatically. Tell the customer it needs a human specialist, then call escalate_to_human. Do not claim the refund was issued.",
+        },
+      };
+    }
+
+    // needs_confirmation — propose only; the write happens on user approval.
     return {
       ok: true,
-      summary: `Refunded $${(order.totalCents / 100).toFixed(2)} for order ${orderId.slice(0, 8)}`,
-      data: { order_id: orderId, amount_cents: order.totalCents, reason },
+      summary: `Proposed refund of ${amount} for order ${orderId.slice(0, 8)} — awaiting approval`,
+      data: {
+        status: "needs_confirmation",
+        proposal: { order_id: orderId, amount_cents: order.totalCents, reason },
+        message:
+          "A confirmation card has been shown to the customer. Ask them to approve it to complete the refund. Do NOT say the refund is done — it is only proposed until they approve.",
+      },
     };
   },
 };

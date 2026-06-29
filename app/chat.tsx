@@ -24,11 +24,21 @@ interface Step {
   summary?: string;
 }
 
+interface RefundProposal {
+  order_id: string;
+  amount_cents: number;
+  reason: string;
+}
+
+type ProposalState = "pending" | "approved" | "declined" | "error";
+
 interface Message {
   role: "user" | "assistant";
   content: string;
   sources?: Source[];
   steps?: Step[];
+  proposal?: RefundProposal;
+  proposalState?: ProposalState;
 }
 
 const EXAMPLE_PROMPTS = [
@@ -79,6 +89,30 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
       if (res.ok) setCustomers((await res.json()) as CustomerOption[]);
     } catch {
       // non-fatal — the dropdown just keeps its current values
+    }
+  }
+
+  function setProposalState(index: number, state: ProposalState) {
+    setMessages((prev) => prev.map((m, i) => (i === index ? { ...m, proposalState: state } : m)));
+  }
+
+  // Approve a proposed refund: the actual write happens here (server endpoint),
+  // never in the agent loop.
+  async function approveRefund(index: number, proposal: RefundProposal) {
+    try {
+      const res = await fetch("/api/actions/refund", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerId,
+          orderId: proposal.order_id,
+          reason: proposal.reason,
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { ok?: boolean };
+      setProposalState(index, res.ok && data.ok ? "approved" : "error");
+    } catch {
+      setProposalState(index, "error");
     }
   }
 
@@ -149,6 +183,8 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
 
     if (event === "sources") {
       patchLast({ sources: data as Source[] });
+    } else if (event === "refund_proposal") {
+      patchLast({ proposal: data as RefundProposal, proposalState: "pending" });
     } else if (event === "tool_call") {
       const { name } = data as { name: string };
       setMessages((prev) => updateLast(prev, (m) => ({
@@ -223,7 +259,13 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
       <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto py-6">
         {messages.length === 0 && <Welcome customer={activeCustomer} onPick={send} />}
         {messages.map((m, i) => (
-          <MessageBubble key={i} message={m} streaming={busy && i === messages.length - 1} />
+          <MessageBubble
+            key={i}
+            message={m}
+            streaming={busy && i === messages.length - 1}
+            onApprove={() => m.proposal && approveRefund(i, m.proposal)}
+            onDecline={() => setProposalState(i, "declined")}
+          />
         ))}
       </div>
 
@@ -297,7 +339,17 @@ function Welcome({
   );
 }
 
-function MessageBubble({ message, streaming }: { message: Message; streaming: boolean }) {
+function MessageBubble({
+  message,
+  streaming,
+  onApprove,
+  onDecline,
+}: {
+  message: Message;
+  streaming: boolean;
+  onApprove: () => void;
+  onDecline: () => void;
+}) {
   const isUser = message.role === "user";
   return (
     <div className={isUser ? "flex justify-end" : "flex justify-start"}>
@@ -317,6 +369,15 @@ function MessageBubble({ message, streaming }: { message: Message; streaming: bo
             {message.content}
             {streaming && !isUser && <span className="ml-0.5 animate-pulse">▋</span>}
           </p>
+        )}
+
+        {!isUser && message.proposal && (
+          <RefundCard
+            proposal={message.proposal}
+            state={message.proposalState ?? "pending"}
+            onApprove={onApprove}
+            onDecline={onDecline}
+          />
         )}
 
         {!isUser && message.sources && message.sources.length > 0 && (
@@ -339,6 +400,60 @@ function MessageBubble({ message, streaming }: { message: Message; streaming: bo
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function RefundCard({
+  proposal,
+  state,
+  onApprove,
+  onDecline,
+}: {
+  proposal: RefundProposal;
+  state: ProposalState;
+  onApprove: () => void;
+  onDecline: () => void;
+}) {
+  const amount = `$${(proposal.amount_cents / 100).toFixed(2)}`;
+  return (
+    <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+        Refund confirmation
+      </p>
+      <p className="mt-1 text-sm text-slate-800">
+        Refund <span className="font-semibold">{amount}</span> for order{" "}
+        <span className="font-mono text-xs">{proposal.order_id.slice(0, 8)}</span>
+      </p>
+      <p className="mt-0.5 text-xs text-slate-500">Reason: {proposal.reason}</p>
+
+      {state === "pending" && (
+        <div className="mt-3 flex gap-2">
+          <button
+            onClick={onApprove}
+            className="rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-white transition hover:bg-brand-dark"
+          >
+            Approve refund
+          </button>
+          <button
+            onClick={onDecline}
+            className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-600 transition hover:bg-slate-50"
+          >
+            Decline
+          </button>
+        </div>
+      )}
+      {state === "approved" && (
+        <p className="mt-2 text-xs font-medium text-emerald-700">✓ Refund of {amount} issued.</p>
+      )}
+      {state === "declined" && (
+        <p className="mt-2 text-xs font-medium text-slate-500">Refund cancelled.</p>
+      )}
+      {state === "error" && (
+        <p className="mt-2 text-xs font-medium text-red-600">
+          Couldn&apos;t process the refund — please try again.
+        </p>
+      )}
     </div>
   );
 }

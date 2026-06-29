@@ -94,6 +94,16 @@ export async function runAgent({
         emit("sources", excerpts.map((e) => ({ slug: e.slug, heading: e.heading })));
       }
 
+      // A refund proposal surfaces a confirmation card; the actual write happens
+      // only when the customer approves it (human-in-the-loop, Phase 4).
+      if (
+        call.name === "issue_refund" &&
+        result.ok &&
+        (result.data as { status?: string } | undefined)?.status === "needs_confirmation"
+      ) {
+        emit("refund_proposal", (result.data as { proposal: unknown }).proposal);
+      }
+
       emit("tool_result", { name: call.name, ok: result.ok, summary: result.summary });
 
       messages.push({

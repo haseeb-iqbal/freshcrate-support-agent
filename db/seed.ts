@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { db, client } from "./index";
-import { customers, orders, subscriptionEvents } from "./schema";
+import { customers, escalations, orders, subscriptionEvents } from "./schema";
 
 /**
  * Seed data for FreshCrate.
@@ -115,6 +115,7 @@ async function main() {
 
   // Idempotent reseed: clear dependents first (FK order), then parents.
   await db.delete(subscriptionEvents);
+  await db.delete(escalations);
   await db.delete(orders);
   await db.delete(customers);
 

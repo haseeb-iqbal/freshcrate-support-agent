@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 export interface CustomerOption {
@@ -13,30 +14,73 @@ export interface CustomerOption {
 interface Source {
   slug: string;
   heading: string;
-  score: number;
+  score?: number;
+}
+
+interface Step {
+  name: string;
+  status: "running" | "done";
+  ok?: boolean;
+  summary?: string;
 }
 
 interface Message {
   role: "user" | "assistant";
   content: string;
   sources?: Source[];
+  steps?: Step[];
 }
 
 const EXAMPLE_PROMPTS = [
-  "How do I change my delivery day?",
-  "Can I pause my subscription while I'm on vacation?",
-  "My box arrived damaged — what can I do?",
-  "What's the capital of France?", // out-of-KB → honest "I don't know"
+  "Where's my latest order?",
+  "Pause my subscription for 2 weeks",
+  "My last box arrived damaged — I'd like a refund",
+  "What's the capital of France?", // out-of-scope → honest decline + escalate
 ];
 
-export default function Chat({ customers }: { customers: CustomerOption[] }) {
-  const [customerId, setCustomerId] = useState(customers[0]?.id ?? "");
+// Friendly labels for the tool-status line.
+const TOOL_LABELS: Record<string, string> = {
+  search_knowledge_base: "Searching the help center",
+  lookup_order: "Looking up your order",
+  pause_subscription: "Pausing your subscription",
+  issue_refund: "Issuing a refund",
+  escalate_to_human: "Escalating to a human",
+};
+
+export default function Chat({ customers: initialCustomers }: { customers: CustomerOption[] }) {
+  const [customers, setCustomers] = useState(initialCustomers);
+  const [customerId, setCustomerId] = useState(initialCustomers[0]?.id ?? "");
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const activeCustomer = customers.find((c) => c.id === customerId);
+
+  function startNewChat() {
+    if (busy) return;
+    setMessages([]);
+    setInput("");
+  }
+
+  // Switching the signed-in customer starts a fresh session for them.
+  function switchCustomer(id: string) {
+    if (busy) return;
+    setCustomerId(id);
+    setMessages([]);
+    setInput("");
+  }
+
+  // A write tool (e.g. pause) may have changed a customer's status; refresh the
+  // selector so it reflects the current DB state.
+  async function refreshCustomers() {
+    try {
+      const res = await fetch("/api/customers");
+      if (res.ok) setCustomers((await res.json()) as CustomerOption[]);
+    } catch {
+      // non-fatal — the dropdown just keeps its current values
+    }
+  }
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -48,8 +92,7 @@ export default function Chat({ customers }: { customers: CustomerOption[] }) {
     setInput("");
 
     const history: Message[] = [...messages, { role: "user", content: question }];
-    // Append a placeholder assistant message we'll stream into.
-    setMessages([...history, { role: "assistant", content: "", sources: [] }]);
+    setMessages([...history, { role: "assistant", content: "", sources: [], steps: [] }]);
     setBusy(true);
 
     try {
@@ -76,11 +119,12 @@ export default function Chat({ customers }: { customers: CustomerOption[] }) {
         const { done, value } = await reader.read();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
-
         const events = buffer.split("\n\n");
         buffer = events.pop() ?? "";
         for (const raw of events) handleEvent(raw);
       }
+      // A tool may have changed the customer's status — refresh the selector.
+      await refreshCustomers();
     } catch (err) {
       patchLast({
         content: `Sorry — connection error: ${err instanceof Error ? err.message : "unknown"}.`,
@@ -105,26 +149,35 @@ export default function Chat({ customers }: { customers: CustomerOption[] }) {
 
     if (event === "sources") {
       patchLast({ sources: data as Source[] });
+    } else if (event === "tool_call") {
+      const { name } = data as { name: string };
+      setMessages((prev) => updateLast(prev, (m) => ({
+        ...m,
+        steps: [...(m.steps ?? []), { name, status: "running" }],
+      })));
+    } else if (event === "tool_result") {
+      const { name, ok, summary } = data as { name: string; ok: boolean; summary: string };
+      setMessages((prev) => updateLast(prev, (m) => {
+        const steps = [...(m.steps ?? [])];
+        // Mark the most recent running step with this name as done.
+        for (let i = steps.length - 1; i >= 0; i--) {
+          if (steps[i].name === name && steps[i].status === "running") {
+            steps[i] = { ...steps[i], status: "done", ok, summary };
+            break;
+          }
+        }
+        return { ...m, steps };
+      }));
     } else if (event === "delta") {
       const delta = data as string;
-      setMessages((prev) => {
-        const next = [...prev];
-        const last = next[next.length - 1];
-        if (last?.role === "assistant") next[next.length - 1] = { ...last, content: last.content + delta };
-        return next;
-      });
+      setMessages((prev) => updateLast(prev, (m) => ({ ...m, content: m.content + delta })));
     } else if (event === "error") {
       patchLast({ content: `Sorry — ${(data as { message: string }).message}` });
     }
   }
 
   function patchLast(patch: Partial<Message>) {
-    setMessages((prev) => {
-      const next = [...prev];
-      const last = next[next.length - 1];
-      if (last?.role === "assistant") next[next.length - 1] = { ...last, ...patch };
-      return next;
-    });
+    setMessages((prev) => updateLast(prev, (m) => ({ ...m, ...patch })));
   }
 
   return (
@@ -132,28 +185,43 @@ export default function Chat({ customers }: { customers: CustomerOption[] }) {
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 py-4">
         <div>
           <h1 className="text-lg font-semibold text-brand">FreshCrate Support</h1>
-          <p className="text-xs text-slate-500">Grounded answers with citations</p>
+          <p className="text-xs text-slate-500">
+            Grounded answers + real actions ·{" "}
+            <Link href="/kb" className="text-brand hover:underline">
+              Browse help articles
+            </Link>
+          </p>
         </div>
-        <label className="flex items-center gap-2 text-sm">
-          <span className="text-slate-500">Signed in as</span>
-          <select
-            value={customerId}
-            onChange={(e) => setCustomerId(e.target.value)}
-            className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm shadow-sm focus:border-brand focus:outline-none"
-          >
-            {customers.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name} · {c.subscriptionStatus}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="flex items-center gap-2">
+          {messages.length > 0 && (
+            <button
+              onClick={startNewChat}
+              disabled={busy}
+              className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-sm text-slate-600 shadow-sm transition hover:border-brand hover:text-brand disabled:opacity-50"
+            >
+              + New chat
+            </button>
+          )}
+          <label className="flex items-center gap-2 text-sm">
+            <span className="text-slate-500">Signed in as</span>
+            <select
+              value={customerId}
+              onChange={(e) => switchCustomer(e.target.value)}
+              disabled={busy}
+              className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm shadow-sm focus:border-brand focus:outline-none disabled:opacity-50"
+            >
+              {customers.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} · {c.subscriptionStatus}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
       </header>
 
       <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto py-6">
-        {messages.length === 0 && (
-          <Welcome customer={activeCustomer} onPick={send} />
-        )}
+        {messages.length === 0 && <Welcome customer={activeCustomer} onPick={send} />}
         {messages.map((m, i) => (
           <MessageBubble key={i} message={m} streaming={busy && i === messages.length - 1} />
         ))}
@@ -176,7 +244,7 @@ export default function Chat({ customers }: { customers: CustomerOption[] }) {
             }
           }}
           rows={1}
-          placeholder="Ask about delivery, pausing, refunds, plans…"
+          placeholder="Ask about an order, pausing, a refund, or any policy…"
           className="min-h-[44px] flex-1 resize-none rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-brand focus:outline-none"
         />
         <button
@@ -189,6 +257,13 @@ export default function Chat({ customers }: { customers: CustomerOption[] }) {
       </form>
     </div>
   );
+}
+
+function updateLast(prev: Message[], fn: (m: Message) => Message): Message[] {
+  const next = [...prev];
+  const last = next[next.length - 1];
+  if (last?.role === "assistant") next[next.length - 1] = fn(last);
+  return next;
 }
 
 function Welcome({
@@ -204,7 +279,8 @@ function Welcome({
         Hi{customer ? `, ${customer.name.split(" ")[0]}` : ""} 👋
       </h2>
       <p className="mt-1 text-sm text-slate-500">
-        Ask a FreshCrate support question. Answers are grounded in our help center and cite their source.
+        I can answer FreshCrate policy questions (with sources) and take actions on your account —
+        look up orders, pause your plan, issue refunds, or escalate to a human.
       </p>
       <div className="mt-4 flex flex-wrap gap-2">
         {EXAMPLE_PROMPTS.map((p) => (
@@ -232,29 +308,55 @@ function MessageBubble({ message, streaming }: { message: Message; streaming: bo
             : "max-w-[85%] rounded-2xl rounded-bl-sm border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm"
         }
       >
-        <p className="whitespace-pre-wrap">
-          {message.content}
-          {streaming && !isUser && <span className="ml-0.5 animate-pulse">▋</span>}
-        </p>
+        {!isUser && message.steps && message.steps.length > 0 && (
+          <ToolSteps steps={message.steps} />
+        )}
+
+        {message.content && (
+          <p className="whitespace-pre-wrap">
+            {message.content}
+            {streaming && !isUser && <span className="ml-0.5 animate-pulse">▋</span>}
+          </p>
+        )}
+
         {!isUser && message.sources && message.sources.length > 0 && (
           <div className="mt-3 border-t border-slate-100 pt-2">
-            <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-slate-400">
-              Sources
-            </p>
+            <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-slate-400">Sources</p>
             <div className="flex flex-wrap gap-1.5">
               {message.sources.map((s, i) => (
-                <span
+                <a
                   key={i}
-                  title={`relevance ${s.score}`}
-                  className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600"
+                  href={`/kb/${s.slug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Open the source article"
+                  className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600 transition hover:bg-brand/10 hover:text-brand"
                 >
                   {s.slug} › {s.heading}
-                </span>
+                </a>
               ))}
             </div>
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function ToolSteps({ steps }: { steps: Step[] }) {
+  return (
+    <div className="mb-2 space-y-1">
+      {steps.map((s, i) => (
+        <div key={i} className="flex items-center gap-2 text-[11px] text-slate-500">
+          <span>
+            {s.status === "running" ? "⏳" : s.ok === false ? "⚠️" : "✓"}
+          </span>
+          <span className="font-medium">{TOOL_LABELS[s.name] ?? s.name}</span>
+          {s.status === "done" && s.summary && (
+            <span className="text-slate-400">· {s.summary}</span>
+          )}
+        </div>
+      ))}
     </div>
   );
 }

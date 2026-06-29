@@ -70,8 +70,19 @@ export const traces = pgTable("traces", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// --- escalations (human-handoff records, written by escalate_to_human) ---
+export const escalations = pgTable("escalations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  customerId: uuid("customer_id")
+    .notNull()
+    .references(() => customers.id),
+  summary: text("summary").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export type Customer = typeof customers.$inferSelect;
 export type Order = typeof orders.$inferSelect;
 export type SubscriptionEvent = typeof subscriptionEvents.$inferSelect;
 export type KbChunk = typeof kbChunks.$inferSelect;
 export type Trace = typeof traces.$inferSelect;
+export type Escalation = typeof escalations.$inferSelect;

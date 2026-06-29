@@ -1,15 +1,15 @@
 import type { NextRequest } from "next/server";
-import { getChatProvider } from "@/lib/llm";
-import { buildGroundedMessages } from "@/lib/rag/ground";
-import { retrieve } from "@/lib/rag/retrieve";
-import type { ChatMessage } from "@/lib/llm/types";
+import { eq } from "drizzle-orm";
+import { db } from "@/db";
+import { customers } from "@/db/schema";
+import { runAgent } from "@/lib/agent/loop";
 
 // postgres.js and the OpenAI SDK need the Node runtime (not edge).
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 interface ChatRequestBody {
-  messages?: ChatMessage[];
+  messages?: { role: "user" | "assistant"; content: string }[];
   customerId?: string;
 }
 
@@ -33,40 +33,39 @@ export async function POST(req: NextRequest) {
   if (last.content.length > MAX_INPUT_CHARS) {
     return new Response("Message exceeds the maximum length", { status: 413 });
   }
+  if (!body.customerId) {
+    return new Response("Missing customerId", { status: 400 });
+  }
 
-  const question = last.content.trim();
-
-  // Phase 2: retrieve-then-generate. (Phase 3 makes search an agent tool.)
-  const chunks = await retrieve(question, { topK: 4 });
-  const chatMessages = buildGroundedMessages(messages, chunks);
-  const provider = getChatProvider();
+  // Resolve + validate the signed-in customer. This id is the trusted scope
+  // passed to every tool — never the customer_id a model might emit.
+  const [customer] = await db
+    .select()
+    .from(customers)
+    .where(eq(customers.id, body.customerId))
+    .limit(1);
+  if (!customer) {
+    return new Response("Unknown customer", { status: 400 });
+  }
+  const customerLabel = `${customer.name} (${customer.subscriptionStatus}, ${customer.plan})`;
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
-      const send = (event: string, data: unknown) => {
+      const emit = (event: string, data: unknown) => {
         controller.enqueue(
           encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`),
         );
       };
-
       try {
-        // Emit the citations up front so the UI can show sources immediately.
-        send(
-          "sources",
-          chunks.map((c) => ({
-            slug: c.articleSlug,
-            heading: c.heading,
-            score: Number(c.score.toFixed(3)),
-          })),
-        );
-
-        for await (const delta of provider.streamChat({ messages: chatMessages })) {
-          send("delta", delta);
-        }
-        send("done", {});
+        await runAgent({
+          customerId: customer.id,
+          customerLabel,
+          history: messages,
+          emit,
+        });
       } catch (err) {
-        send("error", { message: err instanceof Error ? err.message : "stream error" });
+        emit("error", { message: err instanceof Error ? err.message : "agent error" });
       } finally {
         controller.close();
       }

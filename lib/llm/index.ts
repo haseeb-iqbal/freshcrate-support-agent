@@ -9,4 +9,4 @@ export function getChatProvider(): ChatProvider {
   return cached;
 }
 
-export type { ChatProvider, ChatMessage, ChatRole, ChatStreamOptions } from "./types";
+export type * from "./types";

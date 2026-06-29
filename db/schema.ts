@@ -32,6 +32,7 @@ export const orders = pgTable("orders", {
   totalCents: integer("total_cents").notNull(),
   placedAt: timestamp("placed_at", { withTimezone: true }).notNull().defaultNow(),
   deliveryDate: date("delivery_date"),
+  refundedAt: timestamp("refunded_at", { withTimezone: true }), // set when a refund is approved
 });
 
 // --- subscription_events -----------------------------------------------------

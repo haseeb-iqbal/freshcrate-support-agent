@@ -2,7 +2,6 @@ import type { NextRequest } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { orders, subscriptionEvents } from "@/db/schema";
-import { orderAlreadyRefunded } from "@/lib/guardrails/refund-history";
 import { evaluateRefund } from "@/lib/guardrails/refund-policy";
 
 export const runtime = "nodejs";
@@ -44,7 +43,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Re-check the no-repeat-refund rule.
-  if (await orderAlreadyRefunded(customerId, orderNumber)) {
+  if (order.refundedAt) {
     return Response.json({ ok: false, error: "already_refunded" }, { status: 409 });
   }
 
@@ -56,6 +55,12 @@ export async function POST(req: NextRequest) {
       { status: 403 },
     );
   }
+
+  // Mark the order itself refunded (so lookups reflect it) and log the event.
+  await db
+    .update(orders)
+    .set({ refundedAt: new Date() })
+    .where(and(eq(orders.orderNumber, orderNumber), eq(orders.customerId, customerId)));
 
   await db.insert(subscriptionEvents).values({
     customerId,

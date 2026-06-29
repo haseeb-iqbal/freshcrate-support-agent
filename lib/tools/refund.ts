@@ -1,7 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "../../db";
 import { orders } from "../../db/schema";
-import { orderAlreadyRefunded } from "../guardrails/refund-history";
 import { evaluateRefund } from "../guardrails/refund-policy";
 import type { Tool } from "./types";
 
@@ -44,7 +43,7 @@ export const issueRefund: Tool = {
     const amount = `$${(order.totalCents / 100).toFixed(2)}`;
 
     // Safeguard: an order refunded once cannot be auto-refunded again.
-    if (await orderAlreadyRefunded(ctx.customerId, orderNumber)) {
+    if (order.refundedAt) {
       return {
         ok: true,
         summary: `Order ${orderNumber} was already refunded — needs a human`,

@@ -25,7 +25,7 @@ interface Step {
 }
 
 interface RefundProposal {
-  order_id: string;
+  order_number: string;
   amount_cents: number;
   reason: string;
 }
@@ -105,7 +105,7 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           customerId,
-          orderId: proposal.order_id,
+          orderNumber: proposal.order_number,
           reason: proposal.reason,
         }),
       });
@@ -324,6 +324,10 @@ function Welcome({
         I can answer FreshCrate policy questions (with sources) and take actions on your account —
         look up orders, pause your plan, issue refunds, or escalate to a human.
       </p>
+      <p className="mt-2 rounded-md bg-slate-100 px-3 py-2 text-xs text-slate-500">
+        🛈 Demo app — actions (pauses, refunds, escalations) run against sample data. Escalations
+        are simulated: no real human will reply, but you can keep chatting with the assistant.
+      </p>
       <div className="mt-4 flex flex-wrap gap-2">
         {EXAMPLE_PROMPTS.map((p) => (
           <button
@@ -423,7 +427,7 @@ function RefundCard({
       </p>
       <p className="mt-1 text-sm text-slate-800">
         Refund <span className="font-semibold">{amount}</span> for order{" "}
-        <span className="font-mono text-xs">{proposal.order_id.slice(0, 8)}</span>
+        <span className="font-mono text-xs">{proposal.order_number}</span>
       </p>
       <p className="mt-0.5 text-xs text-slate-500">Reason: {proposal.reason}</p>
 

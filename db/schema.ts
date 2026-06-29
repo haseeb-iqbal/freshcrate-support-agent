@@ -24,6 +24,7 @@ export const customers = pgTable("customers", {
 // status: processing | shipped | delivered | cancelled
 export const orders = pgTable("orders", {
   id: uuid("id").primaryKey().defaultRandom(),
+  orderNumber: text("order_number").notNull().unique(), // short human-facing id, e.g. FC1001
   customerId: uuid("customer_id")
     .notNull()
     .references(() => customers.id),

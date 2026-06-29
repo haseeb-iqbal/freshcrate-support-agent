@@ -1,4 +1,4 @@
-const DEFAULT_CEILING_CENTS = 5000; // $50 — overridden by REFUND_CEILING_CENTS
+const DEFAULT_CEILING_CENTS = 1000; // $10 — overridden by REFUND_CEILING_CENTS
 
 /** The configured refund ceiling in cents. */
 export function refundCeilingCents(): number {

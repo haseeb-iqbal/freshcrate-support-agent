@@ -104,6 +104,49 @@ export async function runAgent({
         emit("refund_proposal", (result.data as { proposal: unknown }).proposal);
       }
 
+      // A pause proposal surfaces a confirmation prompt (with resume date + fee).
+      if (
+        call.name === "pause_subscription" &&
+        result.ok &&
+        (result.data as { status?: string } | undefined)?.status === "needs_confirmation"
+      ) {
+        emit("pause_proposal", (result.data as { proposal: unknown }).proposal);
+      }
+
+      // Reactivate / plan-change proposals each surface their own card.
+      if (
+        call.name === "reactivate_subscription" &&
+        result.ok &&
+        (result.data as { status?: string } | undefined)?.status === "needs_confirmation"
+      ) {
+        emit("reactivate_proposal", (result.data as { proposal: unknown }).proposal);
+      }
+      if (
+        call.name === "change_plan" &&
+        result.ok &&
+        (result.data as { status?: string } | undefined)?.status === "needs_confirmation"
+      ) {
+        emit("plan_change_proposal", (result.data as { proposal: unknown }).proposal);
+      }
+
+      // Only an explicit history request (list_orders) drives the orders card.
+      if (
+        call.name === "list_orders" &&
+        result.ok &&
+        Array.isArray((result.data as { orders?: unknown[] } | undefined)?.orders)
+      ) {
+        emit("orders", (result.data as { orders: unknown[] }).orders);
+      }
+
+      // Cancellation proposal surfaces its own confirmation card.
+      if (
+        call.name === "cancel_subscription" &&
+        result.ok &&
+        (result.data as { status?: string } | undefined)?.status === "needs_confirmation"
+      ) {
+        emit("cancel_proposal", (result.data as { proposal: unknown }).proposal);
+      }
+
       emit("tool_result", { name: call.name, ok: result.ok, summary: result.summary });
 
       messages.push({

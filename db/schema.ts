@@ -18,6 +18,10 @@ export const customers = pgTable("customers", {
   email: text("email").notNull(),
   subscriptionStatus: text("subscription_status").notNull(),
   plan: text("plan").notNull(), // e.g. "2 meals/week"
+  phone: text("phone"),
+  address: text("address"),
+  paymentMethod: text("payment_method"), // simulated, e.g. "Visa ending 4242"
+  billingDate: date("billing_date"), // next monthly billing date
 });
 
 // --- orders ------------------------------------------------------------------
@@ -33,6 +37,7 @@ export const orders = pgTable("orders", {
   placedAt: timestamp("placed_at", { withTimezone: true }).notNull().defaultNow(),
   deliveryDate: date("delivery_date"),
   refundedAt: timestamp("refunded_at", { withTimezone: true }), // set when a refund is approved
+  items: jsonb("items").$type<string[]>(), // meal/add-on names in the box
 });
 
 // --- subscription_events -----------------------------------------------------
@@ -72,6 +77,13 @@ export const traces = pgTable("traces", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// --- plans (subscription pricing reference) ---
+export const plans = pgTable("plans", {
+  plan: text("plan").primaryKey(), // e.g. "2 meals/week"
+  weeklyCents: integer("weekly_cents").notNull(),
+  monthlyCents: integer("monthly_cents").notNull(),
+});
+
 // --- escalations (human-handoff records, written by escalate_to_human) ---
 export const escalations = pgTable("escalations", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -88,3 +100,4 @@ export type SubscriptionEvent = typeof subscriptionEvents.$inferSelect;
 export type KbChunk = typeof kbChunks.$inferSelect;
 export type Trace = typeof traces.$inferSelect;
 export type Escalation = typeof escalations.$inferSelect;
+export type Plan = typeof plans.$inferSelect;

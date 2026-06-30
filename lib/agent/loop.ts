@@ -129,13 +129,22 @@ export async function runAgent({
         emit("plan_change_proposal", (result.data as { proposal: unknown }).proposal);
       }
 
-      // Order lookups drive the styled order-history card in the UI.
+      // Only an explicit history request (list_orders) drives the orders card.
       if (
-        call.name === "lookup_order" &&
+        call.name === "list_orders" &&
         result.ok &&
         Array.isArray((result.data as { orders?: unknown[] } | undefined)?.orders)
       ) {
         emit("orders", (result.data as { orders: unknown[] }).orders);
+      }
+
+      // Cancellation proposal surfaces its own confirmation card.
+      if (
+        call.name === "cancel_subscription" &&
+        result.ok &&
+        (result.data as { status?: string } | undefined)?.status === "needs_confirmation"
+      ) {
+        emit("cancel_proposal", (result.data as { proposal: unknown }).proposal);
       }
 
       emit("tool_result", { name: call.name, ok: result.ok, summary: result.summary });

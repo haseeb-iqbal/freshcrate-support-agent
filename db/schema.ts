@@ -21,6 +21,7 @@ export const customers = pgTable("customers", {
   phone: text("phone"),
   address: text("address"),
   paymentMethod: text("payment_method"), // simulated, e.g. "Visa ending 4242"
+  billingDate: date("billing_date"), // next monthly billing date
 });
 
 // --- orders ------------------------------------------------------------------

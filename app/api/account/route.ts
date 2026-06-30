@@ -35,6 +35,7 @@ export async function GET(req: NextRequest) {
       paymentMethod: customer.paymentMethod,
       plan: customer.plan,
       subscriptionStatus: customer.subscriptionStatus,
+      billingDate: customer.billingDate,
     },
     orders: orderRows.map((o) => ({
       order_number: o.orderNumber,

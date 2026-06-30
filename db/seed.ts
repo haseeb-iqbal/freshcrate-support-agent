@@ -63,16 +63,16 @@ const planRows: (typeof plans.$inferInsert)[] = [
 ];
 
 const customerRows: (typeof customers.$inferInsert)[] = [
-  { id: C.ava, name: "Ava Chen", email: "ava.chen@example.com", subscriptionStatus: "active", plan: "2 meals/week", phone: "+1 (555) 010-2231", address: "412 Maple St, Portland, OR 97205", paymentMethod: "Visa ending 4242" },
-  { id: C.marcus, name: "Marcus Bell", email: "marcus.bell@example.com", subscriptionStatus: "active", plan: "4 meals/week", phone: "+1 (555) 028-7741", address: "88 Birch Ave, Austin, TX 78704", paymentMethod: "Mastercard ending 5309" },
-  { id: C.priya, name: "Priya Raman", email: "priya.raman@example.com", subscriptionStatus: "active", plan: "3 meals/week", phone: "+1 (555) 033-1190", address: "19 Cedar Ct, Seattle, WA 98103", paymentMethod: "Visa ending 1881" },
-  { id: C.diego, name: "Diego Santos", email: "diego.santos@example.com", subscriptionStatus: "paused", plan: "2 meals/week", phone: "+1 (555) 041-6620", address: "275 Oak Blvd, Denver, CO 80206", paymentMethod: "Amex ending 3007" },
-  { id: C.lena, name: "Lena Kowalski", email: "lena.kowalski@example.com", subscriptionStatus: "cancelled", plan: "2 meals/week", phone: "+1 (555) 052-9043", address: "9 Spruce Ln, Chicago, IL 60614", paymentMethod: "Visa ending 7720" },
-  { id: C.tom, name: "Tom Becker", email: "tom.becker@example.com", subscriptionStatus: "active", plan: "2 meals/week", phone: "+1 (555) 060-3318", address: "601 Elm St, Columbus, OH 43215", paymentMethod: "Mastercard ending 6612" },
-  { id: C.sara, name: "Sara Lindqvist", email: "sara.lindqvist@example.com", subscriptionStatus: "paused", plan: "3 meals/week", phone: "+1 (555) 074-8852", address: "33 Willow Way, Minneapolis, MN 55401", paymentMethod: "Visa ending 9134" },
-  { id: C.noah, name: "Noah Patel", email: "noah.patel@example.com", subscriptionStatus: "active", plan: "4 meals/week", phone: "+1 (555) 080-2275", address: "147 Aspen Dr, Phoenix, AZ 85004", paymentMethod: "Amex ending 4419" },
-  { id: C.mia, name: "Mia Rossi", email: "mia.rossi@example.com", subscriptionStatus: "cancelled", plan: "3 meals/week", phone: "+1 (555) 091-5567", address: "70 Poplar St, Boston, MA 02118", paymentMethod: "Visa ending 2050" },
-  { id: C.jamal, name: "Jamal Wright", email: "jamal.wright@example.com", subscriptionStatus: "active", plan: "2 meals/week", phone: "+1 (555) 099-7401", address: "256 Walnut Ave, Atlanta, GA 30308", paymentMethod: "Mastercard ending 8826" },
+  { id: C.ava, name: "Ava Chen", email: "ava.chen@example.com", subscriptionStatus: "active", plan: "2 meals/week", phone: "+1 (555) 010-2231", address: "412 Maple St, Portland, OR 97205", paymentMethod: "Visa ending 4242", billingDate: "2026-07-15" },
+  { id: C.marcus, name: "Marcus Bell", email: "marcus.bell@example.com", subscriptionStatus: "active", plan: "4 meals/week", phone: "+1 (555) 028-7741", address: "88 Birch Ave, Austin, TX 78704", paymentMethod: "Mastercard ending 5309", billingDate: "2026-07-12" },
+  { id: C.priya, name: "Priya Raman", email: "priya.raman@example.com", subscriptionStatus: "active", plan: "3 meals/week", phone: "+1 (555) 033-1190", address: "19 Cedar Ct, Seattle, WA 98103", paymentMethod: "Visa ending 1881", billingDate: "2026-07-18" },
+  { id: C.diego, name: "Diego Santos", email: "diego.santos@example.com", subscriptionStatus: "paused", plan: "2 meals/week", phone: "+1 (555) 041-6620", address: "275 Oak Blvd, Denver, CO 80206", paymentMethod: "Amex ending 3007", billingDate: "2026-07-20" },
+  { id: C.lena, name: "Lena Kowalski", email: "lena.kowalski@example.com", subscriptionStatus: "cancelled", plan: "2 meals/week", phone: "+1 (555) 052-9043", address: "9 Spruce Ln, Chicago, IL 60614", paymentMethod: "Visa ending 7720", billingDate: "2026-07-10" },
+  { id: C.tom, name: "Tom Becker", email: "tom.becker@example.com", subscriptionStatus: "active", plan: "2 meals/week", phone: "+1 (555) 060-3318", address: "601 Elm St, Columbus, OH 43215", paymentMethod: "Mastercard ending 6612", billingDate: "2026-07-15" },
+  { id: C.sara, name: "Sara Lindqvist", email: "sara.lindqvist@example.com", subscriptionStatus: "paused", plan: "3 meals/week", phone: "+1 (555) 074-8852", address: "33 Willow Way, Minneapolis, MN 55401", paymentMethod: "Visa ending 9134", billingDate: "2026-07-22" },
+  { id: C.noah, name: "Noah Patel", email: "noah.patel@example.com", subscriptionStatus: "active", plan: "4 meals/week", phone: "+1 (555) 080-2275", address: "147 Aspen Dr, Phoenix, AZ 85004", paymentMethod: "Amex ending 4419", billingDate: "2026-07-14" },
+  { id: C.mia, name: "Mia Rossi", email: "mia.rossi@example.com", subscriptionStatus: "cancelled", plan: "3 meals/week", phone: "+1 (555) 091-5567", address: "70 Poplar St, Boston, MA 02118", paymentMethod: "Visa ending 2050", billingDate: "2026-06-20" },
+  { id: C.jamal, name: "Jamal Wright", email: "jamal.wright@example.com", subscriptionStatus: "active", plan: "2 meals/week", phone: "+1 (555) 099-7401", address: "256 Walnut Ave, Atlanta, GA 30308", paymentMethod: "Mastercard ending 8826", billingDate: "2026-07-16" },
 ];
 
 const O = (n: number) => `22222222-2222-2222-2222-2222222200${n.toString().padStart(2, "0")}`;

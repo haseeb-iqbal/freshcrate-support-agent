@@ -54,6 +54,9 @@ interface ReactivateProposal {
   signup_fee_cents: number;
   plan: string;
   monthly_cents: number;
+  total_cents: number;
+  within_billing: boolean;
+  billing_date?: string | null;
 }
 
 interface PlanChangeProposal {
@@ -61,6 +64,14 @@ interface PlanChangeProposal {
   monthly_cents: number;
   weekly_cents: number;
   current_plan?: string | null;
+  proration_cents: number;
+  weeks_until_billing: number;
+  billing_date?: string | null;
+}
+
+interface CancelProposal {
+  billing_date?: string | null;
+  signup_fee_cents: number;
 }
 
 type ProposalState = "pending" | "approved" | "declined" | "error";
@@ -79,6 +90,8 @@ interface Message {
   reactivateState?: ProposalState;
   planProposal?: PlanChangeProposal;
   planState?: ProposalState;
+  cancelProposal?: CancelProposal;
+  cancelState?: ProposalState;
 }
 
 interface AccountData {
@@ -90,6 +103,7 @@ interface AccountData {
     paymentMethod?: string | null;
     plan: string;
     subscriptionStatus: string;
+    billingDate?: string | null;
   };
   orders: OrderView[];
 }
@@ -107,7 +121,9 @@ const TOOL_LABELS: Record<string, string> = {
   pause_subscription: "Preparing a pause",
   resume_subscription: "Resuming your subscription",
   reactivate_subscription: "Preparing reactivation",
+  cancel_subscription: "Preparing cancellation",
   change_plan: "Preparing a plan change",
+  list_orders: "Fetching your order history",
   issue_refund: "Preparing a refund",
   escalate_to_human: "Escalating to a human",
 };
@@ -209,6 +225,15 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
   async function confirmPlanChange(index: number, proposal: PlanChangeProposal) {
     const ok = await postAction("/api/actions/change-plan", { customerId, plan: proposal.plan });
     setPlanState(index, ok ? "approved" : "error");
+    if (ok) refreshCustomers();
+  }
+
+  function setCancelState(index: number, state: ProposalState) {
+    setMessages((prev) => prev.map((m, i) => (i === index ? { ...m, cancelState: state } : m)));
+  }
+  async function confirmCancel(index: number) {
+    const ok = await postAction("/api/actions/cancel", { customerId });
+    setCancelState(index, ok ? "approved" : "error");
     if (ok) refreshCustomers();
   }
 
@@ -319,6 +344,8 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
       patchLast({ reactivateProposal: data as ReactivateProposal, reactivateState: "pending" });
     } else if (event === "plan_change_proposal") {
       patchLast({ planProposal: data as PlanChangeProposal, planState: "pending" });
+    } else if (event === "cancel_proposal") {
+      patchLast({ cancelProposal: data as CancelProposal, cancelState: "pending" });
     } else if (event === "tool_call") {
       const { name } = data as { name: string };
       setMessages((prev) => updateLast(prev, (m) => ({ ...m, steps: [...(m.steps ?? []), { name, status: "running" }] })));
@@ -425,6 +452,8 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
                 onDeclineReactivate={() => setReactivateState(i, "declined")}
                 onConfirmPlan={() => m.planProposal && confirmPlanChange(i, m.planProposal)}
                 onDeclinePlan={() => setPlanState(i, "declined")}
+                onConfirmCancel={() => confirmCancel(i)}
+                onDeclineCancel={() => setCancelState(i, "declined")}
               />
             ))}
           </>
@@ -511,6 +540,8 @@ function MessageBubble({
   onDeclineReactivate,
   onConfirmPlan,
   onDeclinePlan,
+  onConfirmCancel,
+  onDeclineCancel,
 }: {
   message: Message;
   streaming: boolean;
@@ -523,8 +554,13 @@ function MessageBubble({
   onDeclineReactivate: () => void;
   onConfirmPlan: () => void;
   onDeclinePlan: () => void;
+  onConfirmCancel: () => void;
+  onDeclineCancel: () => void;
 }) {
   const isUser = message.role === "user";
+  // Result cards (sources, order history, action prompts) appear only once the
+  // text response is complete — not mid-stream (item 6).
+  const showResults = !streaming;
   // Loading state: assistant turn started but nothing has arrived yet.
   const showThinking =
     !isUser &&
@@ -557,9 +593,11 @@ function MessageBubble({
           </p>
         )}
 
-        {!isUser && message.orders && message.orders.length > 0 && <OrdersCard orders={message.orders} />}
+        {!isUser && showResults && message.orders && message.orders.length > 0 && (
+          <OrdersCard orders={message.orders} />
+        )}
 
-        {!isUser && message.proposal && (
+        {!isUser && showResults && message.proposal && (
           <RefundCard
             proposal={message.proposal}
             state={message.proposalState ?? "pending"}
@@ -569,7 +607,7 @@ function MessageBubble({
           />
         )}
 
-        {!isUser && message.pauseProposal && (
+        {!isUser && showResults && message.pauseProposal && (
           <PauseCard
             proposal={message.pauseProposal}
             state={message.pauseState ?? "pending"}
@@ -578,7 +616,7 @@ function MessageBubble({
           />
         )}
 
-        {!isUser && message.reactivateProposal && (
+        {!isUser && showResults && message.reactivateProposal && (
           <ReactivateCard
             proposal={message.reactivateProposal}
             state={message.reactivateState ?? "pending"}
@@ -587,7 +625,7 @@ function MessageBubble({
           />
         )}
 
-        {!isUser && message.planProposal && (
+        {!isUser && showResults && message.planProposal && (
           <PlanCard
             proposal={message.planProposal}
             state={message.planState ?? "pending"}
@@ -596,7 +634,16 @@ function MessageBubble({
           />
         )}
 
-        {!isUser && message.sources && message.sources.length > 0 && (
+        {!isUser && showResults && message.cancelProposal && (
+          <CancelCard
+            proposal={message.cancelProposal}
+            state={message.cancelState ?? "pending"}
+            onConfirm={onConfirmCancel}
+            onDecline={onDeclineCancel}
+          />
+        )}
+
+        {!isUser && showResults && message.sources && message.sources.length > 0 && (
           <div className="mt-3 border-t border-slate-100 pt-2">
             <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-slate-400">Sources</p>
             <div className="flex flex-wrap gap-1.5">
@@ -783,26 +830,36 @@ function ReactivateCard({
   onConfirm: () => void;
   onDecline: () => void;
 }) {
-  const fee = money(proposal.signup_fee_cents);
+  const fee = proposal.signup_fee_cents;
+  const total = money(proposal.total_cents);
   return (
     <div className="mt-3 rounded-lg border border-violet-200 bg-violet-50 p-3">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-700">Reactivation</p>
       <p className="mt-1 text-sm text-slate-800">
-        Restart your <span className="font-semibold">{proposal.plan}</span> plan ({money(proposal.monthly_cents)}/month)? A one-time{" "}
-        <span className="font-semibold">{fee}</span> sign-up fee applies.
+        Restart your <span className="font-semibold">{proposal.plan}</span> plan? Your first charge is{" "}
+        <span className="font-semibold">{money(proposal.monthly_cents)}</span>
+        {fee > 0 ? (
+          <>
+            {" "}+ <span className="font-semibold">{money(fee)}</span> sign-up fee
+          </>
+        ) : null}{" "}
+        = <span className="font-semibold">{total}</span>.
       </p>
+      {proposal.within_billing && (
+        <p className="mt-1 text-xs text-emerald-700">You&apos;re still within your billing period, so the sign-up fee is waived.</p>
+      )}
 
       {state === "pending" && (
         <div className="mt-2 flex gap-2">
           <button onClick={onConfirm} className="rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-white transition hover:bg-brand-dark">
-            Pay {fee} & reactivate
+            Pay {total} & reactivate
           </button>
           <button onClick={onDecline} className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-600 transition hover:bg-slate-50">
             Not now
           </button>
         </div>
       )}
-      {state === "approved" && <p className="mt-2 text-xs font-medium text-emerald-700">✓ Subscription reactivated — {fee} sign-up fee charged.</p>}
+      {state === "approved" && <p className="mt-2 text-xs font-medium text-emerald-700">✓ Subscription reactivated — {total} charged.</p>}
       {state === "declined" && <p className="mt-2 text-xs font-medium text-slate-500">No problem — your subscription stays cancelled.</p>}
       {state === "error" && <p className="mt-2 text-xs font-medium text-red-600">Couldn&apos;t reactivate — please try again.</p>}
     </div>
@@ -820,6 +877,14 @@ function PlanCard({
   onConfirm: () => void;
   onDecline: () => void;
 }) {
+  const p = proposal.proration_cents;
+  const weeks = `${proposal.weeks_until_billing} week${proposal.weeks_until_billing === 1 ? "" : "s"}`;
+  const proration =
+    p > 0
+      ? `You'll be charged ${money(p)} now (prorated for the ${weeks} until billing).`
+      : p < 0
+        ? `You'll be refunded ${money(-p)} (prorated for the ${weeks} until billing).`
+        : "No proration is due this cycle.";
   return (
     <div className="mt-3 rounded-lg border border-teal-200 bg-teal-50 p-3">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-teal-700">Plan change</p>
@@ -827,6 +892,7 @@ function PlanCard({
         Switch{proposal.current_plan ? ` from ${proposal.current_plan}` : ""} to{" "}
         <span className="font-semibold">{proposal.plan}</span> at <span className="font-semibold">{money(proposal.monthly_cents)}/month</span>?
       </p>
+      <p className="mt-1 text-xs text-slate-500">{proration} Your new plan starts next week.</p>
 
       {state === "pending" && (
         <div className="mt-2 flex gap-2">
@@ -841,6 +907,44 @@ function PlanCard({
       {state === "approved" && <p className="mt-2 text-xs font-medium text-emerald-700">✓ Plan changed to {proposal.plan} ({money(proposal.monthly_cents)}/month).</p>}
       {state === "declined" && <p className="mt-2 text-xs font-medium text-slate-500">No problem — your plan is unchanged.</p>}
       {state === "error" && <p className="mt-2 text-xs font-medium text-red-600">Couldn&apos;t change the plan — please try again.</p>}
+    </div>
+  );
+}
+
+function CancelCard({
+  proposal,
+  state,
+  onConfirm,
+  onDecline,
+}: {
+  proposal: CancelProposal;
+  state: ProposalState;
+  onConfirm: () => void;
+  onDecline: () => void;
+}) {
+  const billing = fmtDate(proposal.billing_date);
+  return (
+    <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-3">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-rose-700">Cancel subscription</p>
+      <p className="mt-1 text-sm text-slate-800">Cancel your subscription? Future boxes will stop.</p>
+      <p className="mt-1 text-xs text-slate-500">
+        Heads up: if you resubscribe after your billing date{billing ? ` (${billing})` : ""}, a{" "}
+        <span className="font-medium">{money(proposal.signup_fee_cents)}</span> sign-up fee applies. Resubscribe before then on the same plan and it&apos;s free.
+      </p>
+
+      {state === "pending" && (
+        <div className="mt-2 flex gap-2">
+          <button onClick={onConfirm} className="rounded-md bg-rose-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-rose-700">
+            Yes, cancel
+          </button>
+          <button onClick={onDecline} className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-600 transition hover:bg-slate-50">
+            Keep my subscription
+          </button>
+        </div>
+      )}
+      {state === "approved" && <p className="mt-2 text-xs font-medium text-slate-700">✓ Subscription cancelled.</p>}
+      {state === "declined" && <p className="mt-2 text-xs font-medium text-emerald-700">Great — your subscription is unchanged.</p>}
+      {state === "error" && <p className="mt-2 text-xs font-medium text-red-600">Couldn&apos;t cancel — please try again.</p>}
     </div>
   );
 }
@@ -871,6 +975,7 @@ function AccountPanel({ account }: { account: AccountData | null }) {
     ["Address", c.address],
     ["Plan", c.plan],
     ["Subscription", c.subscriptionStatus],
+    ["Next billing", fmtDate(c.billingDate)],
     ["Payment method", c.paymentMethod],
   ];
   return (

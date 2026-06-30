@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "../../db";
 import { customers, subscriptionEvents } from "../../db/schema";
-import { SIGNUP_FEE_CENTS, getPlan, holdFeeCents } from "../billing/pricing";
+import { SIGNUP_FEE_CENTS, getPlan, holdFeeCents, withinBillingPeriod } from "../billing/pricing";
 import type { Tool } from "./types";
 
 /** Resume date for an N-week pause, as an ISO date string (YYYY-MM-DD). */
@@ -113,7 +113,7 @@ export const reactivateSubscription: Tool = {
   definition: {
     name: "reactivate_subscription",
     description:
-      "Reactivate a CANCELLED subscription. Use when a customer whose subscription is cancelled wants to sign up / start again. Calling this shows a confirmation prompt with the sign-up fee; it does NOT reactivate or charge until they confirm.",
+      "Reactivate a CANCELLED subscription. Call this immediately when a cancelled customer wants to sign up / start again — calling it shows the confirmation prompt with the cost; it does NOT reactivate or charge until they confirm via that prompt. Don't ask the customer to confirm before calling it.",
     parameters: { type: "object", properties: {}, additionalProperties: false },
   },
   async handler(ctx) {
@@ -127,18 +127,59 @@ export const reactivateSubscription: Tool = {
       };
     }
     const plan = await getPlan(customer.plan);
+    const monthly = plan?.monthlyCents ?? 0;
+    // Resubscribing within the billing period (on the same plan) waives the
+    // sign-up fee — they're simply reactivated.
+    const within = withinBillingPeriod(customer.billingDate);
+    const signupFee = within ? 0 : SIGNUP_FEE_CENTS;
+    const total = monthly + signupFee;
+
     return {
       ok: true,
-      summary: `Proposed reactivation (sign-up fee $${(SIGNUP_FEE_CENTS / 100).toFixed(2)})`,
+      summary: within
+        ? `Proposed reactivation (within billing period — no sign-up fee, $${(total / 100).toFixed(2)} first charge)`
+        : `Proposed reactivation (sign-up $${(SIGNUP_FEE_CENTS / 100).toFixed(2)} + plan $${(monthly / 100).toFixed(2)} = $${(total / 100).toFixed(2)})`,
       data: {
         status: "needs_confirmation",
         proposal: {
-          signup_fee_cents: SIGNUP_FEE_CENTS,
+          signup_fee_cents: signupFee,
           plan: customer.plan,
-          monthly_cents: plan?.monthlyCents ?? 0,
+          monthly_cents: monthly,
+          total_cents: total,
+          within_billing: within,
+          billing_date: customer.billingDate,
         },
+        message: within
+          ? "The customer cancelled but is still within their billing period on the same plan, so NO sign-up fee applies — they're just reactivated and charged their normal plan price. Ask them to confirm; do NOT say it's reactivated until they confirm."
+          : "A confirmation prompt shows the first charge: the plan price plus a one-time sign-up fee. Ask the customer to confirm before it's charged. Do NOT say it's reactivated until they confirm.",
+      },
+    };
+  },
+};
+
+/** Cancel an ACTIVE/PAUSED subscription — propose-only, with a warning that
+ *  resubscribing after the billing date incurs a sign-up fee (item 10). */
+export const cancelSubscription: Tool = {
+  definition: {
+    name: "cancel_subscription",
+    description:
+      "Cancel the current customer's subscription. Call this immediately when the customer asks to cancel — calling it shows the confirmation prompt (which warns that resubscribing after the billing date costs a sign-up fee). It does NOT cancel until they confirm via the prompt. Don't ask them to confirm before calling it.",
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+  },
+  async handler(ctx) {
+    const [customer] = await db.select().from(customers).where(eq(customers.id, ctx.customerId)).limit(1);
+    if (!customer) return { ok: false, summary: "Customer not found." };
+    if (customer.subscriptionStatus === "cancelled") {
+      return { ok: true, summary: "Already cancelled", data: { status: "cancelled", message: "The subscription is already cancelled — let the customer know." } };
+    }
+    return {
+      ok: true,
+      summary: "Proposed cancellation — awaiting confirmation",
+      data: {
+        status: "needs_confirmation",
+        proposal: { billing_date: customer.billingDate, signup_fee_cents: SIGNUP_FEE_CENTS },
         message:
-          "A confirmation prompt is shown with the sign-up fee and plan price. Reactivating a cancelled plan charges this one-time fee, so ask the customer to confirm before it's charged. Do NOT say it's reactivated until they confirm.",
+          "A cancellation confirmation prompt is shown, warning that resubscribing after the billing date costs a sign-up fee (before then, same plan, is free). Briefly relay that and ask them to confirm. Do NOT say it's cancelled until they confirm.",
       },
     };
   },

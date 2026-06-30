@@ -77,9 +77,9 @@ export const issueRefund: Tool = {
       summary: `Proposed refund of ${amount} for order ${orderNumber} — awaiting approval`,
       data: {
         status: "needs_confirmation",
-        proposal: { order_number: orderNumber, amount_cents: order.totalCents, reason },
+        proposal: { order_number: orderNumber, amount_cents: order.totalCents, reason, items: order.items ?? [] },
         message:
-          "A confirmation card has been shown to the customer. Ask them to approve it to complete the refund. Do NOT say the refund is done — it is only proposed until they approve.",
+          "A confirmation prompt has been shown to the customer with the refund details (order, amount, card). Let them know their order can be refunded and ask if they'd like to initiate it. Do NOT say the refund is done — it is only initiated once they confirm.",
       },
     };
   },

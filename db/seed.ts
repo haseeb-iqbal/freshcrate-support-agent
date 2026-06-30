@@ -37,17 +37,36 @@ const C = {
 
 const ts = (iso: string) => new Date(iso);
 
+const MEALS = [
+  "Chicken Tikka Masala",
+  "Veggie Stir-Fry",
+  "Beef Tacos",
+  "Salmon Teriyaki",
+  "Mushroom Risotto",
+  "Thai Green Curry",
+  "Margherita Flatbread",
+  "Lemon Herb Chicken",
+  "Pesto Penne",
+  "Korean Beef Bibimbap",
+];
+const ADDONS = [
+  "Chocolate Lava Cake (add-on)",
+  "Garlic Bread (add-on)",
+  "Seasonal Fruit Box (add-on)",
+  "Cookie Dough Trio (add-on)",
+];
+
 const customerRows: (typeof customers.$inferInsert)[] = [
-  { id: C.ava, name: "Ava Chen", email: "ava.chen@example.com", subscriptionStatus: "active", plan: "2 meals/week" },
-  { id: C.marcus, name: "Marcus Bell", email: "marcus.bell@example.com", subscriptionStatus: "active", plan: "4 meals/week" },
-  { id: C.priya, name: "Priya Raman", email: "priya.raman@example.com", subscriptionStatus: "active", plan: "3 meals/week" },
-  { id: C.diego, name: "Diego Santos", email: "diego.santos@example.com", subscriptionStatus: "paused", plan: "2 meals/week" },
-  { id: C.lena, name: "Lena Kowalski", email: "lena.kowalski@example.com", subscriptionStatus: "cancelled", plan: "2 meals/week" },
-  { id: C.tom, name: "Tom Becker", email: "tom.becker@example.com", subscriptionStatus: "active", plan: "2 meals/week" },
-  { id: C.sara, name: "Sara Lindqvist", email: "sara.lindqvist@example.com", subscriptionStatus: "paused", plan: "3 meals/week" },
-  { id: C.noah, name: "Noah Patel", email: "noah.patel@example.com", subscriptionStatus: "active", plan: "4 meals/week" },
-  { id: C.mia, name: "Mia Rossi", email: "mia.rossi@example.com", subscriptionStatus: "cancelled", plan: "3 meals/week" },
-  { id: C.jamal, name: "Jamal Wright", email: "jamal.wright@example.com", subscriptionStatus: "active", plan: "2 meals/week" },
+  { id: C.ava, name: "Ava Chen", email: "ava.chen@example.com", subscriptionStatus: "active", plan: "2 meals/week", phone: "+1 (555) 010-2231", address: "412 Maple St, Portland, OR 97205", paymentMethod: "Visa ending 4242" },
+  { id: C.marcus, name: "Marcus Bell", email: "marcus.bell@example.com", subscriptionStatus: "active", plan: "4 meals/week", phone: "+1 (555) 028-7741", address: "88 Birch Ave, Austin, TX 78704", paymentMethod: "Mastercard ending 5309" },
+  { id: C.priya, name: "Priya Raman", email: "priya.raman@example.com", subscriptionStatus: "active", plan: "3 meals/week", phone: "+1 (555) 033-1190", address: "19 Cedar Ct, Seattle, WA 98103", paymentMethod: "Visa ending 1881" },
+  { id: C.diego, name: "Diego Santos", email: "diego.santos@example.com", subscriptionStatus: "paused", plan: "2 meals/week", phone: "+1 (555) 041-6620", address: "275 Oak Blvd, Denver, CO 80206", paymentMethod: "Amex ending 3007" },
+  { id: C.lena, name: "Lena Kowalski", email: "lena.kowalski@example.com", subscriptionStatus: "cancelled", plan: "2 meals/week", phone: "+1 (555) 052-9043", address: "9 Spruce Ln, Chicago, IL 60614", paymentMethod: "Visa ending 7720" },
+  { id: C.tom, name: "Tom Becker", email: "tom.becker@example.com", subscriptionStatus: "active", plan: "2 meals/week", phone: "+1 (555) 060-3318", address: "601 Elm St, Columbus, OH 43215", paymentMethod: "Mastercard ending 6612" },
+  { id: C.sara, name: "Sara Lindqvist", email: "sara.lindqvist@example.com", subscriptionStatus: "paused", plan: "3 meals/week", phone: "+1 (555) 074-8852", address: "33 Willow Way, Minneapolis, MN 55401", paymentMethod: "Visa ending 9134" },
+  { id: C.noah, name: "Noah Patel", email: "noah.patel@example.com", subscriptionStatus: "active", plan: "4 meals/week", phone: "+1 (555) 080-2275", address: "147 Aspen Dr, Phoenix, AZ 85004", paymentMethod: "Amex ending 4419" },
+  { id: C.mia, name: "Mia Rossi", email: "mia.rossi@example.com", subscriptionStatus: "cancelled", plan: "3 meals/week", phone: "+1 (555) 091-5567", address: "70 Poplar St, Boston, MA 02118", paymentMethod: "Visa ending 2050" },
+  { id: C.jamal, name: "Jamal Wright", email: "jamal.wright@example.com", subscriptionStatus: "active", plan: "2 meals/week", phone: "+1 (555) 099-7401", address: "256 Walnut Ave, Atlanta, GA 30308", paymentMethod: "Mastercard ending 8826" },
 ];
 
 const O = (n: number) => `22222222-2222-2222-2222-2222222200${n.toString().padStart(2, "0")}`;
@@ -122,8 +141,16 @@ async function main() {
 
   await db.insert(customers).values(customerRows);
   await db.insert(orders).values(
-    // Assign short, human-facing order numbers FC1001, FC1002, … in array order.
-    orderRows.map((o, i) => ({ ...o, orderNumber: `FC${1001 + i}` })),
+    // Assign short order numbers (FC1001…) and an item list per order. Small
+    // (sub-$10) orders are single add-ons; regular boxes get a couple of meals.
+    orderRows.map((o, i) => ({
+      ...o,
+      orderNumber: `FC${1001 + i}`,
+      items:
+        o.totalCents < 1000
+          ? [ADDONS[i % ADDONS.length]]
+          : [MEALS[i % MEALS.length], MEALS[(i + 3) % MEALS.length]],
+    })),
   );
   await db.insert(subscriptionEvents).values(eventRows);
 

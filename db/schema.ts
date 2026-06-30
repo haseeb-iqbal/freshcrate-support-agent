@@ -18,6 +18,9 @@ export const customers = pgTable("customers", {
   email: text("email").notNull(),
   subscriptionStatus: text("subscription_status").notNull(),
   plan: text("plan").notNull(), // e.g. "2 meals/week"
+  phone: text("phone"),
+  address: text("address"),
+  paymentMethod: text("payment_method"), // simulated, e.g. "Visa ending 4242"
 });
 
 // --- orders ------------------------------------------------------------------
@@ -33,6 +36,7 @@ export const orders = pgTable("orders", {
   placedAt: timestamp("placed_at", { withTimezone: true }).notNull().defaultNow(),
   deliveryDate: date("delivery_date"),
   refundedAt: timestamp("refunded_at", { withTimezone: true }), // set when a refund is approved
+  items: jsonb("items").$type<string[]>(), // meal/add-on names in the box
 });
 
 // --- subscription_events -----------------------------------------------------

@@ -9,6 +9,9 @@ export interface CustomerOption {
   email: string;
   subscriptionStatus: string;
   plan: string;
+  phone?: string | null;
+  address?: string | null;
+  paymentMethod?: string | null;
 }
 
 interface Source {
@@ -24,10 +27,25 @@ interface Step {
   summary?: string;
 }
 
+interface OrderView {
+  order_number: string;
+  status: string;
+  total_cents: number;
+  delivery_date?: string | null;
+  refunded: boolean;
+  items: string[];
+}
+
 interface RefundProposal {
   order_number: string;
   amount_cents: number;
   reason: string;
+  items?: string[];
+}
+
+interface PauseProposal {
+  weeks: number;
+  resume_date: string;
 }
 
 type ProposalState = "pending" | "approved" | "declined" | "error";
@@ -37,25 +55,43 @@ interface Message {
   content: string;
   sources?: Source[];
   steps?: Step[];
+  orders?: OrderView[];
   proposal?: RefundProposal;
   proposalState?: ProposalState;
+  pauseProposal?: PauseProposal;
+  pauseState?: ProposalState;
+}
+
+interface AccountData {
+  customer: {
+    name: string;
+    email: string;
+    phone?: string | null;
+    address?: string | null;
+    paymentMethod?: string | null;
+    plan: string;
+    subscriptionStatus: string;
+  };
+  orders: OrderView[];
 }
 
 const EXAMPLE_PROMPTS = [
   "Where's my latest order?",
+  "Show me my order history",
   "Pause my subscription for 2 weeks",
   "My last box arrived damaged — I'd like a refund",
-  "What's the capital of France?", // out-of-scope → honest decline + escalate
 ];
 
-// Friendly labels for the tool-status line.
 const TOOL_LABELS: Record<string, string> = {
   search_knowledge_base: "Searching the help center",
-  lookup_order: "Looking up your order",
-  pause_subscription: "Pausing your subscription",
-  issue_refund: "Issuing a refund",
+  lookup_order: "Looking up your orders",
+  pause_subscription: "Preparing a pause",
+  resume_subscription: "Resuming your subscription",
+  issue_refund: "Preparing a refund",
   escalate_to_human: "Escalating to a human",
 };
+
+const money = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
 export default function Chat({ customers: initialCustomers }: { customers: CustomerOption[] }) {
   const [customers, setCustomers] = useState(initialCustomers);
@@ -63,6 +99,8 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [showAccount, setShowAccount] = useState(false);
+  const [account, setAccount] = useState<AccountData | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const activeCustomer = customers.find((c) => c.id === customerId);
@@ -71,9 +109,9 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
     if (busy) return;
     setMessages([]);
     setInput("");
+    setShowAccount(false);
   }
 
-  // Switching the signed-in customer starts a fresh session for them.
   function switchCustomer(id: string) {
     if (busy) return;
     setCustomerId(id);
@@ -81,38 +119,68 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
     setInput("");
   }
 
-  // A write tool (e.g. pause) may have changed a customer's status; refresh the
-  // selector so it reflects the current DB state.
   async function refreshCustomers() {
     try {
       const res = await fetch("/api/customers");
       if (res.ok) setCustomers((await res.json()) as CustomerOption[]);
     } catch {
-      // non-fatal — the dropdown just keeps its current values
+      // non-fatal
     }
   }
+
+  // Load the account panel data whenever it's open or the customer changes.
+  useEffect(() => {
+    if (!showAccount || !customerId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/account?customerId=${customerId}`);
+        if (res.ok && !cancelled) setAccount((await res.json()) as AccountData);
+      } catch {
+        // non-fatal
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [showAccount, customerId]);
 
   function setProposalState(index: number, state: ProposalState) {
     setMessages((prev) => prev.map((m, i) => (i === index ? { ...m, proposalState: state } : m)));
   }
+  function setPauseState(index: number, state: ProposalState) {
+    setMessages((prev) => prev.map((m, i) => (i === index ? { ...m, pauseState: state } : m)));
+  }
 
-  // Approve a proposed refund: the actual write happens here (server endpoint),
-  // never in the agent loop.
-  async function approveRefund(index: number, proposal: RefundProposal) {
+  // Initiate a proposed refund: the write happens here (server endpoint), never
+  // in the agent loop.
+  async function initiateRefund(index: number, proposal: RefundProposal) {
     try {
       const res = await fetch("/api/actions/refund", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          customerId,
-          orderNumber: proposal.order_number,
-          reason: proposal.reason,
-        }),
+        body: JSON.stringify({ customerId, orderNumber: proposal.order_number, reason: proposal.reason }),
       });
       const data = (await res.json().catch(() => ({}))) as { ok?: boolean };
       setProposalState(index, res.ok && data.ok ? "approved" : "error");
     } catch {
       setProposalState(index, "error");
+    }
+  }
+
+  // Apply a proposed pause via the server endpoint, then refresh the selector.
+  async function confirmPause(index: number, proposal: PauseProposal) {
+    try {
+      const res = await fetch("/api/actions/pause", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customerId, weeks: proposal.weeks }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { ok?: boolean };
+      setPauseState(index, res.ok && data.ok ? "approved" : "error");
+      if (res.ok && data.ok) refreshCustomers();
+    } catch {
+      setPauseState(index, "error");
     }
   }
 
@@ -124,6 +192,7 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
     const question = text.trim();
     if (!question || busy) return;
     setInput("");
+    setShowAccount(false);
 
     const history: Message[] = [...messages, { role: "user", content: question }];
     setMessages([...history, { role: "assistant", content: "", sources: [], steps: [] }]);
@@ -157,12 +226,9 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
         buffer = events.pop() ?? "";
         for (const raw of events) handleEvent(raw);
       }
-      // A tool may have changed the customer's status — refresh the selector.
       await refreshCustomers();
     } catch (err) {
-      patchLast({
-        content: `Sorry — connection error: ${err instanceof Error ? err.message : "unknown"}.`,
-      });
+      patchLast({ content: `Sorry — connection error: ${err instanceof Error ? err.message : "unknown"}.` });
     } finally {
       setBusy(false);
     }
@@ -183,27 +249,29 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
 
     if (event === "sources") {
       patchLast({ sources: data as Source[] });
+    } else if (event === "orders") {
+      patchLast({ orders: data as OrderView[] });
     } else if (event === "refund_proposal") {
       patchLast({ proposal: data as RefundProposal, proposalState: "pending" });
+    } else if (event === "pause_proposal") {
+      patchLast({ pauseProposal: data as PauseProposal, pauseState: "pending" });
     } else if (event === "tool_call") {
       const { name } = data as { name: string };
-      setMessages((prev) => updateLast(prev, (m) => ({
-        ...m,
-        steps: [...(m.steps ?? []), { name, status: "running" }],
-      })));
+      setMessages((prev) => updateLast(prev, (m) => ({ ...m, steps: [...(m.steps ?? []), { name, status: "running" }] })));
     } else if (event === "tool_result") {
       const { name, ok, summary } = data as { name: string; ok: boolean; summary: string };
-      setMessages((prev) => updateLast(prev, (m) => {
-        const steps = [...(m.steps ?? [])];
-        // Mark the most recent running step with this name as done.
-        for (let i = steps.length - 1; i >= 0; i--) {
-          if (steps[i].name === name && steps[i].status === "running") {
-            steps[i] = { ...steps[i], status: "done", ok, summary };
-            break;
+      setMessages((prev) =>
+        updateLast(prev, (m) => {
+          const steps = [...(m.steps ?? [])];
+          for (let i = steps.length - 1; i >= 0; i--) {
+            if (steps[i].name === name && steps[i].status === "running") {
+              steps[i] = { ...steps[i], status: "done", ok, summary };
+              break;
+            }
           }
-        }
-        return { ...m, steps };
-      }));
+          return { ...m, steps };
+        }),
+      );
     } else if (event === "delta") {
       const delta = data as string;
       setMessages((prev) => updateLast(prev, (m) => ({ ...m, content: m.content + delta })));
@@ -229,6 +297,17 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowAccount((v) => !v)}
+            className={
+              "rounded-md border px-2.5 py-1 text-sm shadow-sm transition " +
+              (showAccount
+                ? "border-brand bg-brand text-white"
+                : "border-slate-300 bg-white text-slate-600 hover:border-brand hover:text-brand")
+            }
+          >
+            {showAccount ? "Chat" : "Account"}
+          </button>
           {messages.length > 0 && (
             <button
               onClick={startNewChat}
@@ -257,16 +336,25 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
       </header>
 
       <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto py-6">
-        {messages.length === 0 && <Welcome customer={activeCustomer} onPick={send} />}
-        {messages.map((m, i) => (
-          <MessageBubble
-            key={i}
-            message={m}
-            streaming={busy && i === messages.length - 1}
-            onApprove={() => m.proposal && approveRefund(i, m.proposal)}
-            onDecline={() => setProposalState(i, "declined")}
-          />
-        ))}
+        {showAccount ? (
+          <AccountPanel account={account} />
+        ) : (
+          <>
+            {messages.length === 0 && <Welcome customer={activeCustomer} onPick={send} />}
+            {messages.map((m, i) => (
+              <MessageBubble
+                key={i}
+                message={m}
+                streaming={busy && i === messages.length - 1}
+                paymentMethod={activeCustomer?.paymentMethod}
+                onInitiateRefund={() => m.proposal && initiateRefund(i, m.proposal)}
+                onDeclineRefund={() => setProposalState(i, "declined")}
+                onConfirmPause={() => m.pauseProposal && confirmPause(i, m.pauseProposal)}
+                onDeclinePause={() => setPauseState(i, "declined")}
+              />
+            ))}
+          </>
+        )}
       </div>
 
       <form
@@ -308,13 +396,7 @@ function updateLast(prev: Message[], fn: (m: Message) => Message): Message[] {
   return next;
 }
 
-function Welcome({
-  customer,
-  onPick,
-}: {
-  customer?: CustomerOption;
-  onPick: (text: string) => void;
-}) {
+function Welcome({ customer, onPick }: { customer?: CustomerOption; onPick: (text: string) => void }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
       <h2 className="text-base font-semibold text-slate-800">
@@ -322,7 +404,7 @@ function Welcome({
       </h2>
       <p className="mt-1 text-sm text-slate-500">
         I can answer FreshCrate policy questions (with sources) and take actions on your account —
-        look up orders, pause your plan, issue refunds, or escalate to a human.
+        look up orders, pause or resume your plan, issue refunds, or escalate to a human.
       </p>
       <p className="mt-2 rounded-md bg-slate-100 px-3 py-2 text-xs text-slate-500">
         🛈 Demo app — actions (pauses, refunds, escalations) run against sample data. Escalations
@@ -346,15 +428,31 @@ function Welcome({
 function MessageBubble({
   message,
   streaming,
-  onApprove,
-  onDecline,
+  paymentMethod,
+  onInitiateRefund,
+  onDeclineRefund,
+  onConfirmPause,
+  onDeclinePause,
 }: {
   message: Message;
   streaming: boolean;
-  onApprove: () => void;
-  onDecline: () => void;
+  paymentMethod?: string | null;
+  onInitiateRefund: () => void;
+  onDeclineRefund: () => void;
+  onConfirmPause: () => void;
+  onDeclinePause: () => void;
 }) {
   const isUser = message.role === "user";
+  // Loading state: assistant turn started but nothing has arrived yet.
+  const showThinking =
+    !isUser &&
+    streaming &&
+    !message.content &&
+    (message.steps?.length ?? 0) === 0 &&
+    !message.orders &&
+    !message.proposal &&
+    !message.pauseProposal;
+
   return (
     <div className={isUser ? "flex justify-end" : "flex justify-start"}>
       <div
@@ -364,9 +462,9 @@ function MessageBubble({
             : "max-w-[85%] rounded-2xl rounded-bl-sm border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm"
         }
       >
-        {!isUser && message.steps && message.steps.length > 0 && (
-          <ToolSteps steps={message.steps} />
-        )}
+        {showThinking && <Thinking />}
+
+        {!isUser && message.steps && message.steps.length > 0 && <ToolSteps steps={message.steps} />}
 
         {message.content && (
           <p className="whitespace-pre-wrap">
@@ -375,12 +473,24 @@ function MessageBubble({
           </p>
         )}
 
+        {!isUser && message.orders && message.orders.length > 0 && <OrdersCard orders={message.orders} />}
+
         {!isUser && message.proposal && (
           <RefundCard
             proposal={message.proposal}
             state={message.proposalState ?? "pending"}
-            onApprove={onApprove}
-            onDecline={onDecline}
+            paymentMethod={paymentMethod}
+            onInitiate={onInitiateRefund}
+            onDecline={onDeclineRefund}
+          />
+        )}
+
+        {!isUser && message.pauseProposal && (
+          <PauseCard
+            proposal={message.pauseProposal}
+            state={message.pauseState ?? "pending"}
+            onConfirm={onConfirmPause}
+            onDecline={onDeclinePause}
           />
         )}
 
@@ -408,55 +518,154 @@ function MessageBubble({
   );
 }
 
+function Thinking() {
+  return (
+    <div className="flex items-center gap-1.5 text-xs text-slate-400">
+      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-300 [animation-delay:-0.2s]" />
+      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-300 [animation-delay:-0.1s]" />
+      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-300" />
+      <span className="ml-1">Thinking…</span>
+    </div>
+  );
+}
+
+function StatusBadge({ order }: { order: OrderView }) {
+  const label = order.refunded ? "refunded" : order.status;
+  const cls = order.refunded
+    ? "bg-emerald-50 text-emerald-700"
+    : order.status === "delivered"
+      ? "bg-slate-100 text-slate-600"
+      : order.status === "cancelled"
+        ? "bg-red-50 text-red-600"
+        : "bg-blue-50 text-blue-700"; // processing / shipped
+  return <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${cls}`}>{label}</span>;
+}
+
+function OrdersCard({ orders }: { orders: OrderView[] }) {
+  return (
+    <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+      <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Order history</p>
+      <div className="space-y-2">
+        {orders.map((o) => (
+          <div key={o.order_number} className="rounded-md border border-slate-200 bg-white px-3 py-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-mono text-xs font-medium text-slate-700">{o.order_number}</span>
+              <div className="flex items-center gap-2">
+                <StatusBadge order={o} />
+                <span className="text-xs font-semibold text-slate-700">{money(o.total_cents)}</span>
+              </div>
+            </div>
+            {o.items.length > 0 && (
+              <p className="mt-1 text-[11px] text-slate-500">{o.items.join(" · ")}</p>
+            )}
+            {o.delivery_date && (
+              <p className="mt-0.5 text-[10px] text-slate-400">Delivery {o.delivery_date}</p>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function RefundCard({
   proposal,
   state,
-  onApprove,
+  paymentMethod,
+  onInitiate,
   onDecline,
 }: {
   proposal: RefundProposal;
   state: ProposalState;
-  onApprove: () => void;
+  paymentMethod?: string | null;
+  onInitiate: () => void;
   onDecline: () => void;
 }) {
-  const amount = `$${(proposal.amount_cents / 100).toFixed(2)}`;
+  const amount = money(proposal.amount_cents);
+  const card = paymentMethod ?? "your card on file";
   return (
     <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-700">
-        Refund confirmation
-      </p>
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-700">Refund request</p>
       <p className="mt-1 text-sm text-slate-800">
-        Refund <span className="font-semibold">{amount}</span> for order{" "}
-        <span className="font-mono text-xs">{proposal.order_number}</span>
+        This order can be refunded. Order <span className="font-mono text-xs">{proposal.order_number}</span>{" "}
+        will be refunded <span className="font-semibold">{amount}</span> to {card}.
       </p>
+      {proposal.items && proposal.items.length > 0 && (
+        <p className="mt-1 text-[11px] text-slate-500">{proposal.items.join(" · ")}</p>
+      )}
       <p className="mt-0.5 text-xs text-slate-500">Reason: {proposal.reason}</p>
 
       {state === "pending" && (
-        <div className="mt-3 flex gap-2">
+        <>
+          <p className="mt-2 text-sm text-slate-700">Do you wish to initiate the refund?</p>
+          <div className="mt-2 flex gap-2">
+            <button
+              onClick={onInitiate}
+              className="rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-white transition hover:bg-brand-dark"
+            >
+              Yes, refund my order
+            </button>
+            <button
+              onClick={onDecline}
+              className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-600 transition hover:bg-slate-50"
+            >
+              Not now
+            </button>
+          </div>
+        </>
+      )}
+      {state === "approved" && (
+        <p className="mt-2 text-xs font-medium text-emerald-700">✓ Refund of {amount} initiated to {card}.</p>
+      )}
+      {state === "declined" && <p className="mt-2 text-xs font-medium text-slate-500">No problem — no refund was made.</p>}
+      {state === "error" && (
+        <p className="mt-2 text-xs font-medium text-red-600">Couldn&apos;t process the refund — please try again.</p>
+      )}
+    </div>
+  );
+}
+
+function PauseCard({
+  proposal,
+  state,
+  onConfirm,
+  onDecline,
+}: {
+  proposal: PauseProposal;
+  state: ProposalState;
+  onConfirm: () => void;
+  onDecline: () => void;
+}) {
+  return (
+    <div className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-3">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-700">Pause request</p>
+      <p className="mt-1 text-sm text-slate-800">
+        Pause your subscription for <span className="font-semibold">{proposal.weeks} week{proposal.weeks === 1 ? "" : "s"}</span>?
+        It will resume on <span className="font-semibold">{proposal.resume_date}</span>.
+      </p>
+
+      {state === "pending" && (
+        <div className="mt-2 flex gap-2">
           <button
-            onClick={onApprove}
+            onClick={onConfirm}
             className="rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-white transition hover:bg-brand-dark"
           >
-            Approve refund
+            Yes, pause it
           </button>
           <button
             onClick={onDecline}
             className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-600 transition hover:bg-slate-50"
           >
-            Decline
+            Not now
           </button>
         </div>
       )}
       {state === "approved" && (
-        <p className="mt-2 text-xs font-medium text-emerald-700">✓ Refund of {amount} issued.</p>
+        <p className="mt-2 text-xs font-medium text-emerald-700">✓ Paused — resumes {proposal.resume_date}.</p>
       )}
-      {state === "declined" && (
-        <p className="mt-2 text-xs font-medium text-slate-500">Refund cancelled.</p>
-      )}
+      {state === "declined" && <p className="mt-2 text-xs font-medium text-slate-500">No problem — your subscription is unchanged.</p>}
       {state === "error" && (
-        <p className="mt-2 text-xs font-medium text-red-600">
-          Couldn&apos;t process the refund — please try again.
-        </p>
+        <p className="mt-2 text-xs font-medium text-red-600">Couldn&apos;t pause the subscription — please try again.</p>
       )}
     </div>
   );
@@ -467,15 +676,62 @@ function ToolSteps({ steps }: { steps: Step[] }) {
     <div className="mb-2 space-y-1">
       {steps.map((s, i) => (
         <div key={i} className="flex items-center gap-2 text-[11px] text-slate-500">
-          <span>
-            {s.status === "running" ? "⏳" : s.ok === false ? "⚠️" : "✓"}
-          </span>
+          <span>{s.status === "running" ? "⏳" : s.ok === false ? "⚠️" : "✓"}</span>
           <span className="font-medium">{TOOL_LABELS[s.name] ?? s.name}</span>
-          {s.status === "done" && s.summary && (
-            <span className="text-slate-400">· {s.summary}</span>
-          )}
+          {s.status === "done" && s.summary && <span className="text-slate-400">· {s.summary}</span>}
         </div>
       ))}
+    </div>
+  );
+}
+
+function AccountPanel({ account }: { account: AccountData | null }) {
+  if (!account) {
+    return <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-400">Loading account…</div>;
+  }
+  const c = account.customer;
+  const rows: [string, string | null | undefined][] = [
+    ["Name", c.name],
+    ["Email", c.email],
+    ["Phone", c.phone],
+    ["Address", c.address],
+    ["Plan", c.plan],
+    ["Subscription", c.subscriptionStatus],
+    ["Payment method", c.paymentMethod],
+  ];
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 className="text-sm font-semibold text-slate-800">Account details</h2>
+        <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
+          {rows.map(([label, value]) => (
+            <div key={label} className="flex flex-col">
+              <dt className="text-[10px] uppercase tracking-wide text-slate-400">{label}</dt>
+              <dd className="text-sm text-slate-700">{value ?? "—"}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 className="text-sm font-semibold text-slate-800">Order history</h2>
+        <div className="mt-3 space-y-2">
+          {account.orders.length === 0 && <p className="text-sm text-slate-400">No orders yet.</p>}
+          {account.orders.map((o) => (
+            <div key={o.order_number} className="rounded-md border border-slate-200 px-3 py-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-mono text-xs font-medium text-slate-700">{o.order_number}</span>
+                <div className="flex items-center gap-2">
+                  <StatusBadge order={o} />
+                  <span className="text-xs font-semibold text-slate-700">{money(o.total_cents)}</span>
+                </div>
+              </div>
+              {o.items.length > 0 && <p className="mt-1 text-[11px] text-slate-500">{o.items.join(" · ")}</p>}
+              {o.delivery_date && <p className="mt-0.5 text-[10px] text-slate-400">Delivery {o.delivery_date}</p>}
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

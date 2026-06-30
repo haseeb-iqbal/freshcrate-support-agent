@@ -2,14 +2,15 @@ import { escalateToHuman } from "./escalate";
 import { lookupOrder } from "./orders";
 import { issueRefund } from "./refund";
 import { searchKnowledgeBase } from "./search";
-import { pauseSubscription } from "./subscription";
+import { pauseSubscription, resumeSubscription } from "./subscription";
 import type { Tool } from "./types";
 
-/** The five agent tools (PRD Section 9). */
+/** The agent tools (PRD Section 9 + resume_subscription). */
 export const tools: Tool[] = [
   searchKnowledgeBase,
   lookupOrder,
   pauseSubscription,
+  resumeSubscription,
   issueRefund,
   escalateToHuman,
 ];

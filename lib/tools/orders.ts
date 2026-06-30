@@ -52,6 +52,7 @@ export const lookupOrder: Tool = {
       total_cents: o.totalCents,
       delivery_date: o.deliveryDate,
       refunded: o.refundedAt !== null,
+      items: o.items ?? [],
     });
 
     const openCount = all.filter((o) => OPEN_STATUSES.includes(o.status)).length;

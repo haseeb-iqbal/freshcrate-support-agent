@@ -14,6 +14,9 @@ export async function GET() {
       email: customers.email,
       subscriptionStatus: customers.subscriptionStatus,
       plan: customers.plan,
+      phone: customers.phone,
+      address: customers.address,
+      paymentMethod: customers.paymentMethod,
     })
     .from(customers)
     .orderBy(asc(customers.name));

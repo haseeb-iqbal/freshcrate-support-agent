@@ -1,3 +1,4 @@
+import { asUntrustedData } from "../guardrails/injection";
 import { citationLabel } from "../rag/ground";
 import { retrieve } from "../rag/retrieve";
 import type { Tool } from "./types";
@@ -34,7 +35,9 @@ export const searchKnowledgeBase: Tool = {
           citation: citationLabel(c),
           slug: c.articleSlug,
           heading: c.heading,
-          content: c.content,
+          // Excerpt text is untrusted data — wrap it so the model never treats
+          // article content as instructions (prompt-injection resistance).
+          content: asUntrustedData(citationLabel(c), c.content),
         })),
       },
     };

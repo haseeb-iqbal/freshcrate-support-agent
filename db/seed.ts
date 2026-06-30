@@ -52,10 +52,11 @@ const customerRows: (typeof customers.$inferInsert)[] = [
 
 const O = (n: number) => `22222222-2222-2222-2222-2222222200${n.toString().padStart(2, "0")}`;
 
-const orderRows: (typeof orders.$inferInsert)[] = [
+// order_number is assigned sequentially on insert (FC1001…), so it's omitted here.
+const orderRows: Omit<typeof orders.$inferInsert, "orderNumber">[] = [
   // Ava — US-1 order status: one recent in-flight order + history
   { id: O(1), customerId: C.ava, status: "shipped", totalCents: 3800, placedAt: ts("2026-06-22T09:00:00Z"), deliveryDate: "2026-06-26" },
-  { id: O(2), customerId: C.ava, status: "delivered", totalCents: 3800, placedAt: ts("2026-06-08T09:00:00Z"), deliveryDate: "2026-06-12" },
+  { id: O(2), customerId: C.ava, status: "delivered", totalCents: 650, placedAt: ts("2026-06-08T09:00:00Z"), deliveryDate: "2026-06-12" }, // small add-on → under-ceiling refund demo
   { id: O(22), customerId: C.ava, status: "delivered", totalCents: 3800, placedAt: ts("2026-05-25T09:00:00Z"), deliveryDate: "2026-05-29" },
 
   // Marcus — US-6 clarify: TWO open orders (processing + shipped) + history
@@ -65,7 +66,7 @@ const orderRows: (typeof orders.$inferInsert)[] = [
   { id: O(24), customerId: C.marcus, status: "delivered", totalCents: 6400, placedAt: ts("2026-05-24T14:00:00Z"), deliveryDate: "2026-05-28" },
 
   // Priya — US-4 refund (under ceiling) + US-5 multi-tool (refund last box, pause next)
-  { id: O(6), customerId: C.priya, status: "delivered", totalCents: 4200, placedAt: ts("2026-06-18T10:00:00Z"), deliveryDate: "2026-06-22" }, // damaged-box refund target
+  { id: O(6), customerId: C.priya, status: "delivered", totalCents: 850, placedAt: ts("2026-06-18T10:00:00Z"), deliveryDate: "2026-06-22" }, // small add-on, damaged → under-ceiling refund demo
   { id: O(23), customerId: C.priya, status: "shipped", totalCents: 4200, placedAt: ts("2026-06-23T10:00:00Z"), deliveryDate: "2026-06-27" },
   { id: O(7), customerId: C.priya, status: "delivered", totalCents: 4200, placedAt: ts("2026-06-04T10:00:00Z"), deliveryDate: "2026-06-08" },
 
@@ -78,7 +79,7 @@ const orderRows: (typeof orders.$inferInsert)[] = [
   { id: O(11), customerId: C.lena, status: "delivered", totalCents: 3400, placedAt: ts("2026-04-26T08:00:00Z"), deliveryDate: "2026-04-30" },
 
   // Tom — straightforward delivered history
-  { id: O(12), customerId: C.tom, status: "delivered", totalCents: 3800, placedAt: ts("2026-06-15T11:00:00Z"), deliveryDate: "2026-06-19" },
+  { id: O(12), customerId: C.tom, status: "delivered", totalCents: 900, placedAt: ts("2026-06-15T11:00:00Z"), deliveryDate: "2026-06-19" }, // small add-on → under-ceiling refund demo
   { id: O(13), customerId: C.tom, status: "delivered", totalCents: 3800, placedAt: ts("2026-06-01T11:00:00Z"), deliveryDate: "2026-06-05" },
 
   // Sara — paused, but a box still in transit
@@ -95,7 +96,7 @@ const orderRows: (typeof orders.$inferInsert)[] = [
 
   // Jamal — active, one in-flight order (pause candidate)
   { id: O(20), customerId: C.jamal, status: "processing", totalCents: 3800, placedAt: ts("2026-06-23T16:00:00Z"), deliveryDate: "2026-06-27" },
-  { id: O(21), customerId: C.jamal, status: "delivered", totalCents: 3800, placedAt: ts("2026-06-09T16:00:00Z"), deliveryDate: "2026-06-13" },
+  { id: O(21), customerId: C.jamal, status: "delivered", totalCents: 750, placedAt: ts("2026-06-09T16:00:00Z"), deliveryDate: "2026-06-13" }, // small add-on → under-ceiling refund demo
 ];
 
 const E = (n: number) => `33333333-3333-3333-3333-3333333300${n.toString().padStart(2, "0")}`;
@@ -120,7 +121,10 @@ async function main() {
   await db.delete(customers);
 
   await db.insert(customers).values(customerRows);
-  await db.insert(orders).values(orderRows);
+  await db.insert(orders).values(
+    // Assign short, human-facing order numbers FC1001, FC1002, … in array order.
+    orderRows.map((o, i) => ({ ...o, orderNumber: `FC${1001 + i}` })),
+  );
   await db.insert(subscriptionEvents).values(eventRows);
 
   console.log(`✓ ${customerRows.length} customers`);

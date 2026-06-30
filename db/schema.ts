@@ -24,6 +24,7 @@ export const customers = pgTable("customers", {
 // status: processing | shipped | delivered | cancelled
 export const orders = pgTable("orders", {
   id: uuid("id").primaryKey().defaultRandom(),
+  orderNumber: text("order_number").notNull().unique(), // short human-facing id, e.g. FC1001
   customerId: uuid("customer_id")
     .notNull()
     .references(() => customers.id),
@@ -31,6 +32,7 @@ export const orders = pgTable("orders", {
   totalCents: integer("total_cents").notNull(),
   placedAt: timestamp("placed_at", { withTimezone: true }).notNull().defaultNow(),
   deliveryDate: date("delivery_date"),
+  refundedAt: timestamp("refunded_at", { withTimezone: true }), // set when a refund is approved
 });
 
 // --- subscription_events -----------------------------------------------------

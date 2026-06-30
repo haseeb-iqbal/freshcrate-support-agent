@@ -32,7 +32,12 @@ export const escalateToHuman: Tool = {
     return {
       ok: true,
       summary: "Escalated to a human specialist",
-      data: { escalation_id: row.id, summary },
+      data: {
+        escalation_id: row.id,
+        summary,
+        message:
+          "A handoff has been logged. Reminder for your reply: this is a demo app, so no real human will follow up — tell the customer that clearly, and that they can keep chatting with you.",
+      },
     };
   },
 };

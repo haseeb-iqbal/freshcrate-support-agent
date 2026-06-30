@@ -33,6 +33,7 @@ interface OrderView {
   total_cents: number;
   delivery_date?: string | null;
   refunded: boolean;
+  refunded_at?: string | null;
   items: string[];
 }
 
@@ -46,6 +47,20 @@ interface RefundProposal {
 interface PauseProposal {
   weeks: number;
   resume_date: string;
+  hold_fee_cents: number;
+}
+
+interface ReactivateProposal {
+  signup_fee_cents: number;
+  plan: string;
+  monthly_cents: number;
+}
+
+interface PlanChangeProposal {
+  plan: string;
+  monthly_cents: number;
+  weekly_cents: number;
+  current_plan?: string | null;
 }
 
 type ProposalState = "pending" | "approved" | "declined" | "error";
@@ -60,6 +75,10 @@ interface Message {
   proposalState?: ProposalState;
   pauseProposal?: PauseProposal;
   pauseState?: ProposalState;
+  reactivateProposal?: ReactivateProposal;
+  reactivateState?: ProposalState;
+  planProposal?: PlanChangeProposal;
+  planState?: ProposalState;
 }
 
 interface AccountData {
@@ -87,11 +106,20 @@ const TOOL_LABELS: Record<string, string> = {
   lookup_order: "Looking up your orders",
   pause_subscription: "Preparing a pause",
   resume_subscription: "Resuming your subscription",
+  reactivate_subscription: "Preparing reactivation",
+  change_plan: "Preparing a plan change",
   issue_refund: "Preparing a refund",
   escalate_to_human: "Escalating to a human",
 };
 
 const money = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+
+/** Format an ISO YYYY-MM-DD date as DD-MM-YYYY for display. */
+const fmtDate = (iso?: string | null): string => {
+  if (!iso) return "";
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : iso;
+};
 
 export default function Chat({ customers: initialCustomers }: { customers: CustomerOption[] }) {
   const [customers, setCustomers] = useState(initialCustomers);
@@ -150,6 +178,38 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
   }
   function setPauseState(index: number, state: ProposalState) {
     setMessages((prev) => prev.map((m, i) => (i === index ? { ...m, pauseState: state } : m)));
+  }
+  function setReactivateState(index: number, state: ProposalState) {
+    setMessages((prev) => prev.map((m, i) => (i === index ? { ...m, reactivateState: state } : m)));
+  }
+  function setPlanState(index: number, state: ProposalState) {
+    setMessages((prev) => prev.map((m, i) => (i === index ? { ...m, planState: state } : m)));
+  }
+
+  async function postAction(url: string, payload: Record<string, unknown>): Promise<boolean> {
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = (await res.json().catch(() => ({}))) as { ok?: boolean };
+      return res.ok && !!data.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  async function confirmReactivate(index: number) {
+    const ok = await postAction("/api/actions/reactivate", { customerId });
+    setReactivateState(index, ok ? "approved" : "error");
+    if (ok) refreshCustomers();
+  }
+
+  async function confirmPlanChange(index: number, proposal: PlanChangeProposal) {
+    const ok = await postAction("/api/actions/change-plan", { customerId, plan: proposal.plan });
+    setPlanState(index, ok ? "approved" : "error");
+    if (ok) refreshCustomers();
   }
 
   // Initiate a proposed refund: the write happens here (server endpoint), never
@@ -255,6 +315,10 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
       patchLast({ proposal: data as RefundProposal, proposalState: "pending" });
     } else if (event === "pause_proposal") {
       patchLast({ pauseProposal: data as PauseProposal, pauseState: "pending" });
+    } else if (event === "reactivate_proposal") {
+      patchLast({ reactivateProposal: data as ReactivateProposal, reactivateState: "pending" });
+    } else if (event === "plan_change_proposal") {
+      patchLast({ planProposal: data as PlanChangeProposal, planState: "pending" });
     } else if (event === "tool_call") {
       const { name } = data as { name: string };
       setMessages((prev) => updateLast(prev, (m) => ({ ...m, steps: [...(m.steps ?? []), { name, status: "running" }] })));
@@ -288,7 +352,13 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
     <div className="mx-auto flex h-screen max-w-3xl flex-col px-4">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 py-4">
         <div>
-          <h1 className="text-lg font-semibold text-brand">FreshCrate Support</h1>
+          <button
+            onClick={startNewChat}
+            title="Back to start"
+            className="text-left text-lg font-semibold text-brand transition hover:text-brand-dark"
+          >
+            FreshCrate Support
+          </button>
           <p className="text-xs text-slate-500">
             Grounded answers + real actions ·{" "}
             <Link href="/kb" className="text-brand hover:underline">
@@ -351,6 +421,10 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
                 onDeclineRefund={() => setProposalState(i, "declined")}
                 onConfirmPause={() => m.pauseProposal && confirmPause(i, m.pauseProposal)}
                 onDeclinePause={() => setPauseState(i, "declined")}
+                onConfirmReactivate={() => confirmReactivate(i)}
+                onDeclineReactivate={() => setReactivateState(i, "declined")}
+                onConfirmPlan={() => m.planProposal && confirmPlanChange(i, m.planProposal)}
+                onDeclinePlan={() => setPlanState(i, "declined")}
               />
             ))}
           </>
@@ -433,6 +507,10 @@ function MessageBubble({
   onDeclineRefund,
   onConfirmPause,
   onDeclinePause,
+  onConfirmReactivate,
+  onDeclineReactivate,
+  onConfirmPlan,
+  onDeclinePlan,
 }: {
   message: Message;
   streaming: boolean;
@@ -441,6 +519,10 @@ function MessageBubble({
   onDeclineRefund: () => void;
   onConfirmPause: () => void;
   onDeclinePause: () => void;
+  onConfirmReactivate: () => void;
+  onDeclineReactivate: () => void;
+  onConfirmPlan: () => void;
+  onDeclinePlan: () => void;
 }) {
   const isUser = message.role === "user";
   // Loading state: assistant turn started but nothing has arrived yet.
@@ -451,7 +533,9 @@ function MessageBubble({
     (message.steps?.length ?? 0) === 0 &&
     !message.orders &&
     !message.proposal &&
-    !message.pauseProposal;
+    !message.pauseProposal &&
+    !message.reactivateProposal &&
+    !message.planProposal;
 
   return (
     <div className={isUser ? "flex justify-end" : "flex justify-start"}>
@@ -491,6 +575,24 @@ function MessageBubble({
             state={message.pauseState ?? "pending"}
             onConfirm={onConfirmPause}
             onDecline={onDeclinePause}
+          />
+        )}
+
+        {!isUser && message.reactivateProposal && (
+          <ReactivateCard
+            proposal={message.reactivateProposal}
+            state={message.reactivateState ?? "pending"}
+            onConfirm={onConfirmReactivate}
+            onDecline={onDeclineReactivate}
+          />
+        )}
+
+        {!isUser && message.planProposal && (
+          <PlanCard
+            proposal={message.planProposal}
+            state={message.planState ?? "pending"}
+            onConfirm={onConfirmPlan}
+            onDecline={onDeclinePlan}
           />
         )}
 
@@ -558,9 +660,10 @@ function OrdersCard({ orders }: { orders: OrderView[] }) {
             {o.items.length > 0 && (
               <p className="mt-1 text-[11px] text-slate-500">{o.items.join(" · ")}</p>
             )}
-            {o.delivery_date && (
-              <p className="mt-0.5 text-[10px] text-slate-400">Delivery {o.delivery_date}</p>
-            )}
+            <div className="mt-0.5 flex flex-wrap gap-x-3 text-[10px] text-slate-400">
+              {o.delivery_date && <span>Delivery {fmtDate(o.delivery_date)}</span>}
+              {o.refunded && o.refunded_at && <span className="text-emerald-600">Refunded {fmtDate(o.refunded_at)}</span>}
+            </div>
           </div>
         ))}
       </div>
@@ -636,37 +739,108 @@ function PauseCard({
   onConfirm: () => void;
   onDecline: () => void;
 }) {
+  const resume = fmtDate(proposal.resume_date);
   return (
     <div className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-3">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-700">Pause request</p>
       <p className="mt-1 text-sm text-slate-800">
         Pause your subscription for <span className="font-semibold">{proposal.weeks} week{proposal.weeks === 1 ? "" : "s"}</span>?
-        It will resume on <span className="font-semibold">{proposal.resume_date}</span>.
+        It will resume on <span className="font-semibold">{resume}</span>.
+      </p>
+      <p className="mt-1 text-xs text-slate-500">
+        While paused you&apos;ll be billed a <span className="font-medium">{money(proposal.hold_fee_cents)}</span> hold fee to reserve your plan.
       </p>
 
       {state === "pending" && (
         <div className="mt-2 flex gap-2">
-          <button
-            onClick={onConfirm}
-            className="rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-white transition hover:bg-brand-dark"
-          >
+          <button onClick={onConfirm} className="rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-white transition hover:bg-brand-dark">
             Yes, pause it
           </button>
-          <button
-            onClick={onDecline}
-            className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-600 transition hover:bg-slate-50"
-          >
+          <button onClick={onDecline} className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-600 transition hover:bg-slate-50">
             Not now
           </button>
         </div>
       )}
       {state === "approved" && (
-        <p className="mt-2 text-xs font-medium text-emerald-700">✓ Paused — resumes {proposal.resume_date}.</p>
+        <p className="mt-2 text-xs font-medium text-emerald-700">✓ Paused — resumes {resume} ({money(proposal.hold_fee_cents)} hold fee).</p>
       )}
       {state === "declined" && <p className="mt-2 text-xs font-medium text-slate-500">No problem — your subscription is unchanged.</p>}
       {state === "error" && (
         <p className="mt-2 text-xs font-medium text-red-600">Couldn&apos;t pause the subscription — please try again.</p>
       )}
+    </div>
+  );
+}
+
+function ReactivateCard({
+  proposal,
+  state,
+  onConfirm,
+  onDecline,
+}: {
+  proposal: ReactivateProposal;
+  state: ProposalState;
+  onConfirm: () => void;
+  onDecline: () => void;
+}) {
+  const fee = money(proposal.signup_fee_cents);
+  return (
+    <div className="mt-3 rounded-lg border border-violet-200 bg-violet-50 p-3">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-700">Reactivation</p>
+      <p className="mt-1 text-sm text-slate-800">
+        Restart your <span className="font-semibold">{proposal.plan}</span> plan ({money(proposal.monthly_cents)}/month)? A one-time{" "}
+        <span className="font-semibold">{fee}</span> sign-up fee applies.
+      </p>
+
+      {state === "pending" && (
+        <div className="mt-2 flex gap-2">
+          <button onClick={onConfirm} className="rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-white transition hover:bg-brand-dark">
+            Pay {fee} & reactivate
+          </button>
+          <button onClick={onDecline} className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-600 transition hover:bg-slate-50">
+            Not now
+          </button>
+        </div>
+      )}
+      {state === "approved" && <p className="mt-2 text-xs font-medium text-emerald-700">✓ Subscription reactivated — {fee} sign-up fee charged.</p>}
+      {state === "declined" && <p className="mt-2 text-xs font-medium text-slate-500">No problem — your subscription stays cancelled.</p>}
+      {state === "error" && <p className="mt-2 text-xs font-medium text-red-600">Couldn&apos;t reactivate — please try again.</p>}
+    </div>
+  );
+}
+
+function PlanCard({
+  proposal,
+  state,
+  onConfirm,
+  onDecline,
+}: {
+  proposal: PlanChangeProposal;
+  state: ProposalState;
+  onConfirm: () => void;
+  onDecline: () => void;
+}) {
+  return (
+    <div className="mt-3 rounded-lg border border-teal-200 bg-teal-50 p-3">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-teal-700">Plan change</p>
+      <p className="mt-1 text-sm text-slate-800">
+        Switch{proposal.current_plan ? ` from ${proposal.current_plan}` : ""} to{" "}
+        <span className="font-semibold">{proposal.plan}</span> at <span className="font-semibold">{money(proposal.monthly_cents)}/month</span>?
+      </p>
+
+      {state === "pending" && (
+        <div className="mt-2 flex gap-2">
+          <button onClick={onConfirm} className="rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-white transition hover:bg-brand-dark">
+            Yes, switch plan
+          </button>
+          <button onClick={onDecline} className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-600 transition hover:bg-slate-50">
+            Not now
+          </button>
+        </div>
+      )}
+      {state === "approved" && <p className="mt-2 text-xs font-medium text-emerald-700">✓ Plan changed to {proposal.plan} ({money(proposal.monthly_cents)}/month).</p>}
+      {state === "declined" && <p className="mt-2 text-xs font-medium text-slate-500">No problem — your plan is unchanged.</p>}
+      {state === "error" && <p className="mt-2 text-xs font-medium text-red-600">Couldn&apos;t change the plan — please try again.</p>}
     </div>
   );
 }
@@ -727,7 +901,10 @@ function AccountPanel({ account }: { account: AccountData | null }) {
                 </div>
               </div>
               {o.items.length > 0 && <p className="mt-1 text-[11px] text-slate-500">{o.items.join(" · ")}</p>}
-              {o.delivery_date && <p className="mt-0.5 text-[10px] text-slate-400">Delivery {o.delivery_date}</p>}
+              <div className="mt-0.5 flex flex-wrap gap-x-3 text-[10px] text-slate-400">
+                {o.delivery_date && <span>Delivery {fmtDate(o.delivery_date)}</span>}
+                {o.refunded && o.refunded_at && <span className="text-emerald-600">Refunded {fmtDate(o.refunded_at)}</span>}
+              </div>
             </div>
           ))}
         </div>

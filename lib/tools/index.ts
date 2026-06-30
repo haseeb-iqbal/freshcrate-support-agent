@@ -1,16 +1,19 @@
 import { escalateToHuman } from "./escalate";
 import { lookupOrder } from "./orders";
+import { changePlan } from "./plan";
 import { issueRefund } from "./refund";
 import { searchKnowledgeBase } from "./search";
-import { pauseSubscription, resumeSubscription } from "./subscription";
+import { pauseSubscription, reactivateSubscription, resumeSubscription } from "./subscription";
 import type { Tool } from "./types";
 
-/** The agent tools (PRD Section 9 + resume_subscription). */
+/** The agent tools: PRD Section 9 + subscription resume/reactivate + plan change. */
 export const tools: Tool[] = [
   searchKnowledgeBase,
   lookupOrder,
   pauseSubscription,
   resumeSubscription,
+  reactivateSubscription,
+  changePlan,
   issueRefund,
   escalateToHuman,
 ];

@@ -104,13 +104,29 @@ export async function runAgent({
         emit("refund_proposal", (result.data as { proposal: unknown }).proposal);
       }
 
-      // A pause proposal surfaces a confirmation prompt (with resume date).
+      // A pause proposal surfaces a confirmation prompt (with resume date + fee).
       if (
         call.name === "pause_subscription" &&
         result.ok &&
         (result.data as { status?: string } | undefined)?.status === "needs_confirmation"
       ) {
         emit("pause_proposal", (result.data as { proposal: unknown }).proposal);
+      }
+
+      // Reactivate / plan-change proposals each surface their own card.
+      if (
+        call.name === "reactivate_subscription" &&
+        result.ok &&
+        (result.data as { status?: string } | undefined)?.status === "needs_confirmation"
+      ) {
+        emit("reactivate_proposal", (result.data as { proposal: unknown }).proposal);
+      }
+      if (
+        call.name === "change_plan" &&
+        result.ok &&
+        (result.data as { status?: string } | undefined)?.status === "needs_confirmation"
+      ) {
+        emit("plan_change_proposal", (result.data as { proposal: unknown }).proposal);
       }
 
       // Order lookups drive the styled order-history card in the UI.

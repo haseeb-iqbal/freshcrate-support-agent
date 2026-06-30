@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { db, client } from "./index";
-import { customers, escalations, orders, subscriptionEvents } from "./schema";
+import { customers, escalations, orders, plans, subscriptionEvents } from "./schema";
 
 /**
  * Seed data for FreshCrate.
@@ -54,6 +54,12 @@ const ADDONS = [
   "Garlic Bread (add-on)",
   "Seasonal Fruit Box (add-on)",
   "Cookie Dough Trio (add-on)",
+];
+
+const planRows: (typeof plans.$inferInsert)[] = [
+  { plan: "2 meals/week", weeklyCents: 3000, monthlyCents: 12000 },
+  { plan: "3 meals/week", weeklyCents: 4200, monthlyCents: 16800 },
+  { plan: "4 meals/week", weeklyCents: 5200, monthlyCents: 20800 },
 ];
 
 const customerRows: (typeof customers.$inferInsert)[] = [
@@ -138,19 +144,22 @@ async function main() {
   await db.delete(escalations);
   await db.delete(orders);
   await db.delete(customers);
+  await db.delete(plans);
 
+  await db.insert(plans).values(planRows);
   await db.insert(customers).values(customerRows);
   await db.insert(orders).values(
     // Assign short order numbers (FC1001…) and an item list per order. Small
-    // (sub-$10) orders are single add-ons; regular boxes get a couple of meals.
-    orderRows.map((o, i) => ({
-      ...o,
-      orderNumber: `FC${1001 + i}`,
-      items:
+    // (sub-$10) orders are a single meal; regular boxes get a couple of meals,
+    // and some include an add-on alongside the meals (never an add-on alone).
+    orderRows.map((o, i) => {
+      const items =
         o.totalCents < 1000
-          ? [ADDONS[i % ADDONS.length]]
-          : [MEALS[i % MEALS.length], MEALS[(i + 3) % MEALS.length]],
-    })),
+          ? [MEALS[i % MEALS.length]]
+          : [MEALS[i % MEALS.length], MEALS[(i + 3) % MEALS.length]];
+      if (o.totalCents >= 1000 && i % 3 === 0) items.push(ADDONS[i % ADDONS.length]);
+      return { ...o, orderNumber: `FC${1001 + i}`, items };
+    }),
   );
   await db.insert(subscriptionEvents).values(eventRows);
 

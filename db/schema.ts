@@ -76,6 +76,13 @@ export const traces = pgTable("traces", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// --- plans (subscription pricing reference) ---
+export const plans = pgTable("plans", {
+  plan: text("plan").primaryKey(), // e.g. "2 meals/week"
+  weeklyCents: integer("weekly_cents").notNull(),
+  monthlyCents: integer("monthly_cents").notNull(),
+});
+
 // --- escalations (human-handoff records, written by escalate_to_human) ---
 export const escalations = pgTable("escalations", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -92,3 +99,4 @@ export type SubscriptionEvent = typeof subscriptionEvents.$inferSelect;
 export type KbChunk = typeof kbChunks.$inferSelect;
 export type Trace = typeof traces.$inferSelect;
 export type Escalation = typeof escalations.$inferSelect;
+export type Plan = typeof plans.$inferSelect;

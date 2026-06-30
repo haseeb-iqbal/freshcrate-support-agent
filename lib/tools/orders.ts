@@ -52,6 +52,7 @@ export const lookupOrder: Tool = {
       total_cents: o.totalCents,
       delivery_date: o.deliveryDate,
       refunded: o.refundedAt !== null,
+      refunded_at: o.refundedAt ? o.refundedAt.toISOString().slice(0, 10) : null,
       items: o.items ?? [],
     });
 

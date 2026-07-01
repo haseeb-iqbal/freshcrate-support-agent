@@ -5,6 +5,7 @@ import { issueRefund } from "./refund";
 import { searchKnowledgeBase } from "./search";
 import {
   cancelSubscription,
+  getSubscription,
   pauseSubscription,
   reactivateSubscription,
   resumeSubscription,
@@ -16,6 +17,7 @@ export const tools: Tool[] = [
   searchKnowledgeBase,
   lookupOrder,
   listOrders,
+  getSubscription,
   pauseSubscription,
   resumeSubscription,
   reactivateSubscription,

@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { db, client } from "./index";
-import { customers, escalations, orders, plans, subscriptionEvents } from "./schema";
+import { customers, escalations, orders, plans, subscriptionEvents, transactions } from "./schema";
 
 /**
  * Seed data for FreshCrate.
@@ -61,6 +61,25 @@ const planRows: (typeof plans.$inferInsert)[] = [
   { plan: "3 meals/week", weeklyCents: 4200, monthlyCents: 16800 },
   { plan: "4 meals/week", weeklyCents: 5200, monthlyCents: 20800 },
 ];
+
+// Orders whose refund (list price + add-ons) stays under the $10 ceiling, so the
+// refund confirmation card still demonstrates. Keyed by index in orderRows.
+const CHEAP_ORDER_INDICES = new Set([1, 7, 14, 23]);
+const ADDON_PRICE_CENTS = 499;
+
+/** Pricing for order i: subscription meals are free (only add-ons cost); extra
+ *  meals are charged their list price + add-ons. Refund = list price + add-ons. */
+function orderPricing(i: number) {
+  const listPriceCents = CHEAP_ORDER_INDICES.has(i) ? 850 : [1199, 1299, 1399][i % 3];
+  const kind = i % 5 === 4 && !CHEAP_ORDER_INDICES.has(i) ? "extra" : "subscription";
+  const addOns =
+    i % 4 === 0 && !CHEAP_ORDER_INDICES.has(i)
+      ? [{ name: ADDONS[i % ADDONS.length].replace(" (add-on)", ""), priceCents: ADDON_PRICE_CENTS }]
+      : [];
+  const addSum = addOns.reduce((s, a) => s + a.priceCents, 0);
+  const totalCents = kind === "extra" ? listPriceCents + addSum : addSum;
+  return { kind, listPriceCents, addOns, totalCents };
+}
 
 const customerRows: (typeof customers.$inferInsert)[] = [
   { id: C.ava, name: "Ava Chen", email: "ava.chen@example.com", subscriptionStatus: "active", plan: "2 meals/week", phone: "+1 (555) 010-2231", address: "412 Maple St, Portland, OR 97205", paymentMethod: "Visa ending 4242", billingDate: "2026-07-15" },
@@ -141,6 +160,7 @@ async function main() {
 
   // Idempotent reseed: clear dependents first (FK order), then parents.
   await db.delete(subscriptionEvents);
+  await db.delete(transactions);
   await db.delete(escalations);
   await db.delete(orders);
   await db.delete(customers);
@@ -148,24 +168,46 @@ async function main() {
 
   await db.insert(plans).values(planRows);
   await db.insert(customers).values(customerRows);
-  await db.insert(orders).values(
-    // Assign short order numbers (FC1001…) and an item list per order. Small
-    // (sub-$10) orders are a single meal; regular boxes get a couple of meals,
-    // and some include an add-on alongside the meals (never an add-on alone).
-    orderRows.map((o, i) => {
-      const items =
-        o.totalCents < 1000
-          ? [MEALS[i % MEALS.length]]
-          : [MEALS[i % MEALS.length], MEALS[(i + 3) % MEALS.length]];
-      if (o.totalCents >= 1000 && i % 3 === 0) items.push(ADDONS[i % ADDONS.length]);
-      return { ...o, orderNumber: `FC${1001 + i}`, items };
-    }),
-  );
-  await db.insert(subscriptionEvents).values(eventRows);
+
+  // Each order is one meal (FC1001…): subscription meals are free (list price
+  // shown struck through), extra meals are charged; both can carry paid add-ons.
+  const pricedOrders = orderRows.map((o, i) => ({
+    ...o,
+    orderNumber: `FC${1001 + i}`,
+    items: [MEALS[i % MEALS.length]],
+    ...orderPricing(i),
+  }));
+  await db.insert(orders).values(pricedOrders);
+
+  // Unified money ledger: monthly billing + pause hold fees. (Refunds, sign-up
+  // fees, and prorations from chat actions are written at runtime.)
+  const monthly = (plan: string) => planRows.find((p) => p.plan === plan)!.monthlyCents;
+  const weekly = (plan: string) => planRows.find((p) => p.plan === plan)!.weeklyCents;
+  const txnRows: (typeof transactions.$inferInsert)[] = [];
+  for (const c of customerRows) {
+    if (c.subscriptionStatus !== "cancelled") {
+      txnRows.push({ customerId: c.id!, type: "monthly_billing", amountCents: monthly(c.plan), description: `Monthly billing — ${c.plan}`, createdAt: ts("2026-06-15T09:00:00Z") });
+    }
+    if (c.subscriptionStatus === "paused") {
+      txnRows.push({ customerId: c.id!, type: "hold_fee", amountCents: Math.round(weekly(c.plan) * 2 * 0.2), description: "Pause hold fee", createdAt: ts("2026-06-16T09:00:00Z") });
+    }
+  }
+  await db.insert(transactions).values(txnRows);
+
+  // Status-change history: an initial "subscribed" event per customer plus the
+  // specific changes each has made.
+  const subscribedRows: (typeof subscriptionEvents.$inferInsert)[] = customerRows.map((c) => ({
+    customerId: c.id!,
+    eventType: "subscribed",
+    createdAt: ts("2026-03-01T00:00:00Z"),
+    metadata: { plan: c.plan },
+  }));
+  await db.insert(subscriptionEvents).values([...subscribedRows, ...eventRows]);
 
   console.log(`✓ ${customerRows.length} customers`);
-  console.log(`✓ ${orderRows.length} orders`);
-  console.log(`✓ ${eventRows.length} subscription events`);
+  console.log(`✓ ${pricedOrders.length} orders`);
+  console.log(`✓ ${txnRows.length} transactions`);
+  console.log(`✓ ${subscribedRows.length + eventRows.length} subscription events`);
   console.log("Done.");
 }
 

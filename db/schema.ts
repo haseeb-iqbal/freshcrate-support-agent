@@ -33,15 +33,32 @@ export const orders = pgTable("orders", {
     .notNull()
     .references(() => customers.id),
   status: text("status").notNull(),
-  totalCents: integer("total_cents").notNull(),
+  kind: text("kind").notNull().default("subscription"), // subscription | extra
+  totalCents: integer("total_cents").notNull(), // amount actually charged
+  listPriceCents: integer("list_price_cents").notNull().default(0), // undiscounted meal price
+  addOns: jsonb("add_ons").$type<{ name: string; priceCents: number }[]>(), // paid extras
   placedAt: timestamp("placed_at", { withTimezone: true }).notNull().defaultNow(),
   deliveryDate: date("delivery_date"),
   refundedAt: timestamp("refunded_at", { withTimezone: true }), // set when a refund is approved
-  items: jsonb("items").$type<string[]>(), // meal/add-on names in the box
+  items: jsonb("items").$type<string[]>(), // meal name(s) in the box
+});
+
+// --- transactions (unified money ledger: charges, fees, refunds) --------------
+// type: monthly_billing | signup_fee | hold_fee | proration | meal_charge | refund
+export const transactions = pgTable("transactions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  customerId: uuid("customer_id")
+    .notNull()
+    .references(() => customers.id),
+  type: text("type").notNull(),
+  amountCents: integer("amount_cents").notNull(), // +charge / -refund or credit
+  description: text("description").notNull(),
+  orderNumber: text("order_number"), // linked order, if any
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 // --- subscription_events -----------------------------------------------------
-// event_type: paused | resumed | cancelled | plan_changed | refund
+// event_type: paused | resumed | cancelled | reactivated | plan_changed | refund
 export const subscriptionEvents = pgTable("subscription_events", {
   id: uuid("id").primaryKey().defaultRandom(),
   customerId: uuid("customer_id")
@@ -101,3 +118,4 @@ export type KbChunk = typeof kbChunks.$inferSelect;
 export type Trace = typeof traces.$inferSelect;
 export type Escalation = typeof escalations.$inferSelect;
 export type Plan = typeof plans.$inferSelect;
+export type Transaction = typeof transactions.$inferSelect;

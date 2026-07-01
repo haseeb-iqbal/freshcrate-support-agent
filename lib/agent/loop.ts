@@ -18,6 +18,21 @@ export interface RunAgentOptions {
 
 const MAX_ITERATIONS = Number(process.env.MAX_LOOP_ITERATIONS ?? 6);
 
+/** tool name → SSE event for a needs_confirmation proposal. */
+const PROPOSAL_EVENTS: Record<string, string> = {
+  issue_refund: "refund_proposal",
+  pause_subscription: "pause_proposal",
+  reactivate_subscription: "reactivate_proposal",
+  change_plan: "plan_change_proposal",
+  cancel_subscription: "cancel_proposal",
+};
+
+/** Detects when the customer is clearly requesting an account action, so we can
+ *  nudge the model to actually call the tool if it only described it (bug: the
+ *  model sometimes answers "I'll do that…" without emitting the tool call). */
+const ACTION_INTENT =
+  /\b(re-?activat|resume|un-?pause|pause|cancel|refund|switch|change|plan|subscribe|sign-?up|restart)\b/i;
+
 /**
  * The agent loop: think → act → observe.
  *
@@ -41,6 +56,9 @@ export async function runAgent({
     { role: "system", content: system },
     ...history.map((m): AgentMessage => ({ role: m.role, content: m.content })),
   ];
+  const lastUserText = [...history].reverse().find((m) => m.role === "user")?.content ?? "";
+  let nudged = false;
+  const shownProposals = new Set<string>(); // dedupe duplicate confirmation cards
 
   for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
     let text = "";
@@ -56,8 +74,19 @@ export async function runAgent({
       }
     }
 
-    // No tool calls → the model answered. Done.
     if (toolCalls.length === 0) {
+      // The model answered with text but didn't act. If the customer clearly
+      // asked for an action, nudge it once to actually call the tool.
+      if (!nudged && ACTION_INTENT.test(lastUserText)) {
+        nudged = true;
+        if (text) messages.push({ role: "assistant", content: text });
+        messages.push({
+          role: "system",
+          content:
+            "The customer asked you to perform an account action but no tool was called. Call the correct tool NOW to show the confirmation prompt — do not merely describe or promise it.",
+        });
+        continue;
+      }
       emit("done", {});
       return;
     }
@@ -83,77 +112,52 @@ export async function runAgent({
           }))
         : { ok: false, summary: `Unknown tool: ${call.name}` };
 
-      // KB search drives the citation chips in the UI.
-      if (
-        call.name === "search_knowledge_base" &&
-        result.ok &&
-        result.data &&
-        Array.isArray((result.data as { excerpts?: unknown[] }).excerpts)
-      ) {
-        const excerpts = (result.data as { excerpts: { slug: string; heading: string }[] }).excerpts;
+      const data = result.data as Record<string, unknown> | undefined;
+
+      // KB search drives the citation chips.
+      if (call.name === "search_knowledge_base" && result.ok && Array.isArray(data?.excerpts)) {
+        const excerpts = data.excerpts as { slug: string; heading: string }[];
         emit("sources", excerpts.map((e) => ({ slug: e.slug, heading: e.heading })));
       }
 
-      // A refund proposal surfaces a confirmation card; the actual write happens
-      // only when the customer approves it (human-in-the-loop, Phase 4).
-      if (
-        call.name === "issue_refund" &&
-        result.ok &&
-        (result.data as { status?: string } | undefined)?.status === "needs_confirmation"
-      ) {
-        emit("refund_proposal", (result.data as { proposal: unknown }).proposal);
+      // needs_confirmation results surface their action-specific card — but only
+      // once, even if the model calls the tool again (avoids duplicate cards).
+      let duplicateProposal = false;
+      if (result.ok && data?.status === "needs_confirmation" && PROPOSAL_EVENTS[call.name]) {
+        if (shownProposals.has(call.name)) {
+          duplicateProposal = true;
+        } else {
+          shownProposals.add(call.name);
+          emit(PROPOSAL_EVENTS[call.name], data.proposal);
+        }
       }
 
-      // A pause proposal surfaces a confirmation prompt (with resume date + fee).
-      if (
-        call.name === "pause_subscription" &&
-        result.ok &&
-        (result.data as { status?: string } | undefined)?.status === "needs_confirmation"
-      ) {
-        emit("pause_proposal", (result.data as { proposal: unknown }).proposal);
-      }
-
-      // Reactivate / plan-change proposals each surface their own card.
-      if (
-        call.name === "reactivate_subscription" &&
-        result.ok &&
-        (result.data as { status?: string } | undefined)?.status === "needs_confirmation"
-      ) {
-        emit("reactivate_proposal", (result.data as { proposal: unknown }).proposal);
-      }
-      if (
-        call.name === "change_plan" &&
-        result.ok &&
-        (result.data as { status?: string } | undefined)?.status === "needs_confirmation"
-      ) {
-        emit("plan_change_proposal", (result.data as { proposal: unknown }).proposal);
-      }
-
-      // Only an explicit history request (list_orders) drives the orders card.
-      if (
-        call.name === "list_orders" &&
-        result.ok &&
-        Array.isArray((result.data as { orders?: unknown[] } | undefined)?.orders)
-      ) {
-        emit("orders", (result.data as { orders: unknown[] }).orders);
-      }
-
-      // Cancellation proposal surfaces its own confirmation card.
-      if (
-        call.name === "cancel_subscription" &&
-        result.ok &&
-        (result.data as { status?: string } | undefined)?.status === "needs_confirmation"
-      ) {
-        emit("cancel_proposal", (result.data as { proposal: unknown }).proposal);
+      // An explicit history request drives the transactions/orders card.
+      if (call.name === "list_orders" && result.ok) {
+        emit("history", data);
       }
 
       emit("tool_result", { name: call.name, ok: result.ok, summary: result.summary });
 
-      messages.push({
-        role: "tool",
-        toolCallId: call.id,
-        content: JSON.stringify(result.data ?? { ok: result.ok, summary: result.summary }),
-      });
+      // Message fed back to the model:
+      //  - duplicate proposal → tell it the prompt is already shown, stop calling.
+      //  - list_orders → withhold the order details (else it re-lists them in text).
+      //  - otherwise → the tool's data.
+      let modelContent: string;
+      if (duplicateProposal) {
+        modelContent = JSON.stringify({
+          note: "The confirmation prompt is already shown to the customer. Do NOT call this tool again — just reply with a short sentence asking them to confirm.",
+        });
+      } else if (call.name === "list_orders") {
+        modelContent = JSON.stringify({
+          shown: true,
+          note: "The order history has been shown to the customer in a card. Reply with only a short lead-in like 'Here's your order history:' and do NOT list the orders in text.",
+        });
+      } else {
+        modelContent = JSON.stringify(result.data ?? { ok: result.ok, summary: result.summary });
+      }
+
+      messages.push({ role: "tool", toolCallId: call.id, content: modelContent });
     }
   }
 

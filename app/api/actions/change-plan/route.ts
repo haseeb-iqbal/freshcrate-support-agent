@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { customers, subscriptionEvents } from "@/db/schema";
+import { customers, subscriptionEvents, transactions } from "@/db/schema";
 import { getPlan, prorationCents, weeksUntilDate } from "@/lib/billing/pricing";
 
 export const runtime = "nodejs";
@@ -12,8 +12,8 @@ interface ChangePlanBody {
   plan?: string;
 }
 
-/** Applies a plan change and records the prorated charge/refund — called by the
- *  plan-change confirmation prompt's Confirm button, never the model. */
+/** Applies a plan change, records the prorated charge/refund, and logs the
+ *  status change. Called by the confirmation prompt, never the model. */
 export async function POST(req: NextRequest) {
   let body: ChangePlanBody;
   try {
@@ -30,6 +30,9 @@ export async function POST(req: NextRequest) {
 
   const [customer] = await db.select().from(customers).where(eq(customers.id, customerId)).limit(1);
   if (!customer) return new Response("Unknown customer", { status: 404 });
+  if (customer.subscriptionStatus === "cancelled") {
+    return Response.json({ ok: false, error: "cancelled" }, { status: 409 });
+  }
 
   const currentPlan = await getPlan(customer.plan);
   const weeksLeft = weeksUntilDate(customer.billingDate);
@@ -39,8 +42,16 @@ export async function POST(req: NextRequest) {
   await db.insert(subscriptionEvents).values({
     customerId,
     eventType: "plan_changed",
-    metadata: { from: customer.plan, to: newPlan, monthlyCents: plan.monthlyCents, prorationCents: proration },
+    metadata: { from: customer.plan, to: newPlan },
   });
+  if (proration !== 0) {
+    await db.insert(transactions).values({
+      customerId,
+      type: "proration",
+      amountCents: proration,
+      description: proration > 0 ? `Plan upgrade proration → ${newPlan}` : `Plan downgrade credit → ${newPlan}`,
+    });
+  }
 
   return Response.json({ ok: true, plan: newPlan, monthly_cents: plan.monthlyCents, proration_cents: proration });
 }

@@ -1,29 +1,23 @@
 import type { NextRequest } from "next/server";
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { customers, orders } from "@/db/schema";
+import { customers, orders, subscriptionEvents, transactions } from "@/db/schema";
+import { refundAmountCents } from "@/lib/tools/orders";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** Account view for the details + order-history panel: the customer's profile
- *  and their full order history, scoped to the requested customerId. */
+/** Account view: profile, order history, money ledger, and status-change trail. */
 export async function GET(req: NextRequest) {
   const customerId = req.nextUrl.searchParams.get("customerId");
   if (!customerId) return new Response("Missing customerId", { status: 400 });
 
-  const [customer] = await db
-    .select()
-    .from(customers)
-    .where(eq(customers.id, customerId))
-    .limit(1);
+  const [customer] = await db.select().from(customers).where(eq(customers.id, customerId)).limit(1);
   if (!customer) return new Response("Unknown customer", { status: 404 });
 
-  const orderRows = await db
-    .select()
-    .from(orders)
-    .where(eq(orders.customerId, customerId))
-    .orderBy(desc(orders.placedAt));
+  const orderRows = await db.select().from(orders).where(eq(orders.customerId, customerId)).orderBy(desc(orders.placedAt));
+  const txns = await db.select().from(transactions).where(eq(transactions.customerId, customerId)).orderBy(desc(transactions.createdAt));
+  const events = await db.select().from(subscriptionEvents).where(eq(subscriptionEvents.customerId, customerId)).orderBy(desc(subscriptionEvents.createdAt));
 
   return Response.json({
     customer: {
@@ -39,12 +33,24 @@ export async function GET(req: NextRequest) {
     },
     orders: orderRows.map((o) => ({
       order_number: o.orderNumber,
+      kind: o.kind,
       status: o.status,
-      total_cents: o.totalCents,
+      charged_cents: o.totalCents,
+      list_price_cents: o.listPriceCents,
+      add_ons: o.addOns ?? [],
+      refund_cents: refundAmountCents(o),
       delivery_date: o.deliveryDate,
       refunded: o.refundedAt !== null,
       refunded_at: o.refundedAt ? o.refundedAt.toISOString().slice(0, 10) : null,
       items: o.items ?? [],
     })),
+    transactions: txns.map((t) => ({
+      type: t.type,
+      amount_cents: t.amountCents,
+      description: t.description,
+      order_number: t.orderNumber,
+      date: t.createdAt.toISOString().slice(0, 10),
+    })),
+    statusHistory: events.map((e) => ({ event: e.eventType, date: e.createdAt.toISOString().slice(0, 10) })),
   });
 }

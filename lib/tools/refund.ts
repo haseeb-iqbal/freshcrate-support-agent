@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "../../db";
 import { orders } from "../../db/schema";
 import { evaluateRefund } from "../guardrails/refund-policy";
+import { refundAmountCents } from "./orders";
 import type { Tool } from "./types";
 
 /**
@@ -40,7 +41,10 @@ export const issueRefund: Tool = {
       return { ok: false, summary: `No order ${orderNumber} found for this customer` };
     }
 
-    const amount = `$${(order.totalCents / 100).toFixed(2)}`;
+    // Refund = the meal's list (undiscounted) price + add-ons, even for a free
+    // subscription meal.
+    const refundCents = refundAmountCents(order);
+    const amount = `$${(refundCents / 100).toFixed(2)}`;
 
     // Safeguard: an order refunded once cannot be auto-refunded again.
     if (order.refundedAt) {
@@ -56,14 +60,14 @@ export const issueRefund: Tool = {
       };
     }
 
-    const decision = evaluateRefund({ totalCents: order.totalCents });
+    const decision = evaluateRefund({ totalCents: refundCents });
     if (decision.kind === "over_ceiling") {
       return {
         ok: true,
         summary: `Refund ${amount} exceeds the self-service limit — needs a human`,
         data: {
           status: "over_ceiling",
-          amount_cents: order.totalCents,
+          amount_cents: refundCents,
           ceiling_cents: decision.ceilingCents,
           message:
             "This refund is above the amount support can approve automatically. Tell the customer it needs a human specialist, then call escalate_to_human. Do not claim the refund was issued.",
@@ -77,7 +81,15 @@ export const issueRefund: Tool = {
       summary: `Proposed refund of ${amount} for order ${orderNumber} — awaiting approval`,
       data: {
         status: "needs_confirmation",
-        proposal: { order_number: orderNumber, amount_cents: order.totalCents, reason, items: order.items ?? [] },
+        proposal: {
+          order_number: orderNumber,
+          amount_cents: refundCents,
+          list_price_cents: order.listPriceCents,
+          add_ons: order.addOns ?? [],
+          kind: order.kind,
+          reason,
+          items: order.items ?? [],
+        },
         message:
           "A confirmation prompt has been shown to the customer with the refund details (order, amount, card). Let them know their order can be refunded and ask if they'd like to initiate it. Do NOT say the refund is done — it is only initiated once they confirm.",
       },

@@ -31,6 +31,17 @@ export const changePlan: Tool = {
       };
     }
     const [customer] = await db.select().from(customers).where(eq(customers.id, ctx.customerId)).limit(1);
+    if (customer?.subscriptionStatus === "cancelled") {
+      return {
+        ok: true,
+        summary: "Cancelled — must reactivate before changing plan",
+        data: {
+          status: "cancelled",
+          message:
+            "The subscription is cancelled, so the plan can't be changed directly. To start on this plan, call reactivate_subscription with new_plan set to the requested plan — that reactivates and switches plan together.",
+        },
+      };
+    }
     if (customer?.plan === newPlan) {
       return { ok: true, summary: `Already on ${newPlan}`, data: { status: "noop", message: "The customer is already on this plan — let them know, no change needed." } };
     }

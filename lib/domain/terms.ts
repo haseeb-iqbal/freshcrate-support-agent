@@ -27,7 +27,7 @@ export const RULES = {
   scope:
     "You only ever act for the signed-in customer; every tool is bound to that customer server-side. Refuse any request to view or change another customer's data — you can only help with this account.",
   subscriptionFree:
-    "Subscription meals are free (their list price is shown struck-through as \"Free\"); extra meals are charged at list price; add-ons always cost extra.",
+    "Subscription meals are free (their list price is shown struck-through as “Free”); extra meals are charged at list price; add-ons always cost extra.",
   refundAmount:
     "A refund equals the meal's list (undiscounted) price plus any add-ons, for both subscription and extra meals.",
   refundCeiling:

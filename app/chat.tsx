@@ -402,6 +402,8 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
           return { ...m, steps };
         }),
       );
+    } else if (event === "reset") {
+      setMessages((prev) => updateLast(prev, (m) => ({ ...m, content: "" })));
     } else if (event === "delta") {
       const delta = data as string;
       setMessages((prev) => updateLast(prev, (m) => ({ ...m, content: m.content + delta })));
@@ -626,7 +628,7 @@ function MessageBubble({
         {!isUser && message.steps && message.steps.length > 0 && <ToolSteps steps={message.steps} />}
 
         {message.content && (
-          <p className="whitespace-pre-wrap">
+          <p data-testid={isUser ? "user-text" : "assistant-text"} className="whitespace-pre-wrap">
             {message.content}
             {streaming && !isUser && <span className="ml-0.5 animate-pulse">▋</span>}
           </p>
@@ -790,7 +792,7 @@ function TxnRow({ t }: { t: TransactionView }) {
 
 function HistoryCard({ history }: { history: HistoryData }) {
   return (
-    <div className="mt-3 space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+    <div data-testid="history-card" className="mt-3 space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
       <div>
         <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Orders</p>
         <div className="space-y-2">
@@ -830,7 +832,7 @@ function RefundCard({
   const amount = money(proposal.amount_cents);
   const card = paymentMethod ?? "your card on file";
   return (
-    <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+    <div data-testid="refund-card" className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-700">Refund request</p>
       <p className="mt-1 text-sm text-slate-800">
         This order can be refunded. Order <span className="font-mono text-xs">{proposal.order_number}</span>{" "}
@@ -885,7 +887,7 @@ function PauseCard({
   const resume = fmtDate(proposal.resume_date);
   const fee = money(proposal.hold_fee_cents);
   return (
-    <div className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-3">
+    <div data-testid="pause-card" className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-3">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-700">Pause request</p>
       {proposal.indefinite ? (
         <p className="mt-1 text-sm text-slate-800">

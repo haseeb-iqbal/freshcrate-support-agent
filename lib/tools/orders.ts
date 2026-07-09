@@ -2,8 +2,8 @@ import { desc, eq } from "drizzle-orm";
 import { db } from "../../db";
 import { orders, transactions } from "../../db/schema";
 import type { Tool } from "./types";
-
-const OPEN_STATUSES = ["processing", "shipped"];
+import { OPEN_STATUSES, ORDER_KINDS, ORDER_STATUSES, type OrderKind, type OrderSelector, type OrderStatus } from "@/lib/domain/terms";
+import { selectOrder, type SelectableOrder } from "./select-order";
 
 type OrderRow = typeof orders.$inferSelect;
 
@@ -29,38 +29,46 @@ function view(o: OrderRow) {
   };
 }
 
-/** Look up ONE order (named or most recent), scoped to the customer. */
+/** Look up ONE order for the current customer, by number, position, kind, or status. */
 export const lookupOrder: Tool = {
   definition: {
     name: "lookup_order",
     description:
-      "Look up ONE order for the current customer: pass order_number for a specific order, or omit it for the most recent. Use for questions about a particular order's status, price, or delivery. Do NOT use it to list all orders — use list_orders. If the customer is vague and has more than one open order, the result says so.",
+      "Look up ONE order for the current customer. Use order_number for a specific order (e.g. FC1002); use position for a relative one (1 = most recent, 2 = 2nd most recent, …); narrow with kind (subscription|extra) and/or status. Omit everything for the most recent order. Use this — NOT list_orders — whenever the customer means a single order, including 'my last order', 'my 2nd last order', or 'my most recent extra meal'. list_orders is only for showing the full history.",
     parameters: {
       type: "object",
       properties: {
-        order_number: { type: "string", description: "Specific order number, e.g. FC1001. Omit for the most recent." },
+        order_number: { type: "string", description: "Specific order number, e.g. FC1001." },
+        position: { type: "integer", minimum: 1, description: "1 = most recent, 2 = 2nd most recent, …" },
+        kind: { type: "string", enum: [...ORDER_KINDS], description: "subscription (plan meal) or extra." },
+        status: { type: "string", enum: [...ORDER_STATUSES], description: "Filter to this status." },
       },
       additionalProperties: false,
     },
   },
   async handler(ctx, args) {
-    const orderNumber = args.order_number ? String(args.order_number).trim() : undefined;
     const all = await db
       .select()
       .from(orders)
       .where(eq(orders.customerId, ctx.customerId))
       .orderBy(desc(orders.placedAt));
 
-    const focus = orderNumber ? all.find((o) => o.orderNumber === orderNumber) : all[0];
-    if (orderNumber && !focus) return { ok: false, summary: `No order ${orderNumber} found for this customer` };
-    if (!focus) return { ok: false, summary: "This customer has no orders" };
+    const posRaw = args.position;
+    const sel: OrderSelector = {
+      orderNumber: args.order_number ? String(args.order_number).trim() : undefined,
+      position: posRaw === undefined || posRaw === null ? undefined : Number(posRaw),
+      kind: (ORDER_KINDS as readonly string[]).includes(String(args.kind)) ? (args.kind as OrderKind) : undefined,
+      status: (ORDER_STATUSES as readonly string[]).includes(String(args.status)) ? (args.status as OrderStatus) : undefined,
+    };
 
-    const openCount = all.filter((o) => OPEN_STATUSES.includes(o.status)).length;
+    const focus = selectOrder(all as unknown as SelectableOrder[], sel) as OrderRow | null;
+    if (!focus) {
+      return { ok: false, summary: "No matching order found for this customer" };
+    }
+    const openCount = all.filter((o) => (OPEN_STATUSES as readonly string[]).includes(o.status)).length;
     return {
       ok: true,
-      summary:
-        `Order ${focus.orderNumber}: ${focus.kind} meal, ${focus.status}${focus.refundedAt ? ", refunded" : ""}` +
-        (!orderNumber && openCount > 1 ? ` · ${openCount} open orders` : ""),
+      summary: `Order ${focus.orderNumber}: ${focus.kind} meal, ${focus.status}${focus.refundedAt ? ", refunded" : ""}`,
       data: { order: view(focus), open_order_count: openCount },
     };
   },

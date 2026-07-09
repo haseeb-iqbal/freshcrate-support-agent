@@ -1,0 +1,45 @@
+import type { AgentStreamEvent } from "./types";
+
+interface Script {
+  pre_tool: AgentStreamEvent[]; // model's first turn (before any tool result)
+  post_tool: AgentStreamEvent[]; // model's turn after a tool result exists
+}
+
+const t = (value: string): AgentStreamEvent => ({ type: "text", value });
+const call = (name: string, args: object): AgentStreamEvent => ({
+  type: "tool_calls",
+  value: [{ id: "call_1", name, arguments: JSON.stringify(args) }],
+});
+
+/** Keyed on the normalized latest user message. Order numbers match db/seed.ts. */
+export const MOCK_SCRIPTS: Record<string, Script> = {
+  "where's my 2nd last order": {
+    pre_tool: [call("lookup_order", { position: 2 })],
+    post_tool: [t("Your 2nd most recent order, FC1005, has shipped and is on its way.")],
+  },
+  "show my order history": {
+    // Deliberate preamble text BEFORE the tool call — exercises the reset fix.
+    pre_tool: [t("Sure, let me pull that up. "), call("list_orders", {})],
+    post_tool: [t("Here's your order history:")],
+  },
+  "pause my subscription for 2 weeks": {
+    pre_tool: [call("pause_subscription", { weeks: 2 })],
+    post_tool: [t("I've set up a 2-week pause — confirm below to apply it.")],
+  },
+  "refund my last order, it was damaged": {
+    pre_tool: [call("issue_refund", { order_number: "FC1020", reason: "damaged box" })],
+    post_tool: [t("That refund is above what I can approve automatically, so I've escalated it to a specialist.")],
+  },
+  "what's the capital of france?": {
+    pre_tool: [t("I can only help with FreshCrate orders, subscriptions, and policies — anything about your account I can help with?")],
+    post_tool: [],
+  },
+  "cancel my order": {
+    pre_tool: [t("You have two open orders, FC1004 and FC1005 — which one would you like to cancel?")],
+    post_tool: [],
+  },
+};
+
+export function normalize(s: string): string {
+  return s.trim().toLowerCase().replace(/\s+/g, " ");
+}

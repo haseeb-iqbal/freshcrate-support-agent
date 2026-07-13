@@ -1,5 +1,7 @@
 # FreshCrate Support Agent
 
+If you wish to look at the development process and motivations behind the project head over to the [`Dev Log`](/docs/DEVLOG.md).
+
 An agentic AI customer-support assistant for a fictional meal-kit subscription company. It answers help questions grounded in a knowledge base **with citations**, and performs **guard-railed account actions** (order lookup, subscription pause/resume/cancel, plan changes, refunds, escalation) against a Postgres database — behind safety, scoping, and cost controls.
 
 This is a **portfolio project**. The fictional company is just the demo surface; the engineering patterns — agentic RAG, guarded tool use with human-in-the-loop confirmation, prompt-injection resistance, and a deterministic test harness — are the deliverable.

@@ -1,6 +1,6 @@
 # FreshCrate Support Agent
 
-> If you wish to look at the development process and motivations behind the project head over to the [`Dev Log`](/docs/DEVLOG.md).
+> If you wish to look at the development process and motivations behind the project head over to the [Dev Log](/docs/DEVLOG.md).
 
 ## Description
 

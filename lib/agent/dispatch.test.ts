@@ -3,7 +3,7 @@ import { dispatchTool, type DispatchState } from "./dispatch";
 import type { ToolCall } from "@/lib/llm/types";
 import type { ToolResult } from "@/lib/tools/types";
 
-const call = (name: string, id = "c1"): ToolCall => ({ id, name, arguments: "{}" });
+const call = (name: string, id = "c1", args = "{}"): ToolCall => ({ id, name, arguments: args });
 const freshState = (): DispatchState => ({ shownProposals: new Set() });
 
 describe("dispatchTool", () => {
@@ -31,6 +31,52 @@ describe("dispatchTool", () => {
     const second = dispatchTool(call("issue_refund"), result, state);
     expect(second.events.some((e) => e.event === "refund_proposal")).toBe(false);
     expect(second.modelContent).toContain("already shown");
+  });
+
+  it("surfaces two proposals of the same tool when their arguments differ", () => {
+    const state = freshState();
+    const proposalFor = (orderNumber: string): ToolResult => ({
+      ok: true,
+      summary: "proposed",
+      data: { status: "needs_confirmation", proposal: { order_number: orderNumber } },
+    });
+
+    const first = dispatchTool(
+      call("issue_refund", "c1", JSON.stringify({ order_number: "FC1002" })),
+      proposalFor("FC1002"),
+      state,
+    );
+    const second = dispatchTool(
+      call("issue_refund", "c2", JSON.stringify({ order_number: "FC1007" })),
+      proposalFor("FC1007"),
+      state,
+    );
+
+    expect(first.events.some((e) => e.event === "refund_proposal")).toBe(true);
+    expect(second.events.some((e) => e.event === "refund_proposal")).toBe(true);
+  });
+
+  it("dedupes identical arguments regardless of key order", () => {
+    const state = freshState();
+    const result: ToolResult = {
+      ok: true,
+      summary: "proposed",
+      data: { status: "needs_confirmation", proposal: { order_number: "FC1002" } },
+    };
+
+    const first = dispatchTool(
+      call("issue_refund", "c1", JSON.stringify({ order_number: "FC1002", reason: "late" })),
+      result,
+      state,
+    );
+    const second = dispatchTool(
+      call("issue_refund", "c2", JSON.stringify({ reason: "late", order_number: "FC1002" })),
+      result,
+      state,
+    );
+
+    expect(first.events.some((e) => e.event === "refund_proposal")).toBe(true);
+    expect(second.events.some((e) => e.event === "refund_proposal")).toBe(false);
   });
 
   it("withholds order details for list_orders and emits history", () => {

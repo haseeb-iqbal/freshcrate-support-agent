@@ -38,9 +38,9 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
   const base = buildSystemPrompt();
   const system = customerLabel ? `${base}\n\nSigned-in customer: ${customerLabel}.` : base;
   const messages: AgentMessage[] = buildAgentMessages(system, history);
-  const lastUserText = [...history].reverse().find((m) => m.role === "user")?.content ?? "";
 
   let nudged = false;
+  let toolCallsMade = 0;
   const state: DispatchState = { shownProposals: new Set() };
 
   for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
@@ -61,7 +61,7 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
     }
 
     if (toolCalls.length === 0) {
-      if (shouldNudge({ userText: lastUserText, toolCallCount: 0, alreadyNudged: nudged })) {
+      if (shouldNudge({ assistantText: text, toolCallCount: toolCallsMade, alreadyNudged: nudged })) {
         nudged = true;
         if (streamedText) emit("reset", {}); // discard the pre-nudge preamble
         if (text) messages.push({ role: "assistant", content: text });
@@ -79,6 +79,7 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
     // A tool turn is never the final answer — clear any preamble it streamed.
     if (streamedText) emit("reset", {});
     messages.push({ role: "assistant", content: text, toolCalls });
+    toolCallsMade += toolCalls.length;
 
     for (const call of toolCalls) {
       let args: Record<string, unknown> = {};

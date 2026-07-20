@@ -11,8 +11,33 @@ export const PROPOSAL_EVENTS: Record<string, string> = {
 };
 
 export interface DispatchState {
-  /** Proposal tool names already surfaced this turn (dedupes duplicate cards). */
+  /** Idempotency keys of proposals already surfaced this turn (dedupes duplicate cards). */
   shownProposals: Set<string>;
+}
+
+/** Stable stringify — key order must not affect the idempotency key. */
+function canonical(value: unknown): string {
+  if (value === null || typeof value !== "object") return JSON.stringify(value) ?? "null";
+  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
+  const obj = value as Record<string, unknown>;
+  return `{${Object.keys(obj)
+    .sort()
+    .map((k) => `${JSON.stringify(k)}:${canonical(obj[k])}`)
+    .join(",")}}`;
+}
+
+/**
+ * Dedupe on tool name + arguments, not name alone: two refunds for two different
+ * orders in one turn are distinct proposals and must BOTH reach the customer.
+ */
+function proposalKey(call: ToolCall): string {
+  let args: unknown;
+  try {
+    args = call.arguments ? JSON.parse(call.arguments) : {};
+  } catch {
+    args = call.arguments; // unparseable — key off the raw string
+  }
+  return `${call.name}:${canonical(args)}`;
 }
 
 export interface EmitEvent {
@@ -43,10 +68,11 @@ export function dispatchTool(call: ToolCall, result: ToolResult, state: Dispatch
   // needs_confirmation results surface an action card — but only once.
   let duplicateProposal = false;
   if (result.ok && data?.status === "needs_confirmation" && PROPOSAL_EVENTS[call.name]) {
-    if (state.shownProposals.has(call.name)) {
+    const key = proposalKey(call);
+    if (state.shownProposals.has(key)) {
       duplicateProposal = true;
     } else {
-      state.shownProposals.add(call.name);
+      state.shownProposals.add(key);
       events.push({ event: PROPOSAL_EVENTS[call.name], data: data.proposal });
     }
   }
@@ -61,7 +87,7 @@ export function dispatchTool(call: ToolCall, result: ToolResult, state: Dispatch
   let modelContent: string;
   if (duplicateProposal) {
     modelContent = JSON.stringify({
-      note: "The confirmation prompt is already shown to the customer. Do NOT call this tool again — just reply with a short sentence asking them to confirm.",
+      note: "This exact confirmation prompt is already shown to the customer. Do NOT repeat it — just reply with a short sentence asking them to confirm.",
     });
   } else if (call.name === "list_orders") {
     modelContent = JSON.stringify({

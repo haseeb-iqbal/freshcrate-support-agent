@@ -61,6 +61,24 @@ describe("runAgent", () => {
     expect(events.some((e) => e.event === "pause_proposal")).toBe(true);
   });
 
+  it("does not nudge when the tool already ran and the final text describes it", async () => {
+    const events: { event: string; data: unknown }[] = [];
+    const deps: AgentDeps = {
+      provider: fakeProvider([
+        toolTurn("pause_subscription"),
+        textTurn("I've paused your subscription — please confirm below."),
+      ]),
+      toolByName: okTool("pause_subscription", { status: "needs_confirmation", proposal: { weeks: 2 } }),
+      toolDefinitions: [],
+    };
+    await runAgent({ customerId: "x", history: [{ role: "user", content: "pause my subscription" }], emit: (e, d) => events.push({ event: e, data: d }) }, deps);
+
+    // The tool already ran — the closing sentence must not trigger a second round.
+    expect(events.filter((e) => e.event === "tool_call").length).toBe(1);
+    expect(events.some((e) => e.event === "reset")).toBe(false);
+    expect(events.find((e) => e.event === "done")?.data).not.toMatchObject({ truncated: true });
+  });
+
   it("does not nudge or reset a plain off-topic answer", async () => {
     const events: { event: string; data: unknown }[] = [];
     const deps: AgentDeps = { provider: fakeProvider([textTurn("I can only help with FreshCrate.")]), toolByName: {}, toolDefinitions: [] };

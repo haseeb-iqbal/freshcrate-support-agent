@@ -25,7 +25,7 @@ If a meal arrives damaged or is missing, you're refunded its **list price plus a
 You can switch between the 2, 3, and 4 meals/week plans any time (while your subscription is active or paused). The change is **prorated**: you're charged or credited the difference in the weekly rate for the weeks remaining until your billing date, and your new plan starts the following week. There's no fee to switch. A cancelled subscription must be reactivated before (or while) changing plan.
 
 ## How pause billing works
-Pausing keeps your plan reserved, so it isn't free: while paused you're billed a **hold fee of 20% of the value of the boxes you skip** (weekly rate × weeks paused). A 2 meals/week customer ($30/week) pausing 2 weeks pays a $12 hold fee. You can pause for 1–12 weeks or indefinitely (billed monthly while paused).
+Pausing keeps your plan reserved for a flat **$8/week pause fee**. When you pause, you're **credited** the value of each week you'll skip before your next billing date, minus that $8/week fee — so a 2 meals/week customer ($30/week) with 2 weeks until billing gets a **$44 credit** (2 × ($30 − $8)). When you later resume, you're **charged** for the weeks left until billing at your plan's weekly rate, again minus $8/week. You can pause for 1–52 weeks, until a date within a year, or indefinitely (the $8/week fee is billed monthly while you stay paused).
 
 ## Cancelling and the reactivation sign-up fee
 Cancelling is free and stops future boxes. Reactivating a **cancelled** subscription charges a one-time **$40 sign-up fee** — UNLESS you resubscribe *before your billing date on the same plan*, in which case reactivation is **free**. (Resuming a *paused* subscription is always free and immediate.)

@@ -73,7 +73,19 @@ interface PauseProposal {
   indefinite: boolean;
   weeks: number | null;
   resume_date: string | null;
-  hold_fee_cents: number;
+  reimbursement_cents: number;
+  weekly_fee_cents: number;
+  weeks_to_billing: number;
+}
+
+interface ResumeProposal {
+  plan: string;
+  previous_plan?: string | null;
+  plan_changed: boolean;
+  weekly_cents: number;
+  charge_cents: number;
+  weeks_to_billing: number;
+  billing_date?: string | null;
 }
 
 interface ReactivateProposal {
@@ -96,6 +108,7 @@ interface PlanChangeProposal {
   proration_cents: number;
   weeks_until_billing: number;
   billing_date?: string | null;
+  weekly_savings_cents?: number;
 }
 
 interface CancelProposal {
@@ -115,6 +128,8 @@ interface Message {
   proposalState?: ProposalState;
   pauseProposal?: PauseProposal;
   pauseState?: ProposalState;
+  resumeProposal?: ResumeProposal;
+  resumeState?: ProposalState;
   reactivateProposal?: ReactivateProposal;
   reactivateState?: ProposalState;
   planProposal?: PlanChangeProposal;
@@ -247,6 +262,9 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
   function setPauseState(index: number, state: ProposalState) {
     setMessages((prev) => prev.map((m, i) => (i === index ? { ...m, pauseState: state } : m)));
   }
+  function setResumeState(index: number, state: ProposalState) {
+    setMessages((prev) => prev.map((m, i) => (i === index ? { ...m, resumeState: state } : m)));
+  }
   function setReactivateState(index: number, state: ProposalState) {
     setMessages((prev) => prev.map((m, i) => (i === index ? { ...m, reactivateState: state } : m)));
   }
@@ -280,6 +298,15 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
   async function confirmPlanChange(index: number, proposal: PlanChangeProposal) {
     const ok = await postAction("/api/actions/change-plan", { customerId, plan: proposal.plan });
     setPlanState(index, ok ? "approved" : "error");
+    if (ok) refreshCustomers();
+  }
+
+  async function confirmResume(index: number, proposal: ResumeProposal) {
+    const ok = await postAction("/api/actions/resume", {
+      customerId,
+      newPlan: proposal.plan_changed ? proposal.plan : undefined,
+    });
+    setResumeState(index, ok ? "approved" : "error");
     if (ok) refreshCustomers();
   }
 
@@ -400,6 +427,8 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
       patchLast({ proposal: data as RefundProposal, proposalState: "pending" });
     } else if (event === "pause_proposal") {
       patchLast({ pauseProposal: data as PauseProposal, pauseState: "pending" });
+    } else if (event === "resume_proposal") {
+      patchLast({ resumeProposal: data as ResumeProposal, resumeState: "pending" });
     } else if (event === "reactivate_proposal") {
       patchLast({ reactivateProposal: data as ReactivateProposal, reactivateState: "pending" });
     } else if (event === "plan_change_proposal") {
@@ -534,6 +563,8 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
                 onDeclineRefund={() => setProposalState(i, "declined")}
                 onConfirmPause={() => m.pauseProposal && confirmPause(i, m.pauseProposal)}
                 onDeclinePause={() => setPauseState(i, "declined")}
+                onConfirmResume={() => m.resumeProposal && confirmResume(i, m.resumeProposal)}
+                onDeclineResume={() => setResumeState(i, "declined")}
                 onConfirmReactivate={() => m.reactivateProposal && confirmReactivate(i, m.reactivateProposal)}
                 onDeclineReactivate={() => setReactivateState(i, "declined")}
                 onConfirmPlan={() => m.planProposal && confirmPlanChange(i, m.planProposal)}
@@ -622,6 +653,8 @@ function MessageBubble({
   onDeclineRefund,
   onConfirmPause,
   onDeclinePause,
+  onConfirmResume,
+  onDeclineResume,
   onConfirmReactivate,
   onDeclineReactivate,
   onConfirmPlan,
@@ -636,6 +669,8 @@ function MessageBubble({
   onDeclineRefund: () => void;
   onConfirmPause: () => void;
   onDeclinePause: () => void;
+  onConfirmResume: () => void;
+  onDeclineResume: () => void;
   onConfirmReactivate: () => void;
   onDeclineReactivate: () => void;
   onConfirmPlan: () => void;
@@ -656,6 +691,7 @@ function MessageBubble({
     !message.history &&
     !message.proposal &&
     !message.pauseProposal &&
+    !message.resumeProposal &&
     !message.reactivateProposal &&
     !message.planProposal;
 
@@ -699,6 +735,15 @@ function MessageBubble({
             state={message.pauseState ?? "pending"}
             onConfirm={onConfirmPause}
             onDecline={onDeclinePause}
+          />
+        )}
+
+        {!isUser && showResults && message.resumeProposal && (
+          <ResumeCard
+            proposal={message.resumeProposal}
+            state={message.resumeState ?? "pending"}
+            onConfirm={onConfirmResume}
+            onDecline={onDeclineResume}
           />
         )}
 
@@ -930,22 +975,29 @@ function PauseCard({
   onDecline: () => void;
 }) {
   const resume = fmtDate(proposal.resume_date);
-  const fee = money(proposal.hold_fee_cents);
+  const credit = money(proposal.reimbursement_cents);
+  const fee = money(proposal.weekly_fee_cents);
+  const hasCredit = proposal.reimbursement_cents > 0;
   return (
     <div data-testid="pause-card" className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-3">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-700">Pause request</p>
       {proposal.indefinite ? (
         <p className="mt-1 text-sm text-slate-800">
-          Pause your subscription <span className="font-semibold">indefinitely</span>? It stays paused until you resume it.
+          Pause your subscription <span className="font-semibold">indefinitely</span>? Your plan pauses from next week and stays paused until you resume it.
         </p>
       ) : (
         <p className="mt-1 text-sm text-slate-800">
           Pause your subscription for <span className="font-semibold">{proposal.weeks} week{proposal.weeks === 1 ? "" : "s"}</span>?
-          It will resume on <span className="font-semibold">{resume}</span>.
+          Your plan pauses from next week and resumes on <span className="font-semibold">{resume}</span>.
         </p>
       )}
       <p className="mt-1 text-xs text-slate-500">
-        While paused you&apos;ll be billed a <span className="font-medium">{fee}</span>{proposal.indefinite ? "/month" : ""} hold fee to reserve your plan.
+        {hasCredit ? (
+          <>You&apos;ll be credited <span className="font-medium text-emerald-600">{credit}</span> now for the weeks skipped before billing, </>
+        ) : (
+          <>No credit is due this cycle (billing is due within the week), </>
+        )}
+        after the <span className="font-medium">{fee}/week</span> pause fee{proposal.indefinite ? ", billed monthly while paused" : ""}.
       </p>
 
       {state === "pending" && (
@@ -960,12 +1012,63 @@ function PauseCard({
       )}
       {state === "approved" && (
         <p className="mt-2 text-xs font-medium text-emerald-700">
-          ✓ Paused{proposal.indefinite ? " indefinitely" : ` — resumes ${resume}`} ({fee}{proposal.indefinite ? "/month" : ""} hold fee).
+          ✓ Paused{proposal.indefinite ? " indefinitely" : ` — resumes ${resume}`}{hasCredit ? ` (${credit} credited)` : ""}.
         </p>
       )}
       {state === "declined" && <p className="mt-2 text-xs font-medium text-slate-500">No problem — your subscription is unchanged.</p>}
       {state === "error" && (
         <p className="mt-2 text-xs font-medium text-red-600">Couldn&apos;t pause the subscription — please try again.</p>
+      )}
+    </div>
+  );
+}
+
+function ResumeCard({
+  proposal,
+  state,
+  onConfirm,
+  onDecline,
+}: {
+  proposal: ResumeProposal;
+  state: ProposalState;
+  onConfirm: () => void;
+  onDecline: () => void;
+}) {
+  const charge = money(proposal.charge_cents);
+  const hasCharge = proposal.charge_cents > 0;
+  return (
+    <div data-testid="resume-card" className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-3">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-700">Resume request</p>
+      {proposal.plan_changed && (
+        <p className="text-[11px] text-slate-500">Switching from {proposal.previous_plan} to {proposal.plan}.</p>
+      )}
+      <p className="mt-1 text-sm text-slate-800">
+        Resume your <span className="font-semibold">{proposal.plan}</span> plan? It restarts from next week
+        {hasCharge ? (
+          <> — you&apos;ll be charged <span className="font-semibold">{charge}</span> for the weeks left until billing (net of the $8/week pause fee).</>
+        ) : (
+          <> at no charge this cycle (billing is due within the week).</>
+        )}
+      </p>
+
+      {state === "pending" && (
+        <div className="mt-2 flex gap-2">
+          <button onClick={onConfirm} className="rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-white transition hover:bg-brand-dark">
+            {hasCharge ? `Pay ${charge} & resume` : "Resume"}
+          </button>
+          <button onClick={onDecline} className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-600 transition hover:bg-slate-50">
+            Not now
+          </button>
+        </div>
+      )}
+      {state === "approved" && (
+        <p className="mt-2 text-xs font-medium text-emerald-700">
+          ✓ Resumed on {proposal.plan}{hasCharge ? ` — ${charge} charged` : ""}.
+        </p>
+      )}
+      {state === "declined" && <p className="mt-2 text-xs font-medium text-slate-500">No problem — your subscription stays paused.</p>}
+      {state === "error" && (
+        <p className="mt-2 text-xs font-medium text-red-600">Couldn&apos;t resume the subscription — please try again.</p>
       )}
     </div>
   );
@@ -1049,12 +1152,17 @@ function PlanCard({
         ? `You'll be refunded ${money(-p)} (prorated for the ${weeks} until billing).`
         : "No proration is due this cycle.";
   return (
-    <div className="mt-3 rounded-lg border border-teal-200 bg-teal-50 p-3">
+    <div data-testid="plan-card" className="mt-3 rounded-lg border border-teal-200 bg-teal-50 p-3">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-teal-700">Plan change</p>
       <p className="mt-1 text-sm text-slate-800">
         Switch{proposal.current_plan ? ` from ${proposal.current_plan}` : ""} to{" "}
         <span className="font-semibold">{proposal.plan}</span> at <span className="font-semibold">{money(proposal.monthly_cents)}/month</span>?
       </p>
+      {proposal.weekly_savings_cents != null && proposal.weekly_savings_cents > 0 && (
+        <p className="mt-1 text-xs text-emerald-600">
+          That&apos;s <span className="font-medium">{money(proposal.weekly_savings_cents)}/week</span> less than buying those meals à la carte.
+        </p>
+      )}
       <p className="mt-1 text-xs text-slate-500">{proration} Your new plan starts next week.</p>
 
       {state === "pending" && (

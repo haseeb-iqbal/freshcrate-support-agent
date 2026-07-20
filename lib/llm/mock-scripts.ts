@@ -26,6 +26,14 @@ export const MOCK_SCRIPTS: Record<string, Script> = {
     pre_tool: [call("pause_subscription", { weeks: 2 })],
     post_tool: [t("I've set up a 2-week pause — confirm below to apply it.")],
   },
+  "resume my subscription": {
+    pre_tool: [call("resume_subscription", {})],
+    post_tool: [t("Here's what resuming looks like — confirm below to restart your plan next week.")],
+  },
+  "switch me to the 4 meals/week plan": {
+    pre_tool: [call("change_plan", { new_plan: "4 meals/week" })],
+    post_tool: [t("Your subscription is paused, so I can resume you on the 4 meals/week plan at the same time — want me to do that?")],
+  },
   "refund my last order, it was damaged": {
     pre_tool: [call("issue_refund", { order_number: "FC1020", reason: "damaged box" })],
     post_tool: [t("That refund is above what I can approve automatically, so I've escalated it to a specialist.")],

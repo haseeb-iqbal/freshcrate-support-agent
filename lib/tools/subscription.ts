@@ -1,7 +1,15 @@
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "../../db";
 import { customers, subscriptionEvents } from "../../db/schema";
-import { SIGNUP_FEE_CENTS, getPlan, holdFeeCents, withinBillingPeriod } from "../billing/pricing";
+import {
+  PAUSE_FEE_CENTS,
+  SIGNUP_FEE_CENTS,
+  getPlan,
+  pauseReimbursementCents,
+  resumeChargeCents,
+  weeksUntilDate,
+  withinBillingPeriod,
+} from "../billing/pricing";
 import type { Tool } from "./types";
 
 /** Resume date for an N-week pause, as an ISO date string (YYYY-MM-DD). */
@@ -9,14 +17,6 @@ export function resumeDateFor(weeks: number, today: Date): string {
   const d = new Date(today);
   d.setDate(d.getDate() + weeks * 7);
   return d.toISOString().slice(0, 10);
-}
-
-/** Whole weeks from `today` until an ISO date, rounded up (a partial week counts). */
-function weeksUntil(isoDate: string, today: Date): number {
-  const start = new Date(today);
-  start.setHours(0, 0, 0, 0);
-  const target = new Date(`${isoDate}T00:00:00`);
-  return Math.ceil((target.getTime() - start.getTime()) / 86_400_000 / 7);
 }
 
 /** Read-only live subscription details. The model must call this for status /
@@ -59,20 +59,21 @@ export const getSubscription: Tool = {
 };
 
 /**
- * Pause is propose-only. Accepts weeks (1-12), a target until_date, or
- * indefinite=true (resume anytime). Shows a confirmation prompt with the resume
- * date + hold fee; applied via /api/actions/pause on confirm.
+ * Pause is propose-only. Accepts weeks (1-52), a target until_date (within a
+ * year), or indefinite=true. The plan pauses from next week; the customer is
+ * reimbursed each skipped week's plan value net of the $8/week pause fee. Shows
+ * a confirmation prompt; applied via /api/actions/pause on confirm.
  */
 export const pauseSubscription: Tool = {
   definition: {
     name: "pause_subscription",
     description:
-      "Start a pause for the current customer's subscription. Provide EITHER weeks (1-12), OR until_date (YYYY-MM-DD) if they named a date (never convert a date to weeks yourself), OR indefinite=true to pause indefinitely (resume anytime). Calling this shows a confirmation prompt with the resume date and hold fee; it does not pause until they confirm.",
+      "Start a pause for the current customer's subscription. Provide EITHER weeks (1-52), OR until_date (YYYY-MM-DD, within a year) if they named a date (never convert a date to weeks yourself), OR indefinite=true to pause indefinitely (resume anytime). Calling this shows a confirmation prompt with the credit they get now and the $8/week pause fee; it does not pause until they confirm.",
     parameters: {
       type: "object",
       properties: {
-        weeks: { type: "integer", minimum: 1, maximum: 12, description: "Number of weeks to pause (1-12)." },
-        until_date: { type: "string", description: "Target resume date YYYY-MM-DD, if the customer gave a date." },
+        weeks: { type: "integer", minimum: 1, maximum: 52, description: "Number of weeks to pause (1-52)." },
+        until_date: { type: "string", description: "Target resume date YYYY-MM-DD (within a year), if the customer gave a date." },
         indefinite: { type: "boolean", description: "Set true to pause indefinitely (no fixed resume date)." },
       },
       additionalProperties: false,
@@ -87,48 +88,70 @@ export const pauseSubscription: Tool = {
       const until = args.until_date ? String(args.until_date).trim() : undefined;
       if (until) {
         if (!/^\d{4}-\d{2}-\d{2}$/.test(until)) return { ok: false, summary: "until_date must be YYYY-MM-DD." };
-        weeks = weeksUntil(until, ctx.now);
-        if (weeks < 1) return { ok: false, summary: "The pause date must be in the future." };
-        if (weeks > 12) return { ok: false, summary: `${until} is about ${weeks} weeks away; pauses are capped at 12 weeks unless indefinite.` };
+        weeks = weeksUntilDate(until, ctx.now);
+        if (weeks < 1) return { ok: false, summary: "The pause date must be at least a week in the future." };
+        if (weeks > 52) return { ok: false, summary: `${until} is about ${weeks} weeks away; pauses are capped at 52 weeks unless indefinite.` };
         resumeDate = until;
       } else {
         weeks = Math.floor(Number(args.weeks));
-        if (!Number.isFinite(weeks) || weeks < 1 || weeks > 12) {
-          return { ok: false, summary: "Provide 1-12 weeks, a date within 12 weeks, or indefinite." };
+        if (!Number.isFinite(weeks) || weeks < 1 || weeks > 52) {
+          return { ok: false, summary: "Provide 1-52 weeks, a date within a year, or indefinite." };
         }
         resumeDate = resumeDateFor(weeks, ctx.now);
       }
     }
 
     const [customer] = await db.select().from(customers).where(eq(customers.id, ctx.customerId)).limit(1);
-    const plan = customer ? await getPlan(customer.plan) : null;
-    // Indefinite pauses bill the hold fee monthly (≈4 weeks); finite pauses bill once.
-    const holdFee = plan ? holdFeeCents(plan.weeklyCents, indefinite ? 4 : weeks!) : 0;
+    if (!customer) return { ok: false, summary: "Customer not found." };
+    if (customer.subscriptionStatus === "cancelled") {
+      return { ok: true, summary: "Cancelled — can't pause", data: { status: "cancelled", message: "A cancelled subscription can't be paused; tell the customer they'd need to reactivate first." } };
+    }
+    const plan = await getPlan(customer.plan);
+    const weeksToBilling = weeksUntilDate(customer.billingDate, ctx.now);
+    const reimbursement = plan ? pauseReimbursementCents(plan.weeklyCents, indefinite ? null : weeks, weeksToBilling) : 0;
 
     return {
       ok: true,
       summary: indefinite
-        ? `Proposed indefinite pause (hold fee $${(holdFee / 100).toFixed(2)}/month)`
-        : `Proposed ${weeks}-week pause (resumes ${resumeDate}, hold fee $${(holdFee / 100).toFixed(2)})`,
+        ? `Proposed indefinite pause ($${(reimbursement / 100).toFixed(2)} credit now, then $8/week billed monthly)`
+        : `Proposed ${weeks}-week pause (resumes ${resumeDate}, $${(reimbursement / 100).toFixed(2)} credit)`,
       data: {
         status: "needs_confirmation",
-        proposal: { indefinite, weeks, resume_date: resumeDate, hold_fee_cents: holdFee },
+        proposal: {
+          indefinite,
+          weeks,
+          resume_date: resumeDate,
+          reimbursement_cents: reimbursement,
+          weekly_fee_cents: PAUSE_FEE_CENTS,
+          weeks_to_billing: weeksToBilling,
+        },
         message:
-          "A confirmation prompt with the pause details and hold fee is shown to the customer. Briefly let them know and ask them to confirm. Do NOT say it's paused until they confirm.",
+          "A confirmation prompt is shown with the credit the customer receives now and the $8/week pause fee; the plan pauses from next week (this week's box still ships). Briefly relay it and ask them to confirm. Do NOT say it's paused until they confirm.",
       },
     };
   },
 };
 
-/** Resume a PAUSED subscription immediately (low-risk, no fee). */
+/**
+ * Resume is propose-only. Optionally switch plan at the same time (new_plan).
+ * Resuming charges the weeks remaining to billing at the plan's weekly rate net
+ * of the $8/week pause fee; the plan resumes from next week. Applied via
+ * /api/actions/resume on confirm.
+ */
 export const resumeSubscription: Tool = {
   definition: {
     name: "resume_subscription",
     description:
-      "Resume the current customer's PAUSED subscription immediately (no fee, no confirmation). Use when a paused customer asks to resume/unpause. NOT for a cancelled subscription — that needs reactivate_subscription.",
-    parameters: { type: "object", properties: {}, additionalProperties: false },
+      "Resume the current customer's PAUSED subscription. Optionally pass new_plan (e.g. '3 meals/week') to resume AND switch plan in one step. Calling this shows a confirmation prompt with the resume charge; it does NOT resume or charge until they confirm. NOT for a cancelled subscription — that needs reactivate_subscription. Don't ask them to confirm before calling.",
+    parameters: {
+      type: "object",
+      properties: {
+        new_plan: { type: "string", description: "Optional plan to switch to while resuming (e.g. '3 meals/week')." },
+      },
+      additionalProperties: false,
+    },
   },
-  async handler(ctx) {
+  async handler(ctx, args) {
     const [customer] = await db.select().from(customers).where(eq(customers.id, ctx.customerId)).limit(1);
     if (!customer) return { ok: false, summary: "Customer not found." };
     if (customer.subscriptionStatus === "cancelled") {
@@ -137,9 +160,36 @@ export const resumeSubscription: Tool = {
     if (customer.subscriptionStatus !== "paused") {
       return { ok: true, summary: `Already ${customer.subscriptionStatus}`, data: { status: customer.subscriptionStatus, message: "Nothing to resume — tell the customer their current status." } };
     }
-    await db.update(customers).set({ subscriptionStatus: "active" }).where(eq(customers.id, ctx.customerId));
-    await db.insert(subscriptionEvents).values({ customerId: ctx.customerId, eventType: "resumed", metadata: {} });
-    return { ok: true, summary: "Subscription resumed", data: { status: "active" } };
+
+    const requestedPlan = args.new_plan ? String(args.new_plan).trim() : undefined;
+    const effectivePlan = requestedPlan || customer.plan;
+    const plan = await getPlan(effectivePlan);
+    if (!plan) return { ok: false, summary: `Unknown plan "${requestedPlan}"`, data: { message: "That plan doesn't exist — ask the customer to pick 2, 3, or 4 meals/week." } };
+
+    const planChanged = !!requestedPlan && requestedPlan !== customer.plan;
+    const weeksToBilling = weeksUntilDate(customer.billingDate, ctx.now);
+    const charge = resumeChargeCents(plan.weeklyCents, weeksToBilling);
+
+    return {
+      ok: true,
+      summary: planChanged
+        ? `Proposed resume on ${effectivePlan} — charge $${(charge / 100).toFixed(2)}`
+        : `Proposed resume — charge $${(charge / 100).toFixed(2)}`,
+      data: {
+        status: "needs_confirmation",
+        proposal: {
+          plan: effectivePlan,
+          previous_plan: customer.plan,
+          plan_changed: planChanged,
+          weekly_cents: plan.weeklyCents,
+          charge_cents: charge,
+          weeks_to_billing: weeksToBilling,
+          billing_date: customer.billingDate,
+        },
+        message:
+          "A confirmation prompt shows the resume charge (weeks left to billing at the plan's weekly rate, net of the $8/week pause fee) and any plan switch; the plan resumes from next week. Ask them to confirm; do NOT say it's resumed until they confirm.",
+      },
+    };
   },
 };
 

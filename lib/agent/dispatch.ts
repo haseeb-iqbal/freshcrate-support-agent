@@ -5,6 +5,7 @@ import type { ToolResult } from "@/lib/tools/types";
 export const PROPOSAL_EVENTS: Record<string, string> = {
   issue_refund: "refund_proposal",
   pause_subscription: "pause_proposal",
+  resume_subscription: "resume_proposal",
   reactivate_subscription: "reactivate_proposal",
   change_plan: "plan_change_proposal",
   cancel_subscription: "cancel_proposal",

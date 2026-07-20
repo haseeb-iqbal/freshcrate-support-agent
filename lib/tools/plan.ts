@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "../../db";
 import { customers } from "../../db/schema";
-import { getPlan, listPlans, prorationCents, weeksUntilDate } from "../billing/pricing";
+import { getPlan, listPlans, prorationCents, weeklySavingsCents, weeksUntilDate } from "../billing/pricing";
 import type { Tool } from "./types";
 
 /** Change the customer's plan — propose-only, with the new monthly price. */
@@ -42,6 +42,17 @@ export const changePlan: Tool = {
         },
       };
     }
+    if (customer?.subscriptionStatus === "paused") {
+      return {
+        ok: true,
+        summary: "Paused — must resume to change plan",
+        data: {
+          status: "paused",
+          message:
+            "The subscription is paused, so the plan can't be changed while paused. Offer to resume AND switch plan together: call resume_subscription with new_plan set to the requested plan (this resumes the subscription on the new plan). Ask if they'd like to do that.",
+        },
+      };
+    }
     if (customer?.plan === newPlan) {
       return { ok: true, summary: `Already on ${newPlan}`, data: { status: "noop", message: "The customer is already on this plan — let them know, no change needed." } };
     }
@@ -65,6 +76,7 @@ export const changePlan: Tool = {
           proration_cents: proration,
           weeks_until_billing: weeksLeft,
           billing_date: customer?.billingDate ?? null,
+          weekly_savings_cents: weeklySavingsCents(plan.mealsPerWeek, plan.weeklyCents),
         },
         message:
           "A confirmation prompt shows the new plan, its monthly price, and the prorated charge/refund for the weeks left until billing (the new plan starts the following week). Ask the customer to confirm; do NOT say it's changed until they confirm.",

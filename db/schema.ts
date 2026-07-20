@@ -44,7 +44,7 @@ export const orders = pgTable("orders", {
 });
 
 // --- transactions (unified money ledger: charges, fees, refunds) --------------
-// type: monthly_billing | signup_fee | hold_fee | proration | meal_charge | refund
+// type: monthly_billing | signup_fee | pause_credit | resume_charge | proration | meal_charge | refund
 export const transactions = pgTable("transactions", {
   id: uuid("id").primaryKey().defaultRandom(),
   customerId: uuid("customer_id")

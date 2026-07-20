@@ -4,10 +4,13 @@
 Pausing skips upcoming boxes without cancelling your subscription. Your plan, recipes preferences, and delivery day are all kept while you're paused. You can pause from **Account → Subscription → Pause**, or just ask support to pause for you.
 
 ## How long you can pause
-You can pause for between 1 and 12 weeks at a time. When the pause period ends, your subscription resumes automatically on your normal delivery day. A small hold fee applies while you're paused to reserve your plan — see the Pricing & Plans article for how it's calculated. Pausing does not count as a cancellation.
+You can pause for **1 to 52 weeks**, until a specific date within a year, or **indefinitely** (resume whenever you like). A finite pause resumes automatically on your normal delivery day when it ends. Pausing does not count as a cancellation. A **cancelled** subscription can't be paused — you'd reactivate it first.
 
-## Pausing before the weekly cutoff
-A pause only affects boxes that haven't locked yet. To skip this week's box, pause before the Wednesday 11:59pm cutoff. If you pause after the cutoff, the current week's box still ships and the pause starts the following week.
+## Pausing and resuming take effect next week
+Your plan always pauses (or resumes) from **next week** — this week's box still ships. When you pause, you're **credited** the value of the weeks you'll skip before your next billing date, minus the $8/week pause fee (see Pricing & Plans). When you resume, you're **charged** for the weeks remaining until billing at your plan's weekly rate, minus the same $8/week fee.
+
+## Changing plan while paused
+You can't change plan while paused. If you'd like a different plan, resume and switch at the same time — resuming on the new plan applies its weekly rate to the resume charge.
 
 ## Resuming early
-You can resume any time before your scheduled resume date from **Account → Subscription → Resume**. Resuming early reactivates your next eligible box based on the weekly cutoff.
+You can resume any time before your scheduled resume date from **Account → Subscription → Resume**, or by asking support. Resuming restarts your plan from next week.

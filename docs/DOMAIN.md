@@ -24,10 +24,17 @@ mirror is `lib/domain/terms.ts`; pricing lives in `lib/billing/pricing.ts` + the
 - Only meal orders are refundable. **Fees** (sign-up, pause hold, plan-change
   proration, monthly billing) are never auto-refunded → escalate.
 
-## Subscription lifecycle
-- Pause (1–12 weeks, a date, or indefinite; 20% hold fee), resume (immediate/free),
-  cancel, reactivate (free within billing on same plan, else plan price + $40 sign-up),
-  change plan (active/paused only; prorated). _Pause economics are reworked in Phase 3._
+## Subscription lifecycle (3 states: active, paused, cancelled)
+- **Pause** (propose→confirm): 1–52 weeks, a date within a year, or indefinite.
+  Takes effect next week. Credits `min(pauseWeeks, weeksToBilling)` (indefinite →
+  weeksToBilling) × (weekly − $8 pause fee). A cancelled sub can't be paused.
+- **Resume** (propose→confirm): charges `weeksToBilling × (weekly − $8)`, at the NEW
+  plan's rate if switching plan at the same time. Takes effect next week.
+- **Change plan**: active only, prorated. On a **paused** sub → resume with new_plan;
+  on a **cancelled** sub → reactivate with new_plan.
+- **Cancel**: active or paused. **Reactivate** (cancelled → active): free within
+  billing on same plan, else plan price + $40 sign-up.
+- Ledger: pauses write `pause_credit` (−), resumes write `resume_charge` (+).
 
 ## Scoping & safety
 - Every tool is bound to the signed-in customer server-side. KB/DB content is

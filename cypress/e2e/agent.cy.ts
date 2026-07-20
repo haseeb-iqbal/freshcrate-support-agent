@@ -41,6 +41,20 @@ describe("FreshCrate agent (mock LLM)", () => {
     cy.get('[data-testid="assistant-text"]').should("contain.text", "confirm");
   });
 
+  it("resume (paused customer) shows a single resume card", () => {
+    signInAs("Diego Santos");
+    ask("resume my subscription");
+    cy.get('[data-testid="resume-card"]').should("have.length", 1);
+    cy.get('[data-testid="assistant-text"]').should("contain.text", "confirm");
+  });
+
+  it("plan change while paused offers resume+switch instead of a plan card", () => {
+    signInAs("Diego Santos");
+    ask("switch me to the 4 meals/week plan");
+    cy.get('[data-testid="plan-card"]').should("not.exist");
+    cy.get('[data-testid="assistant-text"]').should("contain.text", "resume");
+  });
+
   it("over-ceiling refund escalates instead of showing a refund card", () => {
     signInAs("Noah Patel");
     ask("refund my last order, it was damaged");

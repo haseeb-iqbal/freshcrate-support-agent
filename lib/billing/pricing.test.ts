@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { MEAL_LIST_PRICE_CENTS, holdFeeCents, prorationCents, weeklySavingsCents, weeksUntilDate, withinBillingPeriod } from "./pricing";
+import {
+  MEAL_LIST_PRICE_CENTS,
+  PAUSE_FEE_CENTS,
+  pauseReimbursementCents,
+  prorationCents,
+  resumeChargeCents,
+  weeklySavingsCents,
+  weeksUntilDate,
+  withinBillingPeriod,
+} from "./pricing";
 
 const on = (iso: string) => new Date(`${iso}T00:00:00`);
 
@@ -76,9 +85,42 @@ describe("prorationCents", () => {
   });
 });
 
-describe("holdFeeCents", () => {
-  it("charges 20% of the skipped boxes' value", () => {
-    expect(holdFeeCents(3000, 2)).toBe(1200);
+describe("pauseReimbursementCents", () => {
+  it("charges an $8/week pause fee", () => {
+    expect(PAUSE_FEE_CENTS).toBe(800);
+  });
+
+  it("reimburses each skipped week's plan value net of the $8 fee (indefinite)", () => {
+    // indefinite → all weeks to billing count: 2 × ($30 − $8) = $44.
+    expect(pauseReimbursementCents(3000, null, 2)).toBe(4400);
+  });
+
+  it("caps a finite pause at the weeks actually before billing", () => {
+    // pause 10 weeks but only 2 until billing → min(10, 2) = 2 × $22 = $44.
+    expect(pauseReimbursementCents(3000, 10, 2)).toBe(4400);
+  });
+
+  it("uses the pause length when it is shorter than the runway to billing", () => {
+    // pause 1 week, 4 until billing → min(1, 4) = 1 × $22 = $22.
+    expect(pauseReimbursementCents(3000, 1, 4)).toBe(2200);
+  });
+
+  it("is zero when billing is due this week", () => {
+    expect(pauseReimbursementCents(3000, 5, 0)).toBe(0);
+  });
+});
+
+describe("resumeChargeCents", () => {
+  it("charges the remaining weeks to billing net of the $8 fee", () => {
+    expect(resumeChargeCents(3000, 2)).toBe(4400); // 2 × ($30 − $8)
+  });
+
+  it("charges against the given weekly rate (e.g. a new plan on resume)", () => {
+    expect(resumeChargeCents(4200, 3)).toBe(10200); // 3 × ($42 − $8)
+  });
+
+  it("is zero when billing is due this week", () => {
+    expect(resumeChargeCents(5200, 0)).toBe(0);
   });
 });
 

@@ -7,6 +7,11 @@ import { MEAL_LIST_PRICE_CENTS } from "../lib/billing/pricing";
  *  recent relative to "now" — e.g. a refund inside the 14-day cooldown window. */
 const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000);
 
+/** ISO date (YYYY-MM-DD) N days from the moment of seeding. Billing dates are
+ *  seeded relative to "now" so the weeks-to-billing money demos (pause credit,
+ *  resume charge, free-vs-fee reactivation) stay correct whenever you reseed. */
+const daysFromNow = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
+
 /**
  * Seed data for FreshCrate.
  *
@@ -96,17 +101,35 @@ function orderPricing(i: number) {
 }
 
 const customerRows: (typeof customers.$inferInsert)[] = [
-  { id: C.ava, name: "Ava Chen", email: "ava.chen@example.com", subscriptionStatus: "active", plan: "2 meals/week", phone: "+1 (555) 010-2231", address: "412 Maple St, Portland, OR 97205", paymentMethod: "Visa ending 4242", billingDate: "2026-07-15" },
-  { id: C.marcus, name: "Marcus Bell", email: "marcus.bell@example.com", subscriptionStatus: "active", plan: "4 meals/week", phone: "+1 (555) 028-7741", address: "88 Birch Ave, Austin, TX 78704", paymentMethod: "Mastercard ending 5309", billingDate: "2026-07-12" },
-  { id: C.priya, name: "Priya Raman", email: "priya.raman@example.com", subscriptionStatus: "active", plan: "3 meals/week", phone: "+1 (555) 033-1190", address: "19 Cedar Ct, Seattle, WA 98103", paymentMethod: "Visa ending 1881", billingDate: "2026-07-18" },
-  { id: C.diego, name: "Diego Santos", email: "diego.santos@example.com", subscriptionStatus: "paused", plan: "2 meals/week", phone: "+1 (555) 041-6620", address: "275 Oak Blvd, Denver, CO 80206", paymentMethod: "Amex ending 3007", billingDate: "2026-07-20" },
-  { id: C.lena, name: "Lena Kowalski", email: "lena.kowalski@example.com", subscriptionStatus: "cancelled", plan: "2 meals/week", phone: "+1 (555) 052-9043", address: "9 Spruce Ln, Chicago, IL 60614", paymentMethod: "Visa ending 7720", billingDate: "2026-07-10" },
-  { id: C.tom, name: "Tom Becker", email: "tom.becker@example.com", subscriptionStatus: "active", plan: "2 meals/week", phone: "+1 (555) 060-3318", address: "601 Elm St, Columbus, OH 43215", paymentMethod: "Mastercard ending 6612", billingDate: "2026-07-15" },
-  { id: C.sara, name: "Sara Lindqvist", email: "sara.lindqvist@example.com", subscriptionStatus: "paused", plan: "3 meals/week", phone: "+1 (555) 074-8852", address: "33 Willow Way, Minneapolis, MN 55401", paymentMethod: "Visa ending 9134", billingDate: "2026-07-22" },
-  { id: C.noah, name: "Noah Patel", email: "noah.patel@example.com", subscriptionStatus: "active", plan: "4 meals/week", phone: "+1 (555) 080-2275", address: "147 Aspen Dr, Phoenix, AZ 85004", paymentMethod: "Amex ending 4419", billingDate: "2026-07-14" },
-  { id: C.mia, name: "Mia Rossi", email: "mia.rossi@example.com", subscriptionStatus: "cancelled", plan: "3 meals/week", phone: "+1 (555) 091-5567", address: "70 Poplar St, Boston, MA 02118", paymentMethod: "Visa ending 2050", billingDate: "2026-06-20" },
-  { id: C.jamal, name: "Jamal Wright", email: "jamal.wright@example.com", subscriptionStatus: "active", plan: "2 meals/week", phone: "+1 (555) 099-7401", address: "256 Walnut Ave, Atlanta, GA 30308", paymentMethod: "Mastercard ending 8826", billingDate: "2026-07-16" },
+  { id: C.ava, name: "Ava Chen", email: "ava.chen@example.com", subscriptionStatus: "active", plan: "2 meals/week", phone: "+1 (555) 010-2231", address: "412 Maple St, Portland, OR 97205", paymentMethod: "Visa ending 4242" },
+  { id: C.marcus, name: "Marcus Bell", email: "marcus.bell@example.com", subscriptionStatus: "active", plan: "4 meals/week", phone: "+1 (555) 028-7741", address: "88 Birch Ave, Austin, TX 78704", paymentMethod: "Mastercard ending 5309" },
+  { id: C.priya, name: "Priya Raman", email: "priya.raman@example.com", subscriptionStatus: "active", plan: "3 meals/week", phone: "+1 (555) 033-1190", address: "19 Cedar Ct, Seattle, WA 98103", paymentMethod: "Visa ending 1881" },
+  { id: C.diego, name: "Diego Santos", email: "diego.santos@example.com", subscriptionStatus: "paused", plan: "2 meals/week", phone: "+1 (555) 041-6620", address: "275 Oak Blvd, Denver, CO 80206", paymentMethod: "Amex ending 3007" },
+  { id: C.lena, name: "Lena Kowalski", email: "lena.kowalski@example.com", subscriptionStatus: "cancelled", plan: "2 meals/week", phone: "+1 (555) 052-9043", address: "9 Spruce Ln, Chicago, IL 60614", paymentMethod: "Visa ending 7720" },
+  { id: C.tom, name: "Tom Becker", email: "tom.becker@example.com", subscriptionStatus: "active", plan: "2 meals/week", phone: "+1 (555) 060-3318", address: "601 Elm St, Columbus, OH 43215", paymentMethod: "Mastercard ending 6612" },
+  { id: C.sara, name: "Sara Lindqvist", email: "sara.lindqvist@example.com", subscriptionStatus: "paused", plan: "3 meals/week", phone: "+1 (555) 074-8852", address: "33 Willow Way, Minneapolis, MN 55401", paymentMethod: "Visa ending 9134" },
+  { id: C.noah, name: "Noah Patel", email: "noah.patel@example.com", subscriptionStatus: "active", plan: "4 meals/week", phone: "+1 (555) 080-2275", address: "147 Aspen Dr, Phoenix, AZ 85004", paymentMethod: "Amex ending 4419" },
+  { id: C.mia, name: "Mia Rossi", email: "mia.rossi@example.com", subscriptionStatus: "cancelled", plan: "3 meals/week", phone: "+1 (555) 091-5567", address: "70 Poplar St, Boston, MA 02118", paymentMethod: "Visa ending 2050" },
+  { id: C.jamal, name: "Jamal Wright", email: "jamal.wright@example.com", subscriptionStatus: "active", plan: "2 meals/week", phone: "+1 (555) 099-7401", address: "256 Walnut Ave, Atlanta, GA 30308", paymentMethod: "Mastercard ending 8826" },
 ];
+
+// Next billing date per customer, as days-from-seed-time. Future for everyone
+// except Mia, who is deliberately PAST her billing date to demo the paid
+// reactivation (past billing → $40 sign-up fee); Lena is future/within-billing
+// to demo the free reactivation. Paused customers (Diego, Sara) sit a couple
+// weeks out so the resume charge is non-zero.
+const BILLING_OFFSET_DAYS: Record<string, number> = {
+  [C.ava]: 12,
+  [C.marcus]: 9,
+  [C.priya]: 18,
+  [C.diego]: 14,
+  [C.lena]: 6,
+  [C.tom]: 12,
+  [C.sara]: 16,
+  [C.noah]: 10,
+  [C.mia]: -20,
+  [C.jamal]: 13,
+};
 
 const O = (n: number) => `22222222-2222-2222-2222-2222222200${n.toString().padStart(2, "0")}`;
 
@@ -181,6 +204,10 @@ async function main() {
   await db.delete(customers);
   await db.delete(plans);
 
+  // Set each customer's next billing date relative to seed time (see
+  // BILLING_OFFSET_DAYS) so the weeks-to-billing money demos stay correct.
+  for (const c of customerRows) c.billingDate = daysFromNow(BILLING_OFFSET_DAYS[c.id!]);
+
   await db.insert(plans).values(planRows);
   await db.insert(customers).values(customerRows);
 
@@ -194,8 +221,8 @@ async function main() {
   }));
   await db.insert(orders).values(pricedOrders);
 
-  // Unified money ledger: monthly billing + pause hold fees. (Refunds, sign-up
-  // fees, and prorations from chat actions are written at runtime.)
+  // Unified money ledger: monthly billing + pause credits. (Refunds, sign-up
+  // fees, resume charges, and prorations from chat actions are written at runtime.)
   const monthly = (plan: string) => planRows.find((p) => p.plan === plan)!.monthlyCents;
   const weekly = (plan: string) => planRows.find((p) => p.plan === plan)!.weeklyCents;
   const txnRows: (typeof transactions.$inferInsert)[] = [];
@@ -204,7 +231,9 @@ async function main() {
       txnRows.push({ customerId: c.id!, type: "monthly_billing", amountCents: monthly(c.plan), description: `Monthly billing — ${c.plan}`, createdAt: ts("2026-06-15T09:00:00Z") });
     }
     if (c.subscriptionStatus === "paused") {
-      txnRows.push({ customerId: c.id!, type: "hold_fee", amountCents: Math.round(weekly(c.plan) * 2 * 0.2), description: "Pause hold fee", createdAt: ts("2026-06-16T09:00:00Z") });
+      // Pause credit at pause time: 2 weeks' plan value net of the $8/week fee.
+      const credit = 2 * (weekly(c.plan) - 800);
+      txnRows.push({ customerId: c.id!, type: "pause_credit", amountCents: -credit, description: "Pause credit (2 weeks)", createdAt: ts("2026-06-16T09:00:00Z") });
     }
   }
   // Tom's recent refund (drives the 14-day cooldown demo) — mirrors the

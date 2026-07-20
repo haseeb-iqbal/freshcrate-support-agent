@@ -9,11 +9,33 @@ export const SIGNUP_FEE_CENTS = Number(process.env.SIGNUP_FEE_CENTS ?? 4000); //
  *  an extra meal costs, and the basis of the "you save vs à la carte" figure. */
 export const MEAL_LIST_PRICE_CENTS = 1750; // $17.50
 
-const HOLD_FEE_RATE = 0.2; // pause hold fee = 20% of the skipped boxes' value
+/** Flat weekly fee to keep a plan reserved while paused. */
+export const PAUSE_FEE_CENTS = 800; // $8/week
 
 /** Weekly saving of a plan vs buying the same number of meals à la carte. */
 export function weeklySavingsCents(mealsPerWeek: number, planWeeklyCents: number): number {
   return MEAL_LIST_PRICE_CENTS * mealsPerWeek - planWeeklyCents;
+}
+
+/**
+ * Credit given when a subscription is paused: for each week skipped before the
+ * next billing date, the customer gets their plan's weekly value back minus the
+ * $8/week pause fee. A finite pause only counts the weeks it actually covers
+ * before billing (`min(pauseWeeks, weeksToBilling)`); an indefinite pause
+ * (`pauseWeeks === null`) counts every week to billing.
+ */
+export function pauseReimbursementCents(weeklyCents: number, pauseWeeks: number | null, weeksToBilling: number): number {
+  const weeks = pauseWeeks === null ? weeksToBilling : Math.min(pauseWeeks, weeksToBilling);
+  return Math.max(0, weeks) * (weeklyCents - PAUSE_FEE_CENTS);
+}
+
+/**
+ * Charge applied when a paused subscription resumes: the weeks remaining until
+ * billing at the given weekly rate, net of the $8/week pause fee. Pass the NEW
+ * plan's weekly rate when the customer switches plan while resuming.
+ */
+export function resumeChargeCents(weeklyCents: number, weeksToBilling: number): number {
+  return Math.max(0, weeksToBilling) * (weeklyCents - PAUSE_FEE_CENTS);
 }
 
 export async function getPlan(plan: string) {
@@ -23,11 +45,6 @@ export async function getPlan(plan: string) {
 
 export async function listPlans() {
   return db.select().from(plans).orderBy(plans.weeklyCents);
-}
-
-/** Pause hold fee: keeps the customer's plan reserved while paused. */
-export function holdFeeCents(weeklyCents: number, weeks: number): number {
-  return Math.round(weeklyCents * weeks * HOLD_FEE_RATE);
 }
 
 /** Local midnight of the given instant. */

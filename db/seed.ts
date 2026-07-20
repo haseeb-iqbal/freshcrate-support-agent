@@ -1,6 +1,11 @@
 import "dotenv/config";
 import { db, client } from "./index";
 import { customers, escalations, orders, plans, subscriptionEvents, transactions } from "./schema";
+import { MEAL_LIST_PRICE_CENTS } from "../lib/billing/pricing";
+
+/** N days before the moment of seeding (real time), for demo data that must stay
+ *  recent relative to "now" — e.g. a refund inside the 14-day cooldown window. */
+const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000);
 
 /**
  * Seed data for FreshCrate.
@@ -13,8 +18,9 @@ import { customers, escalations, orders, plans, subscriptionEvents, transactions
  *   US-1 Order status .............. Ava (single recent order)
  *   US-2 Pause subscription ........ Ava / Jamal (active customers)
  *   US-3 KB answer w/ citation ..... any (no data dependency)
- *   US-4 Refund (under ceiling) .... Priya (delivered order, 4200c < 5000c ceiling)
- *   US-4 Refund ceiling escalation . Noah  (delivered order, 9800c > 5000c ceiling)
+ *   US-4 Refund (under ceiling) .... Priya (plain $17.50 meal < $20 ceiling)
+ *   US-4 Refund ceiling escalation . Noah  (FC1020 with add-ons, $26.00 > $20 ceiling)
+ *   US-4 Refund cooldown escalation  Tom   (refunded 5 days ago → 2nd within 14-day window)
  *   US-5 Multi-tool turn ........... Priya (last box refund + pause next delivery)
  *   US-6 Clarify on ambiguity ...... Marcus (TWO open orders: processing + shipped)
  *   US-7 Escalation / off-topic .... any (no data dependency)
@@ -57,28 +63,36 @@ const ADDONS = [
 ];
 
 const planRows: (typeof plans.$inferInsert)[] = [
-  { plan: "2 meals/week", weeklyCents: 3000, monthlyCents: 12000 },
-  { plan: "3 meals/week", weeklyCents: 4200, monthlyCents: 16800 },
-  { plan: "4 meals/week", weeklyCents: 5200, monthlyCents: 20800 },
+  { plan: "2 meals/week", mealsPerWeek: 2, weeklyCents: 3000, monthlyCents: 12000 },
+  { plan: "3 meals/week", mealsPerWeek: 3, weeklyCents: 4200, monthlyCents: 16800 },
+  { plan: "4 meals/week", mealsPerWeek: 4, weeklyCents: 5200, monthlyCents: 20800 },
 ];
 
-// Orders whose refund (list price + add-ons) stays under the $10 ceiling, so the
-// refund confirmation card still demonstrates. Keyed by index in orderRows.
-const CHEAP_ORDER_INDICES = new Set([1, 7, 14, 23]);
-const ADDON_PRICE_CENTS = 499;
+// Every meal lists at $17.50 (MEAL_LIST_PRICE_CENTS). Refund = list price +
+// add-ons, so a plain meal ($17.50) sits under the $20 ceiling and is
+// confirmable, while add-ons can push a refund over it. Add-ons and extra-meal
+// status are assigned explicitly by order index so the refund demos land
+// predictably — no procedural guessing.
+const clean = (name: string) => name.replace(" (add-on)", "");
+const EXTRA_ORDER_INDICES = new Set([4, 9]); // charged à-la-carte meals (realism)
+const ORDER_ADDONS: Record<number, { name: string; priceCents: number }[]> = {
+  4: [{ name: clean(ADDONS[1]), priceCents: 499 }], // Marcus extra meal
+  9: [{ name: clean(ADDONS[2]), priceCents: 499 }], // Priya extra meal
+  // Noah FC1020 — over-ceiling refund demo: $17.50 + $8.50 add-ons = $26.00 > $20.
+  19: [
+    { name: clean(ADDONS[0]), priceCents: 499 },
+    { name: clean(ADDONS[1]), priceCents: 351 },
+  ],
+};
 
 /** Pricing for order i: subscription meals are free (only add-ons cost); extra
  *  meals are charged their list price + add-ons. Refund = list price + add-ons. */
 function orderPricing(i: number) {
-  const listPriceCents = CHEAP_ORDER_INDICES.has(i) ? 850 : [1199, 1299, 1399][i % 3];
-  const kind = i % 5 === 4 && !CHEAP_ORDER_INDICES.has(i) ? "extra" : "subscription";
-  const addOns =
-    i % 4 === 0 && !CHEAP_ORDER_INDICES.has(i)
-      ? [{ name: ADDONS[i % ADDONS.length].replace(" (add-on)", ""), priceCents: ADDON_PRICE_CENTS }]
-      : [];
+  const addOns = ORDER_ADDONS[i] ?? [];
+  const kind = EXTRA_ORDER_INDICES.has(i) ? "extra" : "subscription";
   const addSum = addOns.reduce((s, a) => s + a.priceCents, 0);
-  const totalCents = kind === "extra" ? listPriceCents + addSum : addSum;
-  return { kind, listPriceCents, addOns, totalCents };
+  const totalCents = kind === "extra" ? MEAL_LIST_PRICE_CENTS + addSum : addSum;
+  return { kind, listPriceCents: MEAL_LIST_PRICE_CENTS, addOns, totalCents };
 }
 
 const customerRows: (typeof customers.$inferInsert)[] = [
@@ -122,9 +136,10 @@ const orderRows: Omit<typeof orders.$inferInsert, "orderNumber">[] = [
   { id: O(10), customerId: C.lena, status: "cancelled", totalCents: 3400, placedAt: ts("2026-05-10T08:00:00Z"), deliveryDate: "2026-05-14" },
   { id: O(11), customerId: C.lena, status: "delivered", totalCents: 3400, placedAt: ts("2026-04-26T08:00:00Z"), deliveryDate: "2026-04-30" },
 
-  // Tom — straightforward delivered history
-  { id: O(12), customerId: C.tom, status: "delivered", totalCents: 900, placedAt: ts("2026-06-15T11:00:00Z"), deliveryDate: "2026-06-19" }, // small add-on → under-ceiling refund demo
-  { id: O(13), customerId: C.tom, status: "delivered", totalCents: 3800, placedAt: ts("2026-06-01T11:00:00Z"), deliveryDate: "2026-06-05" },
+  // Tom — refund-cooldown demo: FC1015 is a fresh refundable box, but FC1016 was
+  // already refunded 5 days ago, so a 2nd refund now hits the 14-day cooldown.
+  { id: O(12), customerId: C.tom, status: "delivered", totalCents: 900, placedAt: ts("2026-06-15T11:00:00Z"), deliveryDate: "2026-06-19" },
+  { id: O(13), customerId: C.tom, status: "delivered", totalCents: 3800, placedAt: ts("2026-06-01T11:00:00Z"), deliveryDate: "2026-06-05", refundedAt: daysAgo(5) },
 
   // Sara — paused, but a box still in transit
   { id: O(14), customerId: C.sara, status: "delivered", totalCents: 5200, placedAt: ts("2026-06-02T12:00:00Z"), deliveryDate: "2026-06-06" },
@@ -192,6 +207,9 @@ async function main() {
       txnRows.push({ customerId: c.id!, type: "hold_fee", amountCents: Math.round(weekly(c.plan) * 2 * 0.2), description: "Pause hold fee", createdAt: ts("2026-06-16T09:00:00Z") });
     }
   }
+  // Tom's recent refund (drives the 14-day cooldown demo) — mirrors the
+  // refundedAt set on FC1016 above.
+  txnRows.push({ customerId: C.tom, type: "refund", amountCents: -MEAL_LIST_PRICE_CENTS, description: "Refund — order FC1016 (damaged box)", orderNumber: "FC1016", createdAt: daysAgo(5) });
   await db.insert(transactions).values(txnRows);
 
   // Status-change history: an initial "subscribed" event per customer plus the

@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "../../db";
 import { orders } from "../../db/schema";
 import { evaluateRefund } from "../guardrails/refund-policy";
-import { refundAmountCents } from "./orders";
+import { latestRefundAt, refundAmountCents } from "./orders";
 import type { Tool } from "./types";
 
 /**
@@ -60,7 +60,11 @@ export const issueRefund: Tool = {
       };
     }
 
-    const decision = evaluateRefund({ totalCents: refundCents });
+    const decision = evaluateRefund({
+      totalCents: refundCents,
+      now: ctx.now,
+      lastRefundAt: await latestRefundAt(ctx.customerId),
+    });
     if (decision.kind === "over_ceiling") {
       return {
         ok: true,
@@ -71,6 +75,20 @@ export const issueRefund: Tool = {
           ceiling_cents: decision.ceilingCents,
           message:
             "This refund is above the amount support can approve automatically. Tell the customer it needs a human specialist, then call escalate_to_human. Do not claim the refund was issued.",
+        },
+      };
+    }
+    if (decision.kind === "cooldown") {
+      const nextDate = decision.nextEligible.toISOString().slice(0, 10);
+      return {
+        ok: true,
+        summary: `Another refund was issued in the last ${decision.cooldownDays} days — needs a human`,
+        data: {
+          status: "refund_cooldown",
+          cooldown_days: decision.cooldownDays,
+          next_eligible: nextDate,
+          message:
+            `This customer already had a refund within the last ${decision.cooldownDays} days, so a second one can't be issued automatically. Tell them it needs a human specialist, then call escalate_to_human. Do not claim the refund was issued.`,
         },
       };
     }

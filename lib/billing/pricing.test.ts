@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { holdFeeCents, prorationCents, weeksUntilDate, withinBillingPeriod } from "./pricing";
+import { MEAL_LIST_PRICE_CENTS, holdFeeCents, prorationCents, weeklySavingsCents, weeksUntilDate, withinBillingPeriod } from "./pricing";
 
 const on = (iso: string) => new Date(`${iso}T00:00:00`);
 
@@ -79,5 +79,23 @@ describe("prorationCents", () => {
 describe("holdFeeCents", () => {
   it("charges 20% of the skipped boxes' value", () => {
     expect(holdFeeCents(3000, 2)).toBe(1200);
+  });
+});
+
+describe("weeklySavingsCents", () => {
+  it("prices a meal at $17.50 à la carte", () => {
+    expect(MEAL_LIST_PRICE_CENTS).toBe(1750);
+  });
+
+  it("saves $5/week on the 2-meal plan", () => {
+    expect(weeklySavingsCents(2, 3000)).toBe(500);
+  });
+
+  it("saves $10.50/week on the 3-meal plan", () => {
+    expect(weeklySavingsCents(3, 4200)).toBe(1050);
+  });
+
+  it("saves $18/week on the 4-meal plan", () => {
+    expect(weeklySavingsCents(4, 5200)).toBe(1800);
   });
 });

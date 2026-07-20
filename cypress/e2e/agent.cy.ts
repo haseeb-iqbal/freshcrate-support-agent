@@ -48,6 +48,20 @@ describe("FreshCrate agent (mock LLM)", () => {
     cy.get('[data-testid="assistant-text"]').should("contain.text", "escalated");
   });
 
+  it("a second refund within the 14-day cooldown escalates instead of showing a card", () => {
+    signInAs("Tom Becker");
+    ask("refund my latest box, it arrived damaged");
+    cy.get('[data-testid="refund-card"]').should("not.exist");
+    cy.get('[data-testid="assistant-text"]').should("contain.text", "escalated");
+  });
+
+  it("a small first-time refund shows a single confirmation card", () => {
+    signInAs("Priya Raman");
+    ask("refund my delivered box, it was damaged");
+    cy.get('[data-testid="refund-card"]').should("have.length", 1);
+    cy.get('[data-testid="assistant-text"]').should("contain.text", "confirm");
+  });
+
   it("off-topic question is refused with no tool activity", () => {
     signInAs("Ava Chen");
     ask("what's the capital of France?");

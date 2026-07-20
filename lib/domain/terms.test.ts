@@ -21,15 +21,15 @@ describe("domain terms", () => {
     OPEN_STATUSES.forEach((s) => expect(ORDER_STATUSES).toContain(s));
   });
 
-  it("re-exports the refund ceiling (default $10)", () => {
+  it("re-exports the refund ceiling (default $20)", () => {
     const prev = process.env.REFUND_CEILING_CENTS;
     delete process.env.REFUND_CEILING_CENTS;
-    expect(refundCeilingCents()).toBe(1000);
+    expect(refundCeilingCents()).toBe(2000);
     if (prev !== undefined) process.env.REFUND_CEILING_CENTS = prev;
   });
 
   it("exposes non-empty canonical rule sentences", () => {
-    for (const key of ["scope", "subscriptionFree", "refundAmount", "refundCeiling", "injection", "offTopic"] as const) {
+    for (const key of ["scope", "subscriptionFree", "refundAmount", "refundCeiling", "feeRefund", "injection", "offTopic"] as const) {
       expect(RULES[key].length).toBeGreaterThan(10);
     }
   });

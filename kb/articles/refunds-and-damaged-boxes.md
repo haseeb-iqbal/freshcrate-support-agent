@@ -9,5 +9,11 @@ Report problems within 7 days of delivery from **Account → Orders → Report a
 ## Refund amounts and timing
 Refunds can be issued as a full or partial amount depending on what went wrong — a single missing item is usually a partial refund, while a fully damaged or undelivered box is a full refund. Approved refunds reach your account in 5–10 business days.
 
-## Large refunds and manual review
-Refunds above FreshCrate's standard self-service limit are reviewed by a support specialist before they're issued, rather than approved automatically. We'll still resolve your issue — it just routes to a human for approval first.
+## What can be confirmed in chat
+A refund can be confirmed right in chat when it's **$20 or less** and you haven't already had a refund in the **last 14 days**. Only one self-service refund is available per 14-day window.
+
+## When a refund is reviewed by a human
+A refund routes to a support specialist for approval — rather than being confirmed automatically — when it's **above $20**, when you've **already had a refund in the last 14 days**, or when the order was **already refunded once** before. We'll still resolve your issue; it just needs a person to approve it first.
+
+## What can't be refunded
+Only meal orders can be refunded. Fees — sign-up fees, pause hold fees, plan-change charges, and monthly plan payments — aren't refundable and are always handled by a specialist if you have a question about them.

@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNotNull } from "drizzle-orm";
 import { db } from "../../db";
 import { orders, transactions } from "../../db/schema";
 import type { Tool } from "./types";
@@ -12,6 +12,19 @@ const addOnSum = (o: OrderRow) => (o.addOns ?? []).reduce((s, a) => s + a.priceC
 /** Refund amount for an order: the meal's list (undiscounted) price plus add-ons,
  *  for both subscription and extra meals. */
 export const refundAmountCents = (o: OrderRow) => o.listPriceCents + addOnSum(o);
+
+/** When this customer last had a confirmed refund (null if never) — drives the
+ *  refund-frequency cooldown. Read by both the issue_refund tool and the write
+ *  endpoint so the window is enforced consistently. */
+export async function latestRefundAt(customerId: string): Promise<Date | null> {
+  const [row] = await db
+    .select({ refundedAt: orders.refundedAt })
+    .from(orders)
+    .where(and(eq(orders.customerId, customerId), isNotNull(orders.refundedAt)))
+    .orderBy(desc(orders.refundedAt))
+    .limit(1);
+  return row?.refundedAt ?? null;
+}
 
 function view(o: OrderRow) {
   return {

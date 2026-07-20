@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { orders, transactions } from "@/db/schema";
 import { evaluateRefund } from "@/lib/guardrails/refund-policy";
-import { refundAmountCents } from "@/lib/tools/orders";
+import { latestRefundAt, refundAmountCents } from "@/lib/tools/orders";
 import { now } from "@/lib/clock";
 
 export const runtime = "nodejs";
@@ -42,9 +42,16 @@ export async function POST(req: NextRequest) {
   if (order.refundedAt) return Response.json({ ok: false, error: "already_refunded" }, { status: 409 });
 
   const refundCents = refundAmountCents(order);
-  const decision = evaluateRefund({ totalCents: refundCents });
+  const decision = evaluateRefund({
+    totalCents: refundCents,
+    now: now(),
+    lastRefundAt: await latestRefundAt(customerId),
+  });
   if (decision.kind === "over_ceiling") {
     return Response.json({ ok: false, error: "over_ceiling", ceiling_cents: decision.ceilingCents }, { status: 403 });
+  }
+  if (decision.kind === "cooldown") {
+    return Response.json({ ok: false, error: "refund_cooldown", next_eligible: decision.nextEligible.toISOString().slice(0, 10) }, { status: 403 });
   }
 
   await db.update(orders).set({ refundedAt: now() }).where(and(eq(orders.orderNumber, orderNumber), eq(orders.customerId, customerId)));

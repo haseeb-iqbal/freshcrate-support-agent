@@ -97,6 +97,7 @@ export const traces = pgTable("traces", {
 // --- plans (subscription pricing reference) ---
 export const plans = pgTable("plans", {
   plan: text("plan").primaryKey(), // e.g. "2 meals/week"
+  mealsPerWeek: integer("meals_per_week").notNull().default(0), // meals/week, for the savings calc
   weeklyCents: integer("weekly_cents").notNull(),
   monthlyCents: integer("monthly_cents").notNull(),
 });

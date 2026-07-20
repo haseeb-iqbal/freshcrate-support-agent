@@ -3,9 +3,18 @@ import { db } from "../../db";
 import { plans } from "../../db/schema";
 
 /** One-time fee to reactivate a cancelled subscription. */
-export const SIGNUP_FEE_CENTS = Number(process.env.SIGNUP_FEE_CENTS ?? 1500); // $15
+export const SIGNUP_FEE_CENTS = Number(process.env.SIGNUP_FEE_CENTS ?? 4000); // $40
+
+/** À-la-carte list price of one meal. Subscription meals are free; this is what
+ *  an extra meal costs, and the basis of the "you save vs à la carte" figure. */
+export const MEAL_LIST_PRICE_CENTS = 1750; // $17.50
 
 const HOLD_FEE_RATE = 0.2; // pause hold fee = 20% of the skipped boxes' value
+
+/** Weekly saving of a plan vs buying the same number of meals à la carte. */
+export function weeklySavingsCents(mealsPerWeek: number, planWeeklyCents: number): number {
+  return MEAL_LIST_PRICE_CENTS * mealsPerWeek - planWeeklyCents;
+}
 
 export async function getPlan(plan: string) {
   const [row] = await db.select().from(plans).where(eq(plans.plan, plan)).limit(1);

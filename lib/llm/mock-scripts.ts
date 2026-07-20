@@ -30,6 +30,14 @@ export const MOCK_SCRIPTS: Record<string, Script> = {
     pre_tool: [call("issue_refund", { order_number: "FC1020", reason: "damaged box" })],
     post_tool: [t("That refund is above what I can approve automatically, so I've escalated it to a specialist.")],
   },
+  "refund my latest box, it arrived damaged": {
+    pre_tool: [call("issue_refund", { order_number: "FC1015", reason: "damaged box" })],
+    post_tool: [t("You've already had a refund in the last two weeks, so I've escalated this one to a specialist to review.")],
+  },
+  "refund my delivered box, it was damaged": {
+    pre_tool: [call("issue_refund", { order_number: "FC1008", reason: "damaged box" })],
+    post_tool: [t("I can refund that box — please confirm below to send it back to your original payment method.")],
+  },
   "what's the capital of france?": {
     pre_tool: [t("I can only help with FreshCrate orders, subscriptions, and policies — anything about your account I can help with?")],
     post_tool: [],

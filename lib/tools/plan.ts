@@ -49,7 +49,7 @@ export const changePlan: Tool = {
     // Proration: charge/refund the weekly-rate difference for the weeks left
     // until the billing date. The new plan starts the following week.
     const currentPlan = customer ? await getPlan(customer.plan) : null;
-    const weeksLeft = weeksUntilDate(customer?.billingDate);
+    const weeksLeft = weeksUntilDate(customer?.billingDate, ctx.now);
     const proration = currentPlan ? prorationCents(currentPlan.weeklyCents, plan.weeklyCents, weeksLeft) : 0;
 
     return {

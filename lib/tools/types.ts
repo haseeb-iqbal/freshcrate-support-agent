@@ -13,6 +13,11 @@ export interface ToolResult {
 export interface ToolContext {
   /** The signed-in customer. Tools act ONLY on this id, never on model input. */
   customerId: string;
+  /**
+   * "Now" for this request, read once at the boundary so every tool in a turn
+   * agrees on the date. Comes from lib/clock, never from `new Date()`.
+   */
+  now: Date;
 }
 
 export interface Tool {

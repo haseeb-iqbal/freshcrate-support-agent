@@ -5,17 +5,18 @@ import { SIGNUP_FEE_CENTS, getPlan, holdFeeCents, withinBillingPeriod } from "..
 import type { Tool } from "./types";
 
 /** Resume date for an N-week pause, as an ISO date string (YYYY-MM-DD). */
-export function resumeDateFor(weeks: number): string {
-  const d = new Date();
+export function resumeDateFor(weeks: number, today: Date): string {
+  const d = new Date(today);
   d.setDate(d.getDate() + weeks * 7);
   return d.toISOString().slice(0, 10);
 }
 
-function weeksUntil(isoDate: string): number {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+/** Whole weeks from `today` until an ISO date, rounded up (a partial week counts). */
+function weeksUntil(isoDate: string, today: Date): number {
+  const start = new Date(today);
+  start.setHours(0, 0, 0, 0);
   const target = new Date(`${isoDate}T00:00:00`);
-  return Math.ceil((target.getTime() - today.getTime()) / 86_400_000 / 7);
+  return Math.ceil((target.getTime() - start.getTime()) / 86_400_000 / 7);
 }
 
 /** Read-only live subscription details. The model must call this for status /
@@ -86,7 +87,7 @@ export const pauseSubscription: Tool = {
       const until = args.until_date ? String(args.until_date).trim() : undefined;
       if (until) {
         if (!/^\d{4}-\d{2}-\d{2}$/.test(until)) return { ok: false, summary: "until_date must be YYYY-MM-DD." };
-        weeks = weeksUntil(until);
+        weeks = weeksUntil(until, ctx.now);
         if (weeks < 1) return { ok: false, summary: "The pause date must be in the future." };
         if (weeks > 12) return { ok: false, summary: `${until} is about ${weeks} weeks away; pauses are capped at 12 weeks unless indefinite.` };
         resumeDate = until;
@@ -95,7 +96,7 @@ export const pauseSubscription: Tool = {
         if (!Number.isFinite(weeks) || weeks < 1 || weeks > 12) {
           return { ok: false, summary: "Provide 1-12 weeks, a date within 12 weeks, or indefinite." };
         }
-        resumeDate = resumeDateFor(weeks);
+        resumeDate = resumeDateFor(weeks, ctx.now);
       }
     }
 
@@ -173,7 +174,7 @@ export const reactivateSubscription: Tool = {
     if (!plan) return { ok: false, summary: `Unknown plan "${requestedPlan}"`, data: { message: "That plan doesn't exist — ask the customer to pick 2, 3, or 4 meals/week." } };
 
     const planChanged = !!requestedPlan && requestedPlan !== customer.plan;
-    const within = withinBillingPeriod(customer.billingDate);
+    const within = withinBillingPeriod(customer.billingDate, ctx.now);
     // Free only when resubscribing within the billing period on the SAME plan.
     const free = within && !planChanged;
     const signupFee = within ? 0 : SIGNUP_FEE_CENTS;

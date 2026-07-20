@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { customers, subscriptionEvents, transactions } from "@/db/schema";
 import { getPlan, prorationCents, weeksUntilDate } from "@/lib/billing/pricing";
+import { now } from "@/lib/clock";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
   }
 
   const currentPlan = await getPlan(customer.plan);
-  const weeksLeft = weeksUntilDate(customer.billingDate);
+  const weeksLeft = weeksUntilDate(customer.billingDate, now());
   const proration = currentPlan ? prorationCents(currentPlan.weeklyCents, plan.weeklyCents, weeksLeft) : 0;
 
   await db.update(customers).set({ plan: newPlan }).where(eq(customers.id, customerId));

@@ -1,3 +1,4 @@
+import { now } from "@/lib/clock";
 import { getChatProvider } from "@/lib/llm";
 import type { AgentMessage, ChatProvider, ToolCall, ToolDefinition } from "@/lib/llm/types";
 import { toolByName as realToolByName, toolDefinitions as realToolDefinitions, type Tool, type ToolResult } from "@/lib/tools";
@@ -42,6 +43,8 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
   let nudged = false;
   let toolCallsMade = 0;
   const state: DispatchState = { shownProposals: new Set() };
+  // One timestamp for the whole turn, so tools can't disagree about the date.
+  const turnNow = now();
 
   for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
     let text = "";
@@ -92,7 +95,7 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
 
       const tool = registry[call.name];
       const result: ToolResult = tool
-        ? await tool.handler({ customerId }, args).catch((err) => ({
+        ? await tool.handler({ customerId, now: turnNow }, args).catch((err) => ({
             ok: false,
             summary: `Tool error: ${err instanceof Error ? err.message : "unknown"}`,
           }))

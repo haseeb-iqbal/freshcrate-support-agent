@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { customers, subscriptionEvents, transactions } from "@/db/schema";
 import { SIGNUP_FEE_CENTS, getPlan, withinBillingPeriod } from "@/lib/billing/pricing";
+import { now } from "@/lib/clock";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
   if (!plan) return Response.json({ ok: false, error: "unknown_plan" }, { status: 400 });
 
   const planChanged = !!requestedPlan && requestedPlan !== customer.plan;
-  const within = withinBillingPeriod(customer.billingDate);
+  const within = withinBillingPeriod(customer.billingDate, now());
   const free = within && !planChanged;
   const signupFee = within ? 0 : SIGNUP_FEE_CENTS;
   const total = free ? 0 : plan.monthlyCents + signupFee;

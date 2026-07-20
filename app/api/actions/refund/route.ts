@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { orders, transactions } from "@/db/schema";
 import { evaluateRefund } from "@/lib/guardrails/refund-policy";
 import { refundAmountCents } from "@/lib/tools/orders";
+import { now } from "@/lib/clock";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
     return Response.json({ ok: false, error: "over_ceiling", ceiling_cents: decision.ceilingCents }, { status: 403 });
   }
 
-  await db.update(orders).set({ refundedAt: new Date() }).where(and(eq(orders.orderNumber, orderNumber), eq(orders.customerId, customerId)));
+  await db.update(orders).set({ refundedAt: now() }).where(and(eq(orders.orderNumber, orderNumber), eq(orders.customerId, customerId)));
   await db.insert(transactions).values({
     customerId,
     type: "refund",

@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { customers, subscriptionEvents, transactions } from "@/db/schema";
 import { getPlan, holdFeeCents } from "@/lib/billing/pricing";
 import { resumeDateFor } from "@/lib/tools/subscription";
+import { now } from "@/lib/clock";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
     ? null
     : body.resumeDate?.match(/^\d{4}-\d{2}-\d{2}$/)
       ? body.resumeDate
-      : resumeDateFor(weeks!);
+      : resumeDateFor(weeks!, now());
 
   await db.update(customers).set({ subscriptionStatus: "paused" }).where(eq(customers.id, customerId));
   await db.insert(subscriptionEvents).values({

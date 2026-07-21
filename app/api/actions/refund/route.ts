@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { orders, transactions } from "@/db/schema";
 import { evaluateRefund } from "@/lib/guardrails/refund-policy";
 import { latestRefundAt, refundAmountCents } from "@/lib/tools/orders";
+import { reconcile } from "@/lib/billing/reconcile";
 import { now } from "@/lib/clock";
 
 export const runtime = "nodejs";
@@ -33,6 +34,7 @@ export async function POST(req: NextRequest) {
     return new Response("Missing customerId or orderNumber", { status: 400 });
   }
 
+  await reconcile(customerId, now());
   const [order] = await db
     .select()
     .from(orders)

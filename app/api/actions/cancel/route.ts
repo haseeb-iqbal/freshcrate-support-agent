@@ -2,6 +2,8 @@ import type { NextRequest } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { customers, subscriptionEvents } from "@/db/schema";
+import { reconcile } from "@/lib/billing/reconcile";
+import { now } from "@/lib/clock";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,10 +25,11 @@ export async function POST(req: NextRequest) {
   const { customerId } = body;
   if (!customerId) return new Response("Missing customerId", { status: 400 });
 
+  await reconcile(customerId, now());
   const [customer] = await db.select().from(customers).where(eq(customers.id, customerId)).limit(1);
   if (!customer) return new Response("Unknown customer", { status: 404 });
 
-  await db.update(customers).set({ subscriptionStatus: "cancelled" }).where(eq(customers.id, customerId));
+  await db.update(customers).set({ subscriptionStatus: "cancelled", pauseResumeDate: null }).where(eq(customers.id, customerId));
   await db.insert(subscriptionEvents).values({
     customerId,
     eventType: "cancelled",

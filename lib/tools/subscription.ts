@@ -1,6 +1,6 @@
-import { and, desc, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "../../db";
-import { customers, subscriptionEvents } from "../../db/schema";
+import { customers } from "../../db/schema";
 import {
   PAUSE_FEE_CENTS,
   SIGNUP_FEE_CENTS,
@@ -33,16 +33,11 @@ export const getSubscription: Tool = {
     const [customer] = await db.select().from(customers).where(eq(customers.id, ctx.customerId)).limit(1);
     if (!customer) return { ok: false, summary: "Customer not found." };
 
-    let pause: { indefinite: boolean; weeks: number | null; resume_date: string | null } | null = null;
+    // Pause detail comes from the live column, so it reflects auto-resume:
+    // a finite pause has a resume date; an indefinite pause has none.
+    let pause: { indefinite: boolean; resume_date: string | null } | null = null;
     if (customer.subscriptionStatus === "paused") {
-      const [last] = await db
-        .select()
-        .from(subscriptionEvents)
-        .where(and(eq(subscriptionEvents.customerId, ctx.customerId), eq(subscriptionEvents.eventType, "paused")))
-        .orderBy(desc(subscriptionEvents.createdAt))
-        .limit(1);
-      const m = (last?.metadata ?? {}) as { weeks?: number | null; resumeDate?: string | null; indefinite?: boolean };
-      pause = { indefinite: !!m.indefinite, weeks: m.weeks ?? null, resume_date: m.resumeDate ?? null };
+      pause = { indefinite: !customer.pauseResumeDate, resume_date: customer.pauseResumeDate ?? null };
     }
 
     return {
@@ -114,7 +109,7 @@ export const pauseSubscription: Tool = {
       ok: true,
       summary: indefinite
         ? `Proposed indefinite pause ($${(reimbursement / 100).toFixed(2)} credit now, then $8/week billed monthly)`
-        : `Proposed ${weeks}-week pause (resumes ${resumeDate}, $${(reimbursement / 100).toFixed(2)} credit)`,
+        : `Proposed ${weeks}-week pause (resumes ${resumeDate}, $${(reimbursement / 100).toFixed(2)} credit now, then $8/week billed monthly)`,
       data: {
         status: "needs_confirmation",
         proposal: {
@@ -126,7 +121,7 @@ export const pauseSubscription: Tool = {
           weeks_to_billing: weeksToBilling,
         },
         message:
-          "A confirmation prompt is shown with the credit the customer receives now and the $8/week pause fee; the plan pauses from next week (this week's box still ships). Briefly relay it and ask them to confirm. Do NOT say it's paused until they confirm.",
+          "A confirmation prompt is shown with the credit the customer receives now and the $8/week pause fee, which is billed at each billing date for as long as the pause runs (finite or indefinite); the plan pauses from next week (this week's box still ships), and they can resume early at any time. Briefly relay it and ask them to confirm. Do NOT say it's paused until they confirm.",
       },
     };
   },

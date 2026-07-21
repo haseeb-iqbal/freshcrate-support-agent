@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { customers, subscriptionEvents, transactions } from "@/db/schema";
 import { getPlan, prorationCents, weeksUntilDate } from "@/lib/billing/pricing";
+import { reconcile } from "@/lib/billing/reconcile";
 import { now } from "@/lib/clock";
 
 export const runtime = "nodejs";
@@ -29,10 +30,15 @@ export async function POST(req: NextRequest) {
   const plan = await getPlan(newPlan);
   if (!plan) return Response.json({ ok: false, error: "unknown_plan" }, { status: 400 });
 
+  await reconcile(customerId, now());
   const [customer] = await db.select().from(customers).where(eq(customers.id, customerId)).limit(1);
   if (!customer) return new Response("Unknown customer", { status: 404 });
   if (customer.subscriptionStatus === "cancelled") {
     return Response.json({ ok: false, error: "cancelled" }, { status: 409 });
+  }
+  if (customer.subscriptionStatus === "paused") {
+    // Plan changes aren't allowed while paused — resume with new_plan instead.
+    return Response.json({ ok: false, error: "paused" }, { status: 409 });
   }
 
   const currentPlan = await getPlan(customer.plan);

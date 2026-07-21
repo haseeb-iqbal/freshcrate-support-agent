@@ -3,6 +3,8 @@ import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { customers, orders, subscriptionEvents, transactions } from "@/db/schema";
 import { refundAmountCents } from "@/lib/tools/orders";
+import { reconcile } from "@/lib/billing/reconcile";
+import { now } from "@/lib/clock";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,6 +13,9 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const customerId = req.nextUrl.searchParams.get("customerId");
   if (!customerId) return new Response("Missing customerId", { status: 400 });
+
+  // Lazy reconcile so the panel reflects current billing / pause / status.
+  await reconcile(customerId, now());
 
   const [customer] = await db.select().from(customers).where(eq(customers.id, customerId)).limit(1);
   if (!customer) return new Response("Unknown customer", { status: 404 });

@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { customers, subscriptionEvents, transactions } from "@/db/schema";
 import { SIGNUP_FEE_CENTS, getPlan, withinBillingPeriod } from "@/lib/billing/pricing";
+import { reconcile } from "@/lib/billing/reconcile";
 import { now } from "@/lib/clock";
 
 export const runtime = "nodejs";
@@ -27,6 +28,7 @@ export async function POST(req: NextRequest) {
   const { customerId } = body;
   if (!customerId) return new Response("Missing customerId", { status: 400 });
 
+  await reconcile(customerId, now());
   const [customer] = await db.select().from(customers).where(eq(customers.id, customerId)).limit(1);
   if (!customer) return new Response("Unknown customer", { status: 404 });
   if (customer.subscriptionStatus !== "cancelled") {
@@ -44,7 +46,7 @@ export async function POST(req: NextRequest) {
   const signupFee = within ? 0 : SIGNUP_FEE_CENTS;
   const total = free ? 0 : plan.monthlyCents + signupFee;
 
-  await db.update(customers).set({ subscriptionStatus: "active", plan: effectivePlan }).where(eq(customers.id, customerId));
+  await db.update(customers).set({ subscriptionStatus: "active", plan: effectivePlan, pauseResumeDate: null }).where(eq(customers.id, customerId));
 
   // Status-change audit.
   await db.insert(subscriptionEvents).values({ customerId, eventType: "reactivated", metadata: { free, plan: effectivePlan } });

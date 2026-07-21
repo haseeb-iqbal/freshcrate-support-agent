@@ -22,6 +22,8 @@ export const customers = pgTable("customers", {
   address: text("address"),
   paymentMethod: text("payment_method"), // simulated, e.g. "Visa ending 4242"
   billingDate: date("billing_date"), // next monthly billing date
+  pauseResumeDate: date("pause_resume_date"), // set iff FINITE-paused; drives auto-resume (null = indefinite/active/cancelled)
+  lastReconciledAt: timestamp("last_reconciled_at", { withTimezone: true }), // watermark: state is current as of this instant
 });
 
 // --- orders ------------------------------------------------------------------

@@ -205,8 +205,16 @@ async function main() {
   await db.delete(plans);
 
   // Set each customer's next billing date relative to seed time (see
-  // BILLING_OFFSET_DAYS) so the weeks-to-billing money demos stay correct.
-  for (const c of customerRows) c.billingDate = daysFromNow(BILLING_OFFSET_DAYS[c.id!]);
+  // BILLING_OFFSET_DAYS) so the weeks-to-billing money demos stay correct. State
+  // is current as of seed time, so the reconciler won't retroactively charge.
+  const seededAt = new Date();
+  for (const c of customerRows) {
+    c.billingDate = daysFromNow(BILLING_OFFSET_DAYS[c.id!]);
+    c.lastReconciledAt = seededAt;
+  }
+  // Diego is a FINITE pause (auto-resumes ~3 weeks out — skip-forward demo);
+  // Sara stays indefinite (accrues the $8/week fee monthly while paused).
+  customerRows.find((c) => c.id === C.diego)!.pauseResumeDate = daysFromNow(21);
 
   await db.insert(plans).values(planRows);
   await db.insert(customers).values(customerRows);

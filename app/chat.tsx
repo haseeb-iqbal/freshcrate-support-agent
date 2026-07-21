@@ -997,7 +997,7 @@ function PauseCard({
         ) : (
           <>No credit is due this cycle (billing is due within the week), </>
         )}
-        after the <span className="font-medium">{fee}/week</span> pause fee{proposal.indefinite ? ", billed monthly while paused" : ""}.
+        after the <span className="font-medium">{fee}/week</span> pause fee — then {fee}/week is billed each billing date while you stay paused.
       </p>
 
       {state === "pending" && (

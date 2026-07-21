@@ -3,6 +3,8 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { customers } from "@/db/schema";
 import { runAgent } from "@/lib/agent/loop";
+import { reconcile } from "@/lib/billing/reconcile";
+import { now } from "@/lib/clock";
 
 // postgres.js and the OpenAI SDK need the Node runtime (not edge).
 export const runtime = "nodejs";
@@ -36,6 +38,10 @@ export async function POST(req: NextRequest) {
   if (!body.customerId) {
     return new Response("Missing customerId", { status: 400 });
   }
+
+  // Bring the subscription up to date (billing, pause fees, auto-resume) before
+  // the turn sees its state.
+  await reconcile(body.customerId, now());
 
   // Resolve + validate the signed-in customer. This id is the trusted scope
   // passed to every tool — never the customer_id a model might emit.

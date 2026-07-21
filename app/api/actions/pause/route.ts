@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { customers, subscriptionEvents, transactions } from "@/db/schema";
 import { getPlan, pauseReimbursementCents, weeksUntilDate } from "@/lib/billing/pricing";
+import { reconcile } from "@/lib/billing/reconcile";
 import { resumeDateFor } from "@/lib/tools/subscription";
 import { now } from "@/lib/clock";
 
@@ -36,6 +37,7 @@ export async function POST(req: NextRequest) {
     return new Response("weeks must be 1-52 (or indefinite)", { status: 400 });
   }
 
+  await reconcile(customerId, now());
   const [customer] = await db.select().from(customers).where(eq(customers.id, customerId)).limit(1);
   if (!customer) return new Response("Unknown customer", { status: 404 });
   if (customer.subscriptionStatus === "cancelled") {
@@ -52,7 +54,10 @@ export async function POST(req: NextRequest) {
       ? body.resumeDate
       : resumeDateFor(weeks!, today);
 
-  await db.update(customers).set({ subscriptionStatus: "paused" }).where(eq(customers.id, customerId));
+  await db
+    .update(customers)
+    .set({ subscriptionStatus: "paused", pauseResumeDate: resumeDate, lastReconciledAt: today })
+    .where(eq(customers.id, customerId));
   await db.insert(subscriptionEvents).values({
     customerId,
     eventType: "paused",

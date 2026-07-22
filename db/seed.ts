@@ -2,6 +2,7 @@ import "dotenv/config";
 import { db, client } from "./index";
 import { customers, escalations, orders, plans, subscriptionEvents, transactions } from "./schema";
 import { MEAL_LIST_PRICE_CENTS } from "../lib/billing/pricing";
+import { addDaysIso } from "../lib/date";
 
 /** N days before the moment of seeding (real time), for demo data that must stay
  *  recent relative to "now" — e.g. a refund inside the 14-day cooldown window. */
@@ -10,11 +11,11 @@ const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000);
 /** ISO date (YYYY-MM-DD) N days from the moment of seeding. Billing dates are
  *  seeded relative to "now" so the weeks-to-billing money demos (pause credit,
  *  resume charge, free-vs-fee reactivation) stay correct whenever you reseed. */
-const daysFromNow = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
+const daysFromNow = (n: number) => addDaysIso(n, new Date());
 
 /** ISO date (YYYY-MM-DD) N days BEFORE seeding. The past-facing pair to
  *  `daysFromNow`, for orders that have already been delivered or cancelled. */
-const daysAgoDate = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
+const daysAgoDate = (n: number) => addDaysIso(-n, new Date());
 
 /**
  * Seed data for FreshCrate.

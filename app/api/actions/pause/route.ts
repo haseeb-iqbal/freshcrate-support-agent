@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { customers, subscriptionEvents, transactions } from "@/db/schema";
 import { getPlan, pauseReimbursementCents, weeksUntilDate } from "@/lib/billing/pricing";
 import { reconcile } from "@/lib/billing/reconcile";
-import { resumeDateFor } from "@/lib/tools/subscription";
+import { addWeeksIso } from "@/lib/date";
 import { now } from "@/lib/clock";
 
 export const runtime = "nodejs";
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
     ? null
     : body.resumeDate?.match(/^\d{4}-\d{2}-\d{2}$/)
       ? body.resumeDate
-      : resumeDateFor(weeks!, today);
+      : addWeeksIso(weeks!, today);
 
   await db
     .update(customers)

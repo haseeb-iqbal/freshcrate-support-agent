@@ -5,6 +5,7 @@ import type { Tool } from "./types";
 import { OPEN_STATUSES, ORDER_KINDS, ORDER_STATUSES, type OrderKind, type OrderSelector, type OrderStatus } from "@/lib/domain/terms";
 import { selectOrder, type SelectableOrder } from "./select-order";
 import { orderView, refundAmountCents } from "./order-view";
+import { toIsoDate } from "../date";
 
 type OrderRow = typeof orders.$inferSelect;
 
@@ -101,7 +102,7 @@ export const listOrders: Tool = {
           amount_cents: t.amountCents,
           description: t.description,
           order_number: t.orderNumber,
-          date: t.createdAt.toISOString().slice(0, 10),
+          date: toIsoDate(t.createdAt),
         })),
       },
     };

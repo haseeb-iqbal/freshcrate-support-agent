@@ -3,6 +3,7 @@ import { db } from "../../db";
 import { orders } from "../../db/schema";
 import { evaluateRefund } from "../guardrails/refund-policy";
 import { latestRefundAt, refundAmountCents } from "./orders";
+import { toIsoDate } from "../date";
 import type { Tool } from "./types";
 
 /**
@@ -79,7 +80,7 @@ export const issueRefund: Tool = {
       };
     }
     if (decision.kind === "cooldown") {
-      const nextDate = decision.nextEligible.toISOString().slice(0, 10);
+      const nextDate = toIsoDate(decision.nextEligible);
       return {
         ok: true,
         summary: `Another refund was issued in the last ${decision.cooldownDays} days — needs a human`,

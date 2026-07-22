@@ -5,6 +5,7 @@ import { customers, orders, subscriptionEvents, transactions } from "@/db/schema
 import { orderView } from "@/lib/tools/order-view";
 import { reconcile } from "@/lib/billing/reconcile";
 import { now } from "@/lib/clock";
+import { toIsoDate } from "@/lib/date";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,8 +43,8 @@ export async function GET(req: NextRequest) {
       amount_cents: t.amountCents,
       description: t.description,
       order_number: t.orderNumber,
-      date: t.createdAt.toISOString().slice(0, 10),
+      date: toIsoDate(t.createdAt),
     })),
-    statusHistory: events.map((e) => ({ event: e.eventType, date: e.createdAt.toISOString().slice(0, 10) })),
+    statusHistory: events.map((e) => ({ event: e.eventType, date: toIsoDate(e.createdAt) })),
   });
 }

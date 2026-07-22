@@ -6,6 +6,7 @@ import { evaluateRefund } from "@/lib/guardrails/refund-policy";
 import { latestRefundAt, refundAmountCents } from "@/lib/tools/orders";
 import { reconcile } from "@/lib/billing/reconcile";
 import { now } from "@/lib/clock";
+import { toIsoDate } from "@/lib/date";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,7 +54,7 @@ export async function POST(req: NextRequest) {
     return Response.json({ ok: false, error: "over_ceiling", ceiling_cents: decision.ceilingCents }, { status: 403 });
   }
   if (decision.kind === "cooldown") {
-    return Response.json({ ok: false, error: "refund_cooldown", next_eligible: decision.nextEligible.toISOString().slice(0, 10) }, { status: 403 });
+    return Response.json({ ok: false, error: "refund_cooldown", next_eligible: toIsoDate(decision.nextEligible) }, { status: 403 });
   }
 
   await db.update(orders).set({ refundedAt: now() }).where(and(eq(orders.orderNumber, orderNumber), eq(orders.customerId, customerId)));

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { REFUND_COOLDOWN_DAYS, evaluateRefund, refundCeilingCents } from "./refund-policy";
+import { toIsoDate } from "@/lib/date";
 
 const now = new Date("2026-07-20T12:00:00");
 const daysAgo = (n: number) => new Date(now.getTime() - n * 86_400_000);
@@ -50,7 +51,7 @@ describe("evaluateRefund", () => {
     const d = evaluateRefund({ totalCents: 1750, now, lastRefundAt: daysAgo(10) });
     if (d.kind !== "cooldown") throw new Error("expected cooldown");
     // last refund 10 days ago + 14-day window = eligible in 4 days.
-    expect(d.nextEligible.toISOString().slice(0, 10)).toBe("2026-07-24");
+    expect(toIsoDate(d.nextEligible)).toBe("2026-07-24");
   });
 
   it("checks the value ceiling before the cooldown", () => {

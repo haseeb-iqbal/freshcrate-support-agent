@@ -10,14 +10,9 @@ import {
   weeksUntilDate,
   withinBillingPeriod,
 } from "../billing/pricing";
+import { addWeeksIso } from "../date";
 import type { Tool } from "./types";
 
-/** Resume date for an N-week pause, as an ISO date string (YYYY-MM-DD). */
-export function resumeDateFor(weeks: number, today: Date): string {
-  const d = new Date(today);
-  d.setDate(d.getDate() + weeks * 7);
-  return d.toISOString().slice(0, 10);
-}
 
 /** Read-only live subscription details. The model must call this for status /
  *  plan / billing / pause-length questions instead of trusting earlier messages
@@ -92,7 +87,7 @@ export const pauseSubscription: Tool = {
         if (!Number.isFinite(weeks) || weeks < 1 || weeks > 52) {
           return { ok: false, summary: "Provide 1-52 weeks, a date within a year, or indefinite." };
         }
-        resumeDate = resumeDateFor(weeks, ctx.now);
+        resumeDate = addWeeksIso(weeks, ctx.now);
       }
     }
 

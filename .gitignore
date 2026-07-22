@@ -12,5 +12,8 @@ drizzle/.snapshot
 next-env.d.ts
 *.tsbuildinfo
 
+# generated test coverage report (npm run test:coverage)
+coverage/
+
 # local editor / harness config
 .claude/

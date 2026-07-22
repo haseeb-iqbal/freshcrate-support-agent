@@ -632,8 +632,16 @@ Replace the existing `test`, `test:watch`, `test:integration` entries and add th
     "test:api": "cross-env TZ=UTC vitest run --config vitest.api.config.ts",
     "test:integration": "cross-env TZ=UTC vitest run --config vitest.integration.config.ts",
     "test:coverage": "cross-env TZ=UTC vitest run --coverage",
-    "test:all": "npm run typecheck && npm test && npm run test:api && npm run test:integration",
+    "test:all": "npm run typecheck && npm test && npm run test:integration",
     "test:e2e": "npm run db:reset && start-server-and-test dev:mock http://localhost:3000 cypress",
+```
+
+**`test:api` is deliberately absent from `test:all` at this point.** `tests/api/` has no files until Task 5, so including it would ship a knowingly-red aggregate command. The alternative, `passWithNoTests: true` in the API config, was rejected because it would later mask a broken `include` glob. **Task 5 adds `npm run test:api &&` to `test:all` once the first API test exists.**
+
+Also remove the now-orphaned plugin, which this task's `resolve.tsconfigPaths` change made dead:
+
+```bash
+npm uninstall --save-dev vite-tsconfig-paths
 ```
 
 - [ ] **Step 6: Verify the unit suite still passes with no plugin warning**
@@ -886,6 +894,7 @@ Every API test needs a throwaway customer in a known state and a way to call a r
 **Interfaces:**
 - Consumes: `@/db`, `@/db/schema`.
 - Produces:
+  - The first file under `tests/api/`, which is what makes `test:api` meaningful. **Add `npm run test:api &&` back into the `test:all` script in `package.json` as part of this task** (Task 3 deliberately left it out while the directory was empty).
   - `purgeCustomer(id: string): Promise<void>`
   - `createTestCustomer(input: TestCustomerInput): Promise<void>` where `TestCustomerInput = { id: string; plan?: string; subscriptionStatus?: "active" | "paused" | "cancelled"; billingDate?: string; pauseResumeDate?: string | null }`
   - `createTestOrder(input: TestOrderInput): Promise<void>` where `TestOrderInput = { customerId: string; orderNumber: string; listPriceCents?: number; totalCents?: number; addOns?: { name: string; priceCents: number }[]; status?: string; kind?: string; refundedAt?: Date | null }`

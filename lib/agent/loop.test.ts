@@ -25,6 +25,21 @@ const toolTurn = (name: string, text = ""): AgentStreamEvent[] => {
   return evs;
 };
 
+/** A tool turn whose call carries a specific (possibly malformed) argument string. */
+const toolTurnWithArgs = (name: string, args: string): AgentStreamEvent[] => [
+  { type: "tool_calls", value: [{ id: "c1", name, arguments: args } as ToolCall] },
+];
+
+/** A tool whose handler always rejects. */
+const throwingTool = (name: string): Record<string, Tool> => ({
+  [name]: {
+    definition: { name, description: "", parameters: {} },
+    handler: async () => {
+      throw new Error("database exploded");
+    },
+  },
+});
+
 const okTool = (name: string, data: unknown): Record<string, Tool> => ({
   [name]: { definition: { name, description: "", parameters: {} }, handler: async () => ({ ok: true, summary: "ok", data }) },
 });
@@ -76,7 +91,9 @@ describe("runAgent", () => {
     // The tool already ran — the closing sentence must not trigger a second round.
     expect(events.filter((e) => e.event === "tool_call").length).toBe(1);
     expect(events.some((e) => e.event === "reset")).toBe(false);
-    expect(events.find((e) => e.event === "done")?.data).not.toMatchObject({ truncated: true });
+    // A clean finish emits an empty done payload; `truncated` only appears when
+    // the loop hits its iteration ceiling.
+    expect(events.find((e) => e.event === "done")?.data).toEqual({});
   });
 
   it("does not nudge or reset a plain off-topic answer", async () => {
@@ -93,5 +110,72 @@ describe("runAgent", () => {
     await runAgent({ customerId: "x", history: [{ role: "user", content: "hi" }], emit: (e, d) => events.push({ event: e, data: d }) }, deps);
     const done = events.find((e) => e.event === "done");
     expect(done?.data).toMatchObject({ truncated: true });
+  });
+
+  it("reports an unknown tool back to the model instead of crashing", async () => {
+    const events: { event: string; data: unknown }[] = [];
+    const deps: AgentDeps = {
+      provider: fakeProvider([toolTurn("no_such_tool"), textTurn("Sorry, I could not do that.")]),
+      toolByName: {},
+      toolDefinitions: [],
+    };
+    await runAgent({ customerId: "x", history: [{ role: "user", content: "hi" }], emit: (e, d) => events.push({ event: e, data: d }) }, deps);
+
+    const result = events.find((e) => e.event === "tool_result");
+    expect(result?.data).toMatchObject({ name: "no_such_tool", ok: false });
+    expect((result?.data as { summary: string }).summary).toContain("Unknown tool");
+    expect(events.some((e) => e.event === "done")).toBe(true);
+  });
+
+  it("turns a rejecting tool handler into a failed tool result, not an unhandled rejection", async () => {
+    const events: { event: string; data: unknown }[] = [];
+    const deps: AgentDeps = {
+      provider: fakeProvider([toolTurn("lookup_order"), textTurn("Something went wrong on my side.")]),
+      toolByName: throwingTool("lookup_order"),
+      toolDefinitions: [],
+    };
+    await runAgent({ customerId: "x", history: [{ role: "user", content: "where is my order" }], emit: (e, d) => events.push({ event: e, data: d }) }, deps);
+
+    const result = events.find((e) => e.event === "tool_result");
+    expect(result?.data).toMatchObject({ ok: false });
+    expect((result?.data as { summary: string }).summary).toContain("database exploded");
+    expect(events.filter((e) => e.event === "done")).toHaveLength(1);
+  });
+
+  it("treats malformed tool arguments as empty rather than aborting the turn", async () => {
+    const events: { event: string; data: unknown }[] = [];
+    const deps: AgentDeps = {
+      provider: fakeProvider([toolTurnWithArgs("lookup_order", "{not json"), textTurn("Here is your order.")]),
+      toolByName: okTool("lookup_order", { order: { order_number: "FC1005" } }),
+      toolDefinitions: [],
+    };
+    await runAgent({ customerId: "x", history: [{ role: "user", content: "my last order" }], emit: (e, d) => events.push({ event: e, data: d }) }, deps);
+
+    expect(events.find((e) => e.event === "tool_call")?.data).toEqual({ name: "lookup_order", args: {} });
+    expect(events.find((e) => e.event === "tool_result")).toMatchObject({ data: { ok: true } });
+  });
+
+  it("passes the same instant to every tool in a turn", async () => {
+    const seen: Date[] = [];
+    const recordingTool: Record<string, Tool> = {
+      lookup_order: {
+        definition: { name: "lookup_order", description: "", parameters: {} },
+        handler: async (ctx) => {
+          seen.push(ctx.now);
+          return { ok: true, summary: "ok", data: {} };
+        },
+      },
+    };
+    const deps: AgentDeps = {
+      provider: fakeProvider([toolTurn("lookup_order"), toolTurn("lookup_order"), textTurn("Done.")]),
+      toolByName: recordingTool,
+      toolDefinitions: [],
+    };
+    await runAgent({ customerId: "x", history: [{ role: "user", content: "hi" }], emit: () => {} }, deps);
+
+    // Tools in one turn must agree on the date, or two money calculations in the
+    // same reply can disagree about weeks-to-billing.
+    expect(seen).toHaveLength(2);
+    expect(seen[0].getTime()).toBe(seen[1].getTime());
   });
 });

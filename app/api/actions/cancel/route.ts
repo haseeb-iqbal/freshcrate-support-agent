@@ -28,6 +28,10 @@ export async function POST(req: NextRequest) {
   await reconcile(customerId, now());
   const [customer] = await db.select().from(customers).where(eq(customers.id, customerId)).limit(1);
   if (!customer) return new Response("Unknown customer", { status: 404 });
+  if (customer.subscriptionStatus === "cancelled") {
+    // A replayed confirmation must not add a second entry to the status trail.
+    return Response.json({ ok: false, error: "already_cancelled" }, { status: 409 });
+  }
 
   await db.update(customers).set({ subscriptionStatus: "cancelled", pauseResumeDate: null }).where(eq(customers.id, customerId));
   await db.insert(subscriptionEvents).values({

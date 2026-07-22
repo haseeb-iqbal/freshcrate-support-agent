@@ -40,6 +40,10 @@ export async function POST(req: NextRequest) {
     // Plan changes aren't allowed while paused — resume with new_plan instead.
     return Response.json({ ok: false, error: "paused" }, { status: 409 });
   }
+  if (customer.plan === newPlan) {
+    // Nothing to change — do not log a plan_changed event for a non-change.
+    return Response.json({ ok: false, error: "same_plan" }, { status: 409 });
+  }
 
   const currentPlan = await getPlan(customer.plan);
   const weeksLeft = weeksUntilDate(customer.billingDate, now());

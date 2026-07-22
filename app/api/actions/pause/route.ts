@@ -54,6 +54,12 @@ export async function POST(req: NextRequest) {
       ? body.resumeDate
       : addWeeksIso(weeks!, today);
 
+  // The credit pays back the already-paid weeks of the CURRENT billing period.
+  // Extending or replaying a pause must not buy those weeks back a second time,
+  // so only a transition from unpaused to paused credits.
+  const alreadyPaused = customer.subscriptionStatus === "paused";
+  const credit = alreadyPaused ? 0 : reimbursement;
+
   await db
     .update(customers)
     .set({ subscriptionStatus: "paused", pauseResumeDate: resumeDate, lastReconciledAt: today })
@@ -61,17 +67,17 @@ export async function POST(req: NextRequest) {
   await db.insert(subscriptionEvents).values({
     customerId,
     eventType: "paused",
-    metadata: { weeks, resumeDate, indefinite, reimbursementCents: reimbursement },
+    metadata: { weeks, resumeDate, indefinite, reimbursementCents: credit },
   });
   // Credit the reimbursement (negative amount = money back to the customer).
-  if (reimbursement > 0) {
+  if (credit > 0) {
     await db.insert(transactions).values({
       customerId,
       type: "pause_credit",
-      amountCents: -reimbursement,
+      amountCents: -credit,
       description: indefinite ? "Pause credit (indefinite)" : `Pause credit (${weeks} week${weeks === 1 ? "" : "s"})`,
     });
   }
 
-  return Response.json({ ok: true, weeks, indefinite, resume_date: resumeDate, reimbursement_cents: reimbursement });
+  return Response.json({ ok: true, weeks, indefinite, resume_date: resumeDate, reimbursement_cents: credit });
 }

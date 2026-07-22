@@ -12,12 +12,21 @@ const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000);
  *  resume charge, free-vs-fee reactivation) stay correct whenever you reseed. */
 const daysFromNow = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
 
+/** ISO date (YYYY-MM-DD) N days BEFORE seeding. The past-facing pair to
+ *  `daysFromNow`, for orders that have already been delivered or cancelled. */
+const daysAgoDate = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
+
 /**
  * Seed data for FreshCrate.
  *
  * Every row is chosen to cover a scenario from PRD Section 11. Stable UUIDs make
- * the demo customers and orders repeatable across reseeds. Dates are anchored
- * around the project "today" of 2026-06-24.
+ * the demo customers and orders repeatable across reseeds. Order and billing
+ * dates are all seeded RELATIVE to the moment of seeding, so an open order
+ * always has a delivery date still ahead of it however long after the original
+ * 2026-06-24 anchor you reseed. (Order dates used to be absolute, so a month
+ * later every "shipped" box also claimed a delivery date in the past, and the
+ * agent read that contradiction as proof the box had arrived.)
+ * tests/integration/seed-coherence.test.ts enforces this.
  *
  * Scenario coverage map:
  *   US-1 Order status .............. Ava (single recent order)
@@ -136,49 +145,49 @@ const O = (n: number) => `22222222-2222-2222-2222-2222222200${n.toString().padSt
 // order_number is assigned sequentially on insert (FC1001…), so it's omitted here.
 const orderRows: Omit<typeof orders.$inferInsert, "orderNumber">[] = [
   // Ava — US-1 order status: one recent in-flight order + history
-  { id: O(1), customerId: C.ava, status: "shipped", totalCents: 3800, placedAt: ts("2026-06-22T09:00:00Z"), deliveryDate: "2026-06-26" },
-  { id: O(2), customerId: C.ava, status: "delivered", totalCents: 650, placedAt: ts("2026-06-08T09:00:00Z"), deliveryDate: "2026-06-12" }, // small add-on → under-ceiling refund demo
-  { id: O(22), customerId: C.ava, status: "delivered", totalCents: 3800, placedAt: ts("2026-05-25T09:00:00Z"), deliveryDate: "2026-05-29" },
+  { id: O(1), customerId: C.ava, status: "shipped", totalCents: 3800, placedAt: daysAgo(2), deliveryDate: daysFromNow(2) },
+  { id: O(2), customerId: C.ava, status: "delivered", totalCents: 650, placedAt: daysAgo(16), deliveryDate: daysAgoDate(12) }, // small add-on → under-ceiling refund demo
+  { id: O(22), customerId: C.ava, status: "delivered", totalCents: 3800, placedAt: daysAgo(30), deliveryDate: daysAgoDate(26) },
 
   // Marcus — US-6 clarify: TWO open orders (processing + shipped) + history
-  { id: O(3), customerId: C.marcus, status: "processing", totalCents: 6400, placedAt: ts("2026-06-23T14:00:00Z"), deliveryDate: "2026-06-27" },
-  { id: O(4), customerId: C.marcus, status: "shipped", totalCents: 6400, placedAt: ts("2026-06-21T14:00:00Z"), deliveryDate: "2026-06-25" },
-  { id: O(5), customerId: C.marcus, status: "delivered", totalCents: 6400, placedAt: ts("2026-06-07T14:00:00Z"), deliveryDate: "2026-06-11" },
-  { id: O(24), customerId: C.marcus, status: "delivered", totalCents: 6400, placedAt: ts("2026-05-24T14:00:00Z"), deliveryDate: "2026-05-28" },
+  { id: O(3), customerId: C.marcus, status: "processing", totalCents: 6400, placedAt: daysAgo(1), deliveryDate: daysFromNow(3) },
+  { id: O(4), customerId: C.marcus, status: "shipped", totalCents: 6400, placedAt: daysAgo(3), deliveryDate: daysFromNow(1) },
+  { id: O(5), customerId: C.marcus, status: "delivered", totalCents: 6400, placedAt: daysAgo(17), deliveryDate: daysAgoDate(13) },
+  { id: O(24), customerId: C.marcus, status: "delivered", totalCents: 6400, placedAt: daysAgo(31), deliveryDate: daysAgoDate(27) },
 
   // Priya — US-4 refund (under ceiling) + US-5 multi-tool (refund last box, pause next)
-  { id: O(6), customerId: C.priya, status: "delivered", totalCents: 850, placedAt: ts("2026-06-18T10:00:00Z"), deliveryDate: "2026-06-22" }, // small add-on, damaged → under-ceiling refund demo
-  { id: O(23), customerId: C.priya, status: "shipped", totalCents: 4200, placedAt: ts("2026-06-23T10:00:00Z"), deliveryDate: "2026-06-27" },
-  { id: O(7), customerId: C.priya, status: "delivered", totalCents: 4200, placedAt: ts("2026-06-04T10:00:00Z"), deliveryDate: "2026-06-08" },
+  { id: O(6), customerId: C.priya, status: "delivered", totalCents: 850, placedAt: daysAgo(6), deliveryDate: daysAgoDate(2) }, // small add-on, damaged → under-ceiling refund demo
+  { id: O(23), customerId: C.priya, status: "shipped", totalCents: 4200, placedAt: daysAgo(1), deliveryDate: daysFromNow(3) },
+  { id: O(7), customerId: C.priya, status: "delivered", totalCents: 4200, placedAt: daysAgo(20), deliveryDate: daysAgoDate(16) },
 
   // Diego — paused customer with history
-  { id: O(8), customerId: C.diego, status: "delivered", totalCents: 3600, placedAt: ts("2026-05-20T08:00:00Z"), deliveryDate: "2026-05-24" },
-  { id: O(9), customerId: C.diego, status: "cancelled", totalCents: 3600, placedAt: ts("2026-06-01T08:00:00Z"), deliveryDate: "2026-06-05" },
+  { id: O(8), customerId: C.diego, status: "delivered", totalCents: 3600, placedAt: daysAgo(35), deliveryDate: daysAgoDate(31) },
+  { id: O(9), customerId: C.diego, status: "cancelled", totalCents: 3600, placedAt: daysAgo(23), deliveryDate: daysAgoDate(19) },
 
   // Lena — cancelled customer
-  { id: O(10), customerId: C.lena, status: "cancelled", totalCents: 3400, placedAt: ts("2026-05-10T08:00:00Z"), deliveryDate: "2026-05-14" },
-  { id: O(11), customerId: C.lena, status: "delivered", totalCents: 3400, placedAt: ts("2026-04-26T08:00:00Z"), deliveryDate: "2026-04-30" },
+  { id: O(10), customerId: C.lena, status: "cancelled", totalCents: 3400, placedAt: daysAgo(45), deliveryDate: daysAgoDate(41) },
+  { id: O(11), customerId: C.lena, status: "delivered", totalCents: 3400, placedAt: daysAgo(59), deliveryDate: daysAgoDate(55) },
 
   // Tom — refund-cooldown demo: FC1015 is a fresh refundable box, but FC1016 was
   // already refunded 5 days ago, so a 2nd refund now hits the 14-day cooldown.
-  { id: O(12), customerId: C.tom, status: "delivered", totalCents: 900, placedAt: ts("2026-06-15T11:00:00Z"), deliveryDate: "2026-06-19" },
-  { id: O(13), customerId: C.tom, status: "delivered", totalCents: 3800, placedAt: ts("2026-06-01T11:00:00Z"), deliveryDate: "2026-06-05", refundedAt: daysAgo(5) },
+  { id: O(12), customerId: C.tom, status: "delivered", totalCents: 900, placedAt: daysAgo(9), deliveryDate: daysAgoDate(5) },
+  { id: O(13), customerId: C.tom, status: "delivered", totalCents: 3800, placedAt: daysAgo(23), deliveryDate: daysAgoDate(19), refundedAt: daysAgo(5) },
 
   // Sara — paused, but a box still in transit
-  { id: O(14), customerId: C.sara, status: "delivered", totalCents: 5200, placedAt: ts("2026-06-02T12:00:00Z"), deliveryDate: "2026-06-06" },
-  { id: O(15), customerId: C.sara, status: "shipped", totalCents: 5200, placedAt: ts("2026-06-20T12:00:00Z"), deliveryDate: "2026-06-24" },
+  { id: O(14), customerId: C.sara, status: "delivered", totalCents: 5200, placedAt: daysAgo(22), deliveryDate: daysAgoDate(18) },
+  { id: O(15), customerId: C.sara, status: "shipped", totalCents: 5200, placedAt: daysAgo(3), deliveryDate: daysFromNow(1) },
 
   // Noah — US-4 refund ceiling escalation: high-value delivered order (> 5000c)
-  { id: O(16), customerId: C.noah, status: "delivered", totalCents: 9800, placedAt: ts("2026-06-17T13:00:00Z"), deliveryDate: "2026-06-21" },
-  { id: O(17), customerId: C.noah, status: "shipped", totalCents: 9800, placedAt: ts("2026-06-23T13:00:00Z"), deliveryDate: "2026-06-27" },
+  { id: O(16), customerId: C.noah, status: "delivered", totalCents: 9800, placedAt: daysAgo(7), deliveryDate: daysAgoDate(3) },
+  { id: O(17), customerId: C.noah, status: "shipped", totalCents: 9800, placedAt: daysAgo(1), deliveryDate: daysFromNow(3) },
 
   // Mia — cancelled customer history
-  { id: O(18), customerId: C.mia, status: "cancelled", totalCents: 4800, placedAt: ts("2026-05-15T15:00:00Z"), deliveryDate: "2026-05-19" },
-  { id: O(19), customerId: C.mia, status: "delivered", totalCents: 4800, placedAt: ts("2026-05-01T15:00:00Z"), deliveryDate: "2026-05-05" },
+  { id: O(18), customerId: C.mia, status: "cancelled", totalCents: 4800, placedAt: daysAgo(40), deliveryDate: daysAgoDate(36) },
+  { id: O(19), customerId: C.mia, status: "delivered", totalCents: 4800, placedAt: daysAgo(54), deliveryDate: daysAgoDate(50) },
 
   // Jamal — active, one in-flight order (pause candidate)
-  { id: O(20), customerId: C.jamal, status: "processing", totalCents: 3800, placedAt: ts("2026-06-23T16:00:00Z"), deliveryDate: "2026-06-27" },
-  { id: O(21), customerId: C.jamal, status: "delivered", totalCents: 750, placedAt: ts("2026-06-09T16:00:00Z"), deliveryDate: "2026-06-13" }, // small add-on → under-ceiling refund demo
+  { id: O(20), customerId: C.jamal, status: "processing", totalCents: 3800, placedAt: daysAgo(1), deliveryDate: daysFromNow(3) },
+  { id: O(21), customerId: C.jamal, status: "delivered", totalCents: 750, placedAt: daysAgo(15), deliveryDate: daysAgoDate(11) }, // small add-on → under-ceiling refund demo
 ];
 
 const E = (n: number) => `33333333-3333-3333-3333-3333333300${n.toString().padStart(2, "0")}`;

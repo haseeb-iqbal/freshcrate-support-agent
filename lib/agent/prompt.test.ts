@@ -12,6 +12,12 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain(RULES.offTopic);
   });
 
+  it("tells the model to report an order status verbatim", () => {
+    // Without this the model infers delivery from a past delivery date and tells
+    // customers a shipped box has arrived.
+    expect(prompt).toContain(RULES.orderStatus);
+  });
+
   it("names the confirmation tools and the search tool", () => {
     for (const t of ["search_knowledge_base", "lookup_order", "list_orders", "get_subscription", "issue_refund", "escalate_to_human"]) {
       expect(prompt).toContain(t);

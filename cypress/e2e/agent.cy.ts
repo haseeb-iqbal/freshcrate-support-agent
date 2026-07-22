@@ -23,6 +23,9 @@ describe("FreshCrate agent (mock LLM)", () => {
     signInAs("Marcus Bell");
     ask("where's my 2nd last order");
     cy.get('[data-testid="assistant-text"]').should("contain.text", "FC1005");
+    // The status the reply states must be the status the order actually has.
+    cy.get('[data-testid="assistant-text"]').should("contain.text", "shipped");
+    cy.get('[data-testid="assistant-text"]').should("not.contain.text", "delivered");
     cy.get('[data-testid="history-card"]').should("not.exist");
   });
 

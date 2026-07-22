@@ -3,21 +3,8 @@
 // These specs WRITE to the database. `npm run test:e2e` runs db:reset first;
 // running `npm run cypress` directly twice without a reseed will fail the refund
 // spec, because the box is already refunded the second time.
-//
-// The helpers are duplicated from agent.cy.ts deliberately: cypress.config.ts
-// sets supportFile: false, so there is no shared support file to hoist them into.
 
-function signInAs(name: string) {
-  cy.get("header select").find("option").contains(name).then(($opt) => {
-    cy.get("header select").select($opt.val() as string);
-  });
-}
-
-function ask(text: string) {
-  cy.get("textarea").clear().type(text);
-  cy.contains("button", "Send").click();
-  cy.contains("button", "Send", { timeout: 15000 }).should("exist");
-}
+import { ask, signInAs } from "../helpers";
 
 describe("FreshCrate confirmation flow (mock LLM, mutates the DB)", () => {
   beforeEach(() => {

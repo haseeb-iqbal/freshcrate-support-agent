@@ -24,8 +24,11 @@ describe("buildSystemPrompt", () => {
     }
   });
 
-  it("tells the model to call the tool (not describe) for actions", () => {
-    expect(prompt.toLowerCase()).toContain("call the");
-    expect(prompt).toContain("confirmation");
+  it("embeds the canonical pricing and fee rules verbatim", () => {
+    // Replaces a `toContain("call the")` check so loose it survived almost any
+    // rewrite. Asserting the RULES constants keeps prompt and tools in step.
+    expect(prompt).toContain(RULES.subscriptionFree);
+    expect(prompt).toContain(RULES.refundAmount);
+    expect(prompt).toContain(RULES.feeRefund);
   });
 });

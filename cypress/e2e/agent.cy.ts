@@ -1,18 +1,6 @@
 /// <reference types="cypress" />
 
-// Pick a signed-in customer by visible name in the header <select>.
-function signInAs(name: string) {
-  cy.get("header select").find("option").contains(name).then(($opt) => {
-    cy.get("header select").select($opt.val() as string);
-  });
-}
-
-function ask(text: string) {
-  cy.get("textarea").clear().type(text);
-  cy.contains("button", "Send").click();
-  // Wait until streaming finishes (Send button returns from "…").
-  cy.contains("button", "Send", { timeout: 15000 }).should("exist");
-}
+import { ask, signInAs } from "../helpers";
 
 describe("FreshCrate agent (mock LLM)", () => {
   beforeEach(() => {

@@ -74,23 +74,28 @@ npm run db:reset             # enable vector + push schema + seed
 npm run kb:ingest            # embed KB articles (needs OPENAI_API_KEY)
 npm run kb:test              # retrieval gate (12 cases)
 npm run typecheck
-npm test                     # unit tests (Vitest) — messages/prompt/dispatch/nudge/loop/domain/mock, no DB needed
-npm run test:integration     # Vitest integration config — needs the seeded DB (lookup_order/list_orders scoping etc.)
+npm test                     # unit tests (Vitest, TZ=UTC) — pure, no DB or network
+npm run test:api             # route-handler tests (tests/api) — needs the seeded DB
+npm run test:integration     # tool + reconcile + seed-coherence tests — needs the seeded DB
+npm run test:all             # typecheck + unit + api + integration (the local gate)
+npm run test:coverage        # unit coverage over lib/
 npm run dev                  # http://localhost:3000
 ```
-`npm run db:seed` resets demo data (shared DB — mutations persist). **Demo customers:** Ava (active), Marcus (2 open orders → clarify), Priya (plain $17.50 box → confirmable refund), Noah (FC1020 $26 with add-ons → over-ceiling escalation), Tom (FC1016 refunded 5 days ago → 14-day cooldown escalation on FC1015), Lena (cancelled, within billing → free reactivation), Mia (cancelled, past billing → fee), Diego (**finite** pause, `pauseResumeDate` ~21 days out → accrues pause fees then auto-resumes on skip-forward) / Sara (**indefinite** pause → accrues $32/month indefinitely). Order numbers `FC1001…`. **Billing dates and Tom's recent refund are seeded relative to real time** (`daysFromNow`/`daysAgo`), so the weeks-to-billing money demos (pause credit, resume charge, free-vs-fee reactivation, refund cooldown) stay correct whenever you reseed.
+`npm run db:seed` resets demo data (shared DB — mutations persist). **Demo customers:** Ava (active), Marcus (2 open orders → clarify), Priya (plain $17.50 box → confirmable refund), Noah (FC1020 $26 with add-ons → over-ceiling escalation), Tom (FC1016 refunded 5 days ago → 14-day cooldown escalation on FC1015), Lena (cancelled, within billing → free reactivation), Mia (cancelled, past billing → fee), Diego (**finite** pause, `pauseResumeDate` ~21 days out → accrues pause fees then auto-resumes on skip-forward) / Sara (**indefinite** pause → accrues $32/month indefinitely). Order numbers `FC1001…`. **Every date is seeded relative to real time** (`daysFromNow`/`daysAgo`/`daysAgoDate`) — billing dates, Tom's recent refund, and order `placedAt`/`deliveryDate` — so the weeks-to-billing money demos (pause credit, resume charge, free-vs-fee reactivation, refund cooldown) stay correct whenever you reseed, and an open order always has a delivery date still ahead of it. `tests/integration/seed-coherence.test.ts` enforces the latter.
 
 **E2E (Cypress, deterministic — no live OpenAI calls):**
 ```bash
-npm run db:reset             # seed the DB the specs assert against
-npm run dev:mock             # MOCK_LLM=1 next dev — deterministic MockChatProvider (lib/llm/mock.ts) instead of OpenAI
-npm run cypress              # headless run of cypress/e2e/agent.cy.ts (6 specs)
-# npm run cypress:open       # interactive runner, if preferred
+npm run test:e2e             # db:reset + dev:mock + headless Cypress (13 specs) in one command
+# npm run cypress:open       # interactive runner — run `npm run db:reset` first
 ```
-`MockChatProvider` is gated behind `MOCK_LLM=1` (never active in production) and scripts canned tool-call/text turns keyed off the incoming message, so the 10 E2E specs (positional order lookup, order-history double-text fix, pause, resume card, plan-change-while-paused redirect, over-ceiling refund escalation, 14-day refund-cooldown escalation, confirmable refund card, off-topic refusal, ambiguous-cancel clarification) run without hitting OpenAI.
+`MockChatProvider` is gated behind `MOCK_LLM=1` (never active in production) and scripts canned tool-call/text turns keyed off the incoming message, so all 13 E2E specs run without hitting OpenAI: 10 read-only in `agent.cy.ts` (positional order lookup, order-history double-text fix, pause, resume card, plan-change-while-paused redirect, over-ceiling refund escalation, 14-day refund-cooldown escalation, confirmable refund card, off-topic refusal, ambiguous-cancel clarification) plus 3 in `confirm.cy.ts` that click Confirm/Not now and therefore **mutate the DB** — hence the reseed baked into `test:e2e`.
+
+`lib/llm/mock-scripts.test.ts` binds the two together: every question a spec asks needs a script, every script needs a spec, and a fixture may not state an order status no spec asserts.
 
 ## 10. What's left / known limitations
-- **Agent-loop hardening (done, branch `agent-loop-hardening`):** domain source-of-truth (`lib/domain/terms.ts` + `docs/DOMAIN.md`), `lookup_order` position/kind/status selectors (fixes history-dump on relative references), loop split into `messages`/`prompt`/`dispatch`/`nudge` + thin `runAgent`, streaming `reset` event (fixes duplicate reply text), `MockChatProvider` + Vitest (unit + integration) + Cypress (6 E2E specs). See §5/§8/§9 above.
+- **Agent-loop hardening (done, branch `agent-loop-hardening`):** domain source-of-truth (`lib/domain/terms.ts` + `docs/DOMAIN.md`), `lookup_order` position/kind/status selectors (fixes history-dump on relative references), loop split into `messages`/`prompt`/`dispatch`/`nudge` + thin `runAgent`, streaming `reset` event (fixes duplicate reply text), `MockChatProvider` + Vitest (unit + integration) + Cypress (13 E2E specs). See §5/§8/§9 above.
+
+- **Test-suite hardening (done, see `docs/superpowers/plans/2026-07-21-test-suite-hardening.md`):** added a route-handler test layer (`tests/api/`, calls Next handlers directly against the real DB with a pinned clock), pinned `TZ=UTC`, added coverage, and closed the pure-module gaps (chunk/rerank/ground/injection/messages/order-view/excerpts). Fixed five defects the gap was hiding: stale seed order dates (the agent called shipped boxes "delivered"), the ambiguous `delivery_date` key, a pause double-credit on replayed confirmations, replayed cancel / same-plan writes, and **reactivation back-billing every month the customer was cancelled** ($400 charged instead of $160). Every user-facing date now formats on the local calendar via `lib/date.ts` rather than `toISOString()`.
 - **Phase 5 Evals (do next):** one-command runner, 15–25 cases (retrieval, grounding, tool-selection, honesty, guardrails), LLM-as-judge, catch a seeded regression. This is the highest-value next step — the new Vitest/Cypress suite covers loop mechanics, not end-to-end answer quality.
 - **Phase 6:** model router (mini↔4o), per-turn cost/latency written to `traces`, observability dashboard.
 - **Phase 7:** Vercel + Supabase deploy, "Reset demo data" endpoint/button + periodic reseed, live tool-call/think-act-observe UI, guided sample-scenarios walkthrough (see memory), README limitations + OWASP-LLM note.

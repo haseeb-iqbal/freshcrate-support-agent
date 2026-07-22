@@ -11,8 +11,28 @@ const call = (name: string, args: object): AgentStreamEvent => ({
   value: [{ id: "call_1", name, arguments: JSON.stringify(args) }],
 });
 
-/** Keyed on the normalized latest user message. Order numbers match db/seed.ts. */
+/**
+ * Keyed on the normalized latest user message. Order numbers match db/seed.ts.
+ *
+ * The four `lib/example-prompts.ts` suggestion chips must each have an entry, or
+ * clicking one in MOCK_LLM demo mode answers "(mock) No script for this input".
+ * Those four are written for Marcus Bell, who has a processing order, a shipped
+ * order and two delivered ones. Fixture text must not state a delivery DATE:
+ * seed dates are relative to seeding time, so a hard-coded one would rot.
+ */
 export const MOCK_SCRIPTS: Record<string, Script> = {
+  "where's my latest order?": {
+    pre_tool: [call("lookup_order", { position: 1 })],
+    post_tool: [t("Your latest order, FC1004, is still processing. I'll let you know as soon as it ships.")],
+  },
+  "show me my order history": {
+    pre_tool: [call("list_orders", {})],
+    post_tool: [t("Here's your order history:")],
+  },
+  "my last box arrived damaged — i'd like a refund": {
+    pre_tool: [call("issue_refund", { order_number: "FC1006", reason: "damaged box" })],
+    post_tool: [t("I can refund that box — please confirm below to send it back to your original payment method.")],
+  },
   "where's my 2nd last order": {
     pre_tool: [call("lookup_order", { position: 2 })],
     post_tool: [t("Your 2nd most recent order, FC1005, has shipped and is on its way.")],

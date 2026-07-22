@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { EXAMPLE_PROMPTS } from "@/lib/example-prompts";
 
 export interface CustomerOption {
   id: string;
@@ -154,13 +155,6 @@ interface AccountData {
   transactions: TransactionView[];
   statusHistory: { event: string; date: string }[];
 }
-
-const EXAMPLE_PROMPTS = [
-  "Where's my latest order?",
-  "Show me my order history",
-  "Pause my subscription for 2 weeks",
-  "My last box arrived damaged — I'd like a refund",
-];
 
 const TOOL_LABELS: Record<string, string> = {
   search_knowledge_base: "Searching the help center",
@@ -533,6 +527,11 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
           <label className="flex items-center gap-2 text-sm">
             <span className="text-slate-500">Signed in as</span>
             <select
+              // The wrapping <label> already associates the text, but because
+              // the <select> sits inside it, the label's text content pulls in
+              // every option too. An explicit name keeps it short and the same
+              // across assistive technologies.
+              aria-label="Signed in as customer"
               value={customerId}
               onChange={(e) => switchCustomer(e.target.value)}
               disabled={busy}

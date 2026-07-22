@@ -18,3 +18,14 @@ export function ask(text: string) {
   // Wait until streaming finishes (Send button returns from "…").
   cy.contains("button", "Send", { timeout: 15000 }).should("exist");
 }
+
+/** Click one of the empty-chat suggestion chips, which sends it immediately. */
+export function clickChip(label: string) {
+  cy.contains("button", label).click();
+  cy.contains("button", "Send", { timeout: 15000 }).should("exist");
+}
+
+/** Assert the mock provider actually had a script for whatever was just sent. */
+export function expectScripted() {
+  cy.get('[data-testid="assistant-text"]').should("not.contain.text", "No script for this input");
+}

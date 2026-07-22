@@ -2,6 +2,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { MOCK_SCRIPTS, normalize } from "./mock-scripts";
+import { EXAMPLE_PROMPTS } from "@/lib/example-prompts";
 
 const E2E_DIR = join(process.cwd(), "cypress", "e2e");
 
@@ -31,9 +32,16 @@ describe("MOCK_SCRIPTS / Cypress contract", () => {
     expect(missing).toEqual([]);
   });
 
-  it("has no script that no spec exercises", () => {
-    const asked = new Set(askedStrings().map(normalize));
-    expect(Object.keys(MOCK_SCRIPTS).filter((k) => !asked.has(k))).toEqual([]);
+  it("has a script for every suggestion chip the empty chat offers", () => {
+    // A chip with no script answers "(mock) No script for this input", so the
+    // demo looks broken on the very first click a new viewer makes.
+    const missing = EXAMPLE_PROMPTS.filter((p) => !MOCK_SCRIPTS[normalize(p)]);
+    expect(missing).toEqual([]);
+  });
+
+  it("has no script that neither a spec nor a suggestion chip exercises", () => {
+    const exercised = new Set([...askedStrings(), ...EXAMPLE_PROMPTS].map(normalize));
+    expect(Object.keys(MOCK_SCRIPTS).filter((k) => !exercised.has(k))).toEqual([]);
   });
 
   it("never lets a fixture assert an order status the specs do not verify", () => {

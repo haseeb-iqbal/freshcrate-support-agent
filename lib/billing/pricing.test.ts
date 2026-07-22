@@ -51,6 +51,13 @@ describe("weeksUntilDate", () => {
   it("ignores the time of day", () => {
     expect(weeksUntilDate(billing, new Date("2026-07-21T23:59:00"))).toBe(1);
   });
+
+  it("assumes a full month when there is no billing date on file", () => {
+    // Every money calculation multiplies by this, so the fallback has to be
+    // deliberate rather than incidentally 0.
+    expect(weeksUntilDate(null, on("2026-07-20"))).toBe(4);
+    expect(weeksUntilDate(undefined, on("2026-07-20"))).toBe(4);
+  });
 });
 
 describe("withinBillingPeriod", () => {
@@ -68,6 +75,7 @@ describe("withinBillingPeriod", () => {
 
   it("is false when there is no billing date", () => {
     expect(withinBillingPeriod(null, on("2026-07-20"))).toBe(false);
+    expect(withinBillingPeriod(undefined, on("2026-07-20"))).toBe(false);
   });
 });
 

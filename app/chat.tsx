@@ -40,7 +40,8 @@ interface OrderView {
   list_price_cents: number;
   add_ons: AddOn[];
   refund_cents: number;
-  delivery_date?: string | null;
+  delivered_on?: string | null;
+  expected_delivery_date?: string | null;
   refunded: boolean;
   refunded_at?: string | null;
   items: string[];
@@ -855,7 +856,8 @@ function OrderRow({ o }: { o: OrderView }) {
         </p>
       )}
       <div className="mt-0.5 flex flex-wrap gap-x-3 text-[10px] text-slate-400">
-        {o.delivery_date && <span>Delivery {fmtDate(o.delivery_date)}</span>}
+        {o.delivered_on && <span>Delivered {fmtDate(o.delivered_on)}</span>}
+        {o.expected_delivery_date && <span>Arriving {fmtDate(o.expected_delivery_date)}</span>}
         {o.refunded && o.refunded_at && (
           <span className="text-emerald-600">Refunded {money(o.refund_cents)} on {fmtDate(o.refunded_at)}</span>
         )}

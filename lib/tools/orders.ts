@@ -4,14 +4,13 @@ import { orders, transactions } from "../../db/schema";
 import type { Tool } from "./types";
 import { OPEN_STATUSES, ORDER_KINDS, ORDER_STATUSES, type OrderKind, type OrderSelector, type OrderStatus } from "@/lib/domain/terms";
 import { selectOrder, type SelectableOrder } from "./select-order";
+import { orderView, refundAmountCents } from "./order-view";
 
 type OrderRow = typeof orders.$inferSelect;
 
-const addOnSum = (o: OrderRow) => (o.addOns ?? []).reduce((s, a) => s + a.priceCents, 0);
-
-/** Refund amount for an order: the meal's list (undiscounted) price plus add-ons,
- *  for both subscription and extra meals. */
-export const refundAmountCents = (o: OrderRow) => o.listPriceCents + addOnSum(o);
+// Re-exported so the refund tool and the refund endpoint keep importing the
+// refund amount from the same place they always have.
+export { refundAmountCents };
 
 /** When this customer last had a confirmed refund (null if never) — drives the
  *  refund-frequency cooldown. Read by both the issue_refund tool and the write
@@ -24,22 +23,6 @@ export async function latestRefundAt(customerId: string): Promise<Date | null> {
     .orderBy(desc(orders.refundedAt))
     .limit(1);
   return row?.refundedAt ?? null;
-}
-
-function view(o: OrderRow) {
-  return {
-    order_number: o.orderNumber,
-    kind: o.kind, // subscription | extra
-    status: o.status,
-    charged_cents: o.totalCents, // 0 for a subscription meal (free)
-    list_price_cents: o.listPriceCents, // undiscounted meal price
-    add_ons: o.addOns ?? [],
-    refund_cents: refundAmountCents(o),
-    delivery_date: o.deliveryDate,
-    refunded: o.refundedAt !== null,
-    refunded_at: o.refundedAt ? o.refundedAt.toISOString().slice(0, 10) : null,
-    items: o.items ?? [],
-  };
 }
 
 /** Look up ONE order for the current customer, by number, position, kind, or status. */
@@ -82,7 +65,7 @@ export const lookupOrder: Tool = {
     return {
       ok: true,
       summary: `Order ${focus.orderNumber}: ${focus.kind} meal, ${focus.status}${focus.refundedAt ? ", refunded" : ""}`,
-      data: { order: view(focus), open_order_count: openCount },
+      data: { order: orderView(focus), open_order_count: openCount },
     };
   },
 };
@@ -112,7 +95,7 @@ export const listOrders: Tool = {
       ok: true,
       summary: `${orderRows.length} orders, ${txns.length} transactions`,
       data: {
-        orders: orderRows.slice(0, 12).map(view),
+        orders: orderRows.slice(0, 12).map(orderView),
         transactions: txns.slice(0, 12).map((t) => ({
           type: t.type,
           amount_cents: t.amountCents,

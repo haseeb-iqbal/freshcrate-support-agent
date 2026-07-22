@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { customers, orders, subscriptionEvents, transactions } from "@/db/schema";
-import { refundAmountCents } from "@/lib/tools/orders";
+import { orderView } from "@/lib/tools/order-view";
 import { reconcile } from "@/lib/billing/reconcile";
 import { now } from "@/lib/clock";
 
@@ -36,19 +36,7 @@ export async function GET(req: NextRequest) {
       subscriptionStatus: customer.subscriptionStatus,
       billingDate: customer.billingDate,
     },
-    orders: orderRows.map((o) => ({
-      order_number: o.orderNumber,
-      kind: o.kind,
-      status: o.status,
-      charged_cents: o.totalCents,
-      list_price_cents: o.listPriceCents,
-      add_ons: o.addOns ?? [],
-      refund_cents: refundAmountCents(o),
-      delivery_date: o.deliveryDate,
-      refunded: o.refundedAt !== null,
-      refunded_at: o.refundedAt ? o.refundedAt.toISOString().slice(0, 10) : null,
-      items: o.items ?? [],
-    })),
+    orders: orderRows.map(orderView),
     transactions: txns.map((t) => ({
       type: t.type,
       amount_cents: t.amountCents,

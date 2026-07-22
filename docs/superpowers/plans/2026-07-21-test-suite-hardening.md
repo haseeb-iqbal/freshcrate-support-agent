@@ -663,7 +663,24 @@ git commit -m "test: pin TZ, add api test config and coverage tooling"
 
 ---
 
-### Task 4: Local-calendar date helper, and the resume-date drift fix
+### Task 4: Sweep the remaining UTC date-formatting sites
+
+> **Scope widened during Task 2.** The `orderView` test caught a second instance of this bug (`refunded_at` rendered a day early at any positive UTC offset), so `lib/date.ts` and `toIsoDate` were created early, in Task 2, and `lib/tools/order-view.ts` already uses them. A grep then showed **11** call sites of `toISOString().slice(0, 10)`, not the one the plan originally assumed. This task now sweeps the rest rather than just `resumeDateFor`.
+>
+> Already done in Task 2: `lib/date.ts`, `lib/date.test.ts`, and the `order-view.ts` call site.
+>
+> Remaining sites to convert to `toIsoDate`, each of which formats a user-facing calendar day:
+> - `lib/tools/orders.ts:121` - transaction `date` in the history card
+> - `lib/tools/refund.ts:82` - `next_eligible` in the cooldown message
+> - `lib/tools/subscription.ts:19` - `resumeDateFor` (becomes `addWeeksIso`, below)
+> - `app/api/account/route.ts` - transaction `date` and `statusHistory` date
+> - `app/api/actions/refund/route.ts:56` - `next_eligible` in the 403 body
+> - `db/seed.ts:13,17` - `daysFromNow` / `daysAgoDate`, so seeded dates land on the intended local day regardless of the hour of seeding
+> - `lib/guardrails/refund-policy.test.ts:53` - the assertion itself formats in UTC; switch it to `toIsoDate` so it stays honest once `TZ` is pinned
+>
+> Keep the steps below for the `resumeDateFor` to `addWeeksIso` move, and add `addWeeksIso` to the existing `lib/date.ts` rather than creating the file.
+
+### Task 4 (continued): the resume-date drift fix
 
 `resumeDateFor` in `lib/tools/subscription.ts` builds a local `Date` then formats it with `toISOString().slice(0, 10)`. That formats in UTC, so at any negative UTC offset an evening pause returns a resume date one day late. `lib/billing/reconcile.ts` already has a private `iso()` helper with a comment explaining exactly this hazard. This task gives that helper one home and moves the date maths out of the DB-coupled tool module so it can be unit-tested without a database.
 

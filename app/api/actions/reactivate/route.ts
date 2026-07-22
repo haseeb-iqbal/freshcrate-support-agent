@@ -5,6 +5,7 @@ import { customers, subscriptionEvents, transactions } from "@/db/schema";
 import { SIGNUP_FEE_CENTS, getPlan, withinBillingPeriod } from "@/lib/billing/pricing";
 import { reconcile } from "@/lib/billing/reconcile";
 import { now } from "@/lib/clock";
+import { addMonthsIso } from "@/lib/date";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,7 +47,17 @@ export async function POST(req: NextRequest) {
   const signupFee = within ? 0 : SIGNUP_FEE_CENTS;
   const total = free ? 0 : plan.monthlyCents + signupFee;
 
-  await db.update(customers).set({ subscriptionStatus: "active", plan: effectivePlan, pauseResumeDate: null }).where(eq(customers.id, customerId));
+  // A subscription cancelled before its billing date passed still carries that
+  // stale date. Reactivating without advancing it hands an active subscription
+  // to reconcile with a billing date in the past, which then back-bills every
+  // month the customer was cancelled. They have just paid for a month, so the
+  // next bill is a month out. Dates already in the future are already correct.
+  const billingDate = within ? customer.billingDate : addMonthsIso(1, now());
+
+  await db
+    .update(customers)
+    .set({ subscriptionStatus: "active", plan: effectivePlan, pauseResumeDate: null, billingDate })
+    .where(eq(customers.id, customerId));
 
   // Status-change audit.
   await db.insert(subscriptionEvents).values({ customerId, eventType: "reactivated", metadata: { free, plan: effectivePlan } });

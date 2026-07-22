@@ -20,6 +20,14 @@ export function addWeeksIso(weeks: number, from: Date): string {
   return toIsoDate(d);
 }
 
+/** The ISO date N months after `from`. JS clamps overflow (Jan 31 + 1mo becomes
+ *  Mar 3), which matches how reconcile rolls a billing date. */
+export function addMonthsIso(months: number, from: Date): string {
+  const d = new Date(from);
+  d.setMonth(d.getMonth() + months);
+  return toIsoDate(d);
+}
+
 /** The ISO date N days after `from` (negative goes back). */
 export function addDaysIso(days: number, from: Date): string {
   const d = new Date(from);

@@ -24,7 +24,7 @@
     "test:api": "cross-env TZ=UTC vitest run --config vitest.api.config.ts",
     "test:integration": "cross-env TZ=UTC vitest run --config vitest.integration.config.ts",
     "test:coverage": "cross-env TZ=UTC vitest run --coverage",
-    "test:all": "npm run typecheck && npm test && npm run test:integration",
+    "test:all": "npm run typecheck && npm test && npm run test:api && npm run test:integration",
     "test:e2e": "npm run db:reset && start-server-and-test dev:mock http://localhost:3000 cypress",
     "typecheck": "tsc --noEmit",
     "cypress": "cypress run",

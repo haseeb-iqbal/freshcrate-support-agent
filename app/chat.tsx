@@ -46,6 +46,7 @@ interface OrderView {
   refunded: boolean;
   refunded_at?: string | null;
   items: string[];
+  dietary_tags?: string[];
 }
 
 interface TransactionView {
@@ -118,6 +119,13 @@ interface CancelProposal {
   signup_fee_cents: number;
 }
 
+interface DietChangeProposal {
+  current_track: string;
+  new_track: string;
+  effective_from: string;
+  meals_preview: string[];
+}
+
 type ProposalState = "pending" | "approved" | "declined" | "error";
 
 interface Message {
@@ -138,6 +146,8 @@ interface Message {
   planState?: ProposalState;
   cancelProposal?: CancelProposal;
   cancelState?: ProposalState;
+  dietProposal?: DietChangeProposal;
+  dietState?: ProposalState;
 }
 
 interface AccountData {
@@ -148,6 +158,7 @@ interface AccountData {
     address?: string | null;
     paymentMethod?: string | null;
     plan: string;
+    dietaryTrack?: string | null;
     subscriptionStatus: string;
     billingDate?: string | null;
   };
@@ -164,6 +175,7 @@ const TOOL_LABELS: Record<string, string> = {
   reactivate_subscription: "Preparing reactivation",
   cancel_subscription: "Preparing cancellation",
   change_plan: "Preparing a plan change",
+  change_dietary_track: "Preparing a dietary change",
   list_orders: "Fetching your order history",
   issue_refund: "Preparing a refund",
   escalate_to_human: "Escalating to a human",
@@ -266,6 +278,9 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
   function setPlanState(index: number, state: ProposalState) {
     setMessages((prev) => prev.map((m, i) => (i === index ? { ...m, planState: state } : m)));
   }
+  function setDietState(index: number, state: ProposalState) {
+    setMessages((prev) => prev.map((m, i) => (i === index ? { ...m, dietState: state } : m)));
+  }
 
   async function postAction(url: string, payload: Record<string, unknown>): Promise<boolean> {
     try {
@@ -293,6 +308,12 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
   async function confirmPlanChange(index: number, proposal: PlanChangeProposal) {
     const ok = await postAction("/api/actions/change-plan", { customerId, plan: proposal.plan });
     setPlanState(index, ok ? "approved" : "error");
+    if (ok) refreshCustomers();
+  }
+
+  async function confirmDietChange(index: number, proposal: DietChangeProposal) {
+    const ok = await postAction("/api/actions/dietary-track", { customerId, track: proposal.new_track });
+    setDietState(index, ok ? "approved" : "error");
     if (ok) refreshCustomers();
   }
 
@@ -430,6 +451,8 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
       patchLast({ planProposal: data as PlanChangeProposal, planState: "pending" });
     } else if (event === "cancel_proposal") {
       patchLast({ cancelProposal: data as CancelProposal, cancelState: "pending" });
+    } else if (event === "diet_change_proposal") {
+      patchLast({ dietProposal: data as DietChangeProposal, dietState: "pending" });
     } else if (event === "tool_call") {
       const { name } = data as { name: string };
       setMessages((prev) => updateLast(prev, (m) => ({ ...m, steps: [...(m.steps ?? []), { name, status: "running" }] })));
@@ -571,6 +594,8 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
                 onDeclinePlan={() => setPlanState(i, "declined")}
                 onConfirmCancel={() => confirmCancel(i)}
                 onDeclineCancel={() => setCancelState(i, "declined")}
+                onConfirmDiet={() => m.dietProposal && confirmDietChange(i, m.dietProposal)}
+                onDeclineDiet={() => setDietState(i, "declined")}
               />
             ))}
           </>
@@ -661,6 +686,8 @@ function MessageBubble({
   onDeclinePlan,
   onConfirmCancel,
   onDeclineCancel,
+  onConfirmDiet,
+  onDeclineDiet,
 }: {
   message: Message;
   streaming: boolean;
@@ -677,6 +704,8 @@ function MessageBubble({
   onDeclinePlan: () => void;
   onConfirmCancel: () => void;
   onDeclineCancel: () => void;
+  onConfirmDiet: () => void;
+  onDeclineDiet: () => void;
 }) {
   const isUser = message.role === "user";
   // Result cards (sources, order history, action prompts) appear only once the
@@ -693,7 +722,8 @@ function MessageBubble({
     !message.pauseProposal &&
     !message.resumeProposal &&
     !message.reactivateProposal &&
-    !message.planProposal;
+    !message.planProposal &&
+    !message.dietProposal;
 
   return (
     <div className={isUser ? "flex justify-end" : "flex justify-start"}>
@@ -771,6 +801,15 @@ function MessageBubble({
             state={message.cancelState ?? "pending"}
             onConfirm={onConfirmCancel}
             onDecline={onDeclineCancel}
+          />
+        )}
+
+        {!isUser && showResults && message.dietProposal && (
+          <DietCard
+            proposal={message.dietProposal}
+            state={message.dietState ?? "pending"}
+            onConfirm={onConfirmDiet}
+            onDecline={onDeclineDiet}
           />
         )}
 
@@ -1221,6 +1260,49 @@ function CancelCard({
   );
 }
 
+function DietCard({
+  proposal,
+  state,
+  onConfirm,
+  onDecline,
+}: {
+  proposal: DietChangeProposal;
+  state: ProposalState;
+  onConfirm: () => void;
+  onDecline: () => void;
+}) {
+  return (
+    <div data-testid="diet-card" className="mt-3 rounded-lg border border-lime-200 bg-lime-50 p-3">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-lime-700">Dietary track</p>
+      <p className="mt-1 text-sm text-slate-800">
+        Switch from <span className="font-semibold">{proposal.current_track}</span> to{" "}
+        <span className="font-semibold">{proposal.new_track}</span> meals?
+      </p>
+      {proposal.meals_preview.length > 0 && (
+        <p className="mt-1 text-xs text-slate-600">For example: {proposal.meals_preview.join(", ")}.</p>
+      )}
+      <p className="mt-1 text-xs text-slate-500">
+        Free to switch. It applies from next week&apos;s menu ({fmtDate(proposal.effective_from)}); boxes already on
+        their way keep the meals they were packed with.
+      </p>
+
+      {state === "pending" && (
+        <div className="mt-2 flex gap-2">
+          <button onClick={onConfirm} className="rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-white transition hover:bg-brand-dark">
+            Yes, switch my meals
+          </button>
+          <button onClick={onDecline} className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-600 transition hover:bg-slate-50">
+            Not now
+          </button>
+        </div>
+      )}
+      {state === "approved" && <p className="mt-2 text-xs font-medium text-emerald-700">✓ Switched to {proposal.new_track} meals from next week.</p>}
+      {state === "declined" && <p className="mt-2 text-xs font-medium text-slate-500">No problem - your meals are unchanged.</p>}
+      {state === "error" && <p className="mt-2 text-xs font-medium text-red-600">Couldn&apos;t switch your meals - please try again.</p>}
+    </div>
+  );
+}
+
 function ToolSteps({ steps }: { steps: Step[] }) {
   return (
     <div className="mb-2 space-y-1">
@@ -1246,6 +1328,7 @@ function AccountPanel({ account }: { account: AccountData | null }) {
     ["Phone", c.phone],
     ["Address", c.address],
     ["Plan", c.plan],
+    ["Dietary track", c.dietaryTrack],
     ["Subscription", c.subscriptionStatus],
     ["Next billing", fmtDate(c.billingDate)],
     ["Payment method", c.paymentMethod],

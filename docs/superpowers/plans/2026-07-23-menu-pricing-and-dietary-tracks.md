@@ -97,21 +97,20 @@ import {
 } from "./menu";
 
 describe("catalogue shape", () => {
-  it("holds 32 meals and 20 add-ons", () => {
-    expect(MEAL_CATALOGUE).toHaveLength(32);
-    expect(ADDON_CATALOGUE).toHaveLength(20);
-  });
-
   it("gives every item a unique code", () => {
     const codes = [...MEAL_CATALOGUE, ...ADDON_CATALOGUE].map((i) => i.code);
     expect(new Set(codes).size).toBe(codes.length);
   });
 
-  it("puts eight meals and five add-ons on each of the four tracks", () => {
+  it("puts eight meals and five add-ons on each of the four tracks, and nothing outside them", () => {
     for (const track of DIETARY_TRACKS) {
       expect(mealsForTrack(track)).toHaveLength(8);
       expect(addOnsForTrack(track)).toHaveLength(5);
     }
+    // The totals are the cross-check: if an item carried a track outside the
+    // four it would be stranded here rather than counted above.
+    expect(MEAL_CATALOGUE).toHaveLength(32);
+    expect(ADDON_CATALOGUE).toHaveLength(20);
   });
 });
 
@@ -375,7 +374,7 @@ export function isDietaryTrack(value: unknown): value is DietaryTrack {
 - [ ] **Step 4: Run the test to verify it passes**
 
 Run: `npx vitest run lib/domain/menu.test.ts`
-Expected: PASS, 15 tests.
+Expected: PASS, 14 tests.
 
 - [ ] **Step 5: Typecheck**
 

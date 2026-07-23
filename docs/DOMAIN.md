@@ -16,6 +16,25 @@ mirror is `lib/domain/terms.ts`; pricing lives in `lib/billing/pricing.ts` + the
   (1 = most recent), by `kind`, and/or by `status`. Filters combine, then position
   picks within the recency-sorted result.
 
+## Menu & dietary tracks
+- Four tracks: `standard`, `gluten-free`, `vegetarian`, `dairy-free`. Each has 8 meals
+  and 5 add-ons. `lib/domain/menu.ts` is the source; `MEAL_CATALOGUE` / `ADDON_CATALOGUE`.
+- **Add-on prices are flat by type**: side $4.99, dessert $5.99, drink $3.49. Meals are
+  all $17.50 (`MEAL_LIST_PRICE_CENTS`) and free on a plan, on every track.
+- **Tagging rule:** an item always carries its own track, and another track only when
+  nothing in it is excluded by that track. A `standard` item is NEVER tagged into a
+  specialist track - standard meals are not prepared under gluten-free or dairy-free
+  controls. `orders.dietary_tags` snapshots the meal's tags when the box was packed.
+- **Halal:** every meal is halal-certified; no pork, pork derivatives or alcohol
+  anywhere. **Not kosher** and not kosher-certified - the menu contains shellfish
+  (G6, D8) and dishes combining meat with dairy (S2, S5, S8). Do not describe the
+  menu as kosher-friendly; `kb/articles/menu-and-dietary-tracks.md` states the
+  limits explicitly and the agent answers from it.
+- **Changing track** (propose→confirm): `change_dietary_track` proposes,
+  `/api/actions/dietary-track` writes. Free, allowed in any subscription status,
+  effective from next week's menu; in-flight orders keep their meals. Writes a
+  `diet_changed` subscription event and no ledger row.
+
 ## Refunds
 - Amount = list price + add-ons (both kinds).
 - Customer-confirmed only when **at or below the ceiling ($20 default) AND** no other

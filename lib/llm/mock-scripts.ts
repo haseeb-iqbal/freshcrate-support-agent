@@ -66,6 +66,10 @@ export const MOCK_SCRIPTS: Record<string, Script> = {
     pre_tool: [call("issue_refund", { order_number: "FC1008", reason: "damaged box" })],
     post_tool: [t("I can refund that box — please confirm below to send it back to your original payment method.")],
   },
+  "switch me to vegetarian meals": {
+    pre_tool: [call("change_dietary_track", { track: "vegetarian" })],
+    post_tool: [t("I can move you onto our vegetarian menu - confirm below and it starts with next week's box.")],
+  },
   "what's the capital of france?": {
     pre_tool: [t("I can only help with FreshCrate orders, subscriptions, and policies — anything about your account I can help with?")],
     post_tool: [],

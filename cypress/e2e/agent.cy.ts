@@ -80,4 +80,12 @@ describe("FreshCrate agent (mock LLM)", () => {
     cy.get('[data-testid="assistant-text"]').should("contain.text", "which");
     cy.get('[data-testid="pause-card"]').should("not.exist");
   });
+
+  it("a dietary-track switch shows a single confirmation card", () => {
+    signInAs("Ava Chen");
+    ask("switch me to vegetarian meals");
+    cy.get('[data-testid="diet-card"]').should("have.length", 1);
+    cy.get('[data-testid="diet-card"]').should("contain.text", "vegetarian");
+    cy.contains("button", "Yes, switch my meals").should("exist");
+  });
 });

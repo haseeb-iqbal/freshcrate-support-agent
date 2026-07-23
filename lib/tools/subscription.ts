@@ -21,7 +21,7 @@ export const getSubscription: Tool = {
   definition: {
     name: "get_subscription",
     description:
-      "Get the current customer's LIVE subscription details: status (active/paused/cancelled), plan, next billing date, and — if paused — how long / when it resumes. ALWAYS call this to answer any question about the customer's current status, plan, billing date, or pause length; never answer those from earlier conversation.",
+      "Get the current customer's LIVE subscription details: status (active/paused/cancelled), plan, next billing date, and — if paused — how long / when it resumes. ALWAYS call this to answer any question about the customer's current status, plan, dietary track, billing date, or pause length; never answer those from earlier conversation.",
     parameters: { type: "object", properties: {}, additionalProperties: false },
   },
   async handler(ctx) {
@@ -41,6 +41,7 @@ export const getSubscription: Tool = {
       data: {
         status: customer.subscriptionStatus,
         plan: customer.plan,
+        dietary_track: customer.dietaryTrack,
         billing_date: customer.billingDate,
         pause,
       },

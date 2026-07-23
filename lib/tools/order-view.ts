@@ -18,6 +18,8 @@ export interface OrderView {
   refunded: boolean;
   refunded_at: string | null;
   items: string[];
+  /** Dietary tracks this meal satisfies, as packed. */
+  dietary_tags: string[];
 }
 
 const addOnSum = (o: OrderRow) => (o.addOns ?? []).reduce((s, a) => s + a.priceCents, 0);
@@ -53,5 +55,6 @@ export function orderView(o: OrderRow): OrderView {
     refunded: o.refundedAt !== null,
     refunded_at: o.refundedAt ? toIsoDate(o.refundedAt) : null,
     items: o.items ?? [],
+    dietary_tags: o.dietaryTags ?? [],
   };
 }

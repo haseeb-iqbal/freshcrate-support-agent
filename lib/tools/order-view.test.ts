@@ -18,6 +18,7 @@ const row = (over: Partial<OrderRow> = {}): OrderRow =>
     deliveryDate: "2026-07-25",
     refundedAt: null,
     items: ["Beef Tacos"],
+    dietaryTags: ["standard"],
     ...over,
   }) as OrderRow;
 
@@ -77,6 +78,15 @@ describe("orderView", () => {
     expect(v.charged_cents).toBe(0);
     expect(v.list_price_cents).toBe(1750);
     expect(v.refund_cents).toBe(1750);
+  });
+
+  it("surfaces the meal's dietary tags", () => {
+    const v = orderView(row({ dietaryTags: ["vegetarian", "gluten-free"] }));
+    expect(v.dietary_tags).toEqual(["vegetarian", "gluten-free"]);
+  });
+
+  it("treats absent dietary tags as none", () => {
+    expect(orderView(row({ dietaryTags: null })).dietary_tags).toEqual([]);
   });
 });
 

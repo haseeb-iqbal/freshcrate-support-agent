@@ -3,6 +3,7 @@ import { db, client } from "./index";
 import { customers, escalations, orders, plans, subscriptionEvents, transactions } from "./schema";
 import { MEAL_LIST_PRICE_CENTS } from "../lib/billing/pricing";
 import { addDaysIso } from "../lib/date";
+import { ADDON_CATALOGUE, mealsForTrack, type DietaryTrack } from "../lib/domain/menu";
 
 /** N days before the moment of seeding (real time), for demo data that must stay
  *  recent relative to "now" — e.g. a refund inside the 14-day cooldown window. */
@@ -58,52 +59,54 @@ const C = {
 
 const ts = (iso: string) => new Date(iso);
 
-const MEALS = [
-  "Chicken Tikka Masala",
-  "Veggie Stir-Fry",
-  "Beef Tacos",
-  "Salmon Teriyaki",
-  "Mushroom Risotto",
-  "Thai Green Curry",
-  "Margherita Flatbread",
-  "Lemon Herb Chicken",
-  "Pesto Penne",
-  "Korean Beef Bibimbap",
-];
-const ADDONS = [
-  "Chocolate Lava Cake (add-on)",
-  "Garlic Bread (add-on)",
-  "Seasonal Fruit Box (add-on)",
-  "Cookie Dough Trio (add-on)",
-];
-
 const planRows: (typeof plans.$inferInsert)[] = [
   { plan: "2 meals/week", mealsPerWeek: 2, weeklyCents: 3000, monthlyCents: 12000 },
   { plan: "3 meals/week", mealsPerWeek: 3, weeklyCents: 4200, monthlyCents: 16800 },
   { plan: "4 meals/week", mealsPerWeek: 4, weeklyCents: 5200, monthlyCents: 20800 },
 ];
 
-// Every meal lists at $17.50 (MEAL_LIST_PRICE_CENTS). Refund = list price +
-// add-ons, so a plain meal ($17.50) sits under the $20 ceiling and is
-// confirmable, while add-ons can push a refund over it. Add-ons and extra-meal
-// status are assigned explicitly by order index so the refund demos land
-// predictably — no procedural guessing.
-const clean = (name: string) => name.replace(" (add-on)", "");
-const EXTRA_ORDER_INDICES = new Set([4, 9]); // charged à-la-carte meals (realism)
-const ORDER_ADDONS: Record<number, { name: string; priceCents: number }[]> = {
-  4: [{ name: clean(ADDONS[1]), priceCents: 499 }], // Marcus extra meal
-  9: [{ name: clean(ADDONS[2]), priceCents: 499 }], // Priya extra meal
-  // Noah FC1020 — over-ceiling refund demo: $17.50 + $8.50 add-ons = $26.00 > $20.
-  19: [
-    { name: clean(ADDONS[0]), priceCents: 499 },
-    { name: clean(ADDONS[1]), priceCents: 351 },
-  ],
+/** Which diet each demo customer is on. Their meals and add-ons are drawn from
+ *  this track, so nobody is seeded a box their own diet rules out. */
+const TRACK_BY_CUSTOMER: Record<string, DietaryTrack> = {
+  [C.ava]: "standard",
+  [C.marcus]: "standard",
+  [C.priya]: "vegetarian",
+  [C.diego]: "gluten-free",
+  [C.lena]: "standard",
+  [C.tom]: "dairy-free",
+  [C.sara]: "vegetarian",
+  [C.noah]: "standard",
+  [C.mia]: "gluten-free",
+  [C.jamal]: "dairy-free",
+};
+
+// Add-ons by order index, chosen so the refund demos land predictably rather
+// than by procedural guessing. Every meal lists at $17.50 and a refund is list
+// price + add-ons, so a plain box ($17.50) sits under the $20 ceiling and is
+// confirmable, while Noah's two add-ons push FC1020 to $28.48 and over it.
+const EXTRA_ORDER_INDICES = new Set([4, 9]); // charged a-la-carte meals (realism)
+const ORDER_ADDON_CODES: Record<number, string[]> = {
+  4: ["SA1"], // Marcus extra meal (standard) - $4.99
+  9: ["VA1"], // Priya extra meal (vegetarian) - $4.99
+  19: ["SA3", "SA1"], // Noah FC1020 (standard) - $5.99 + $4.99 → $28.48 refund
+};
+
+const addOnByCode = (code: string) => {
+  const found = ADDON_CATALOGUE.find((a) => a.code === code);
+  if (!found) throw new Error(`Unknown add-on code ${code}`);
+  return found;
 };
 
 /** Pricing for order i: subscription meals are free (only add-ons cost); extra
- *  meals are charged their list price + add-ons. Refund = list price + add-ons. */
-function orderPricing(i: number) {
-  const addOns = ORDER_ADDONS[i] ?? [];
+ *  meals are charged their list price + add-ons. Refund = list price + add-ons.
+ *  Throws if an add-on is not on the customer's own track, so a mismatch fails
+ *  the seed rather than shipping a box the customer's diet rules out. */
+function orderPricing(i: number, track: DietaryTrack) {
+  const picked = (ORDER_ADDON_CODES[i] ?? []).map(addOnByCode);
+  for (const a of picked) {
+    if (a.track !== track) throw new Error(`Add-on ${a.code} is ${a.track}, not ${track} (order index ${i})`);
+  }
+  const addOns = picked.map((a) => ({ name: a.name, priceCents: a.priceCents }));
   const kind = EXTRA_ORDER_INDICES.has(i) ? "extra" : "subscription";
   const addSum = addOns.reduce((s, a) => s + a.priceCents, 0);
   const totalCents = kind === "extra" ? MEAL_LIST_PRICE_CENTS + addSum : addSum;
@@ -143,52 +146,58 @@ const BILLING_OFFSET_DAYS: Record<string, number> = {
 
 const O = (n: number) => `22222222-2222-2222-2222-2222222200${n.toString().padStart(2, "0")}`;
 
-// order_number is assigned sequentially on insert (FC1001…), so it's omitted here.
-const orderRows: Omit<typeof orders.$inferInsert, "orderNumber">[] = [
+/** Order identity, status and dates only. Kind, prices, add-ons, meal and
+ *  dietary tags are all computed at insert time from the customer's track. */
+type SeedOrder = Omit<
+  typeof orders.$inferInsert,
+  "orderNumber" | "totalCents" | "kind" | "listPriceCents" | "addOns" | "items" | "dietaryTags"
+>;
+
+const orderRows: SeedOrder[] = [
   // Ava — US-1 order status: one recent in-flight order + history
-  { id: O(1), customerId: C.ava, status: "shipped", totalCents: 3800, placedAt: daysAgo(2), deliveryDate: daysFromNow(2) },
-  { id: O(2), customerId: C.ava, status: "delivered", totalCents: 650, placedAt: daysAgo(16), deliveryDate: daysAgoDate(12) }, // small add-on → under-ceiling refund demo
-  { id: O(22), customerId: C.ava, status: "delivered", totalCents: 3800, placedAt: daysAgo(30), deliveryDate: daysAgoDate(26) },
+  { id: O(1), customerId: C.ava, status: "shipped", placedAt: daysAgo(2), deliveryDate: daysFromNow(2) },
+  { id: O(2), customerId: C.ava, status: "delivered", placedAt: daysAgo(16), deliveryDate: daysAgoDate(12) }, // small add-on → under-ceiling refund demo
+  { id: O(22), customerId: C.ava, status: "delivered", placedAt: daysAgo(30), deliveryDate: daysAgoDate(26) },
 
   // Marcus — US-6 clarify: TWO open orders (processing + shipped) + history
-  { id: O(3), customerId: C.marcus, status: "processing", totalCents: 6400, placedAt: daysAgo(1), deliveryDate: daysFromNow(3) },
-  { id: O(4), customerId: C.marcus, status: "shipped", totalCents: 6400, placedAt: daysAgo(3), deliveryDate: daysFromNow(1) },
-  { id: O(5), customerId: C.marcus, status: "delivered", totalCents: 6400, placedAt: daysAgo(17), deliveryDate: daysAgoDate(13) },
-  { id: O(24), customerId: C.marcus, status: "delivered", totalCents: 6400, placedAt: daysAgo(31), deliveryDate: daysAgoDate(27) },
+  { id: O(3), customerId: C.marcus, status: "processing", placedAt: daysAgo(1), deliveryDate: daysFromNow(3) },
+  { id: O(4), customerId: C.marcus, status: "shipped", placedAt: daysAgo(3), deliveryDate: daysFromNow(1) },
+  { id: O(5), customerId: C.marcus, status: "delivered", placedAt: daysAgo(17), deliveryDate: daysAgoDate(13) },
+  { id: O(24), customerId: C.marcus, status: "delivered", placedAt: daysAgo(31), deliveryDate: daysAgoDate(27) },
 
   // Priya — US-4 refund (under ceiling) + US-5 multi-tool (refund last box, pause next)
-  { id: O(6), customerId: C.priya, status: "delivered", totalCents: 850, placedAt: daysAgo(6), deliveryDate: daysAgoDate(2) }, // small add-on, damaged → under-ceiling refund demo
-  { id: O(23), customerId: C.priya, status: "shipped", totalCents: 4200, placedAt: daysAgo(1), deliveryDate: daysFromNow(3) },
-  { id: O(7), customerId: C.priya, status: "delivered", totalCents: 4200, placedAt: daysAgo(20), deliveryDate: daysAgoDate(16) },
+  { id: O(6), customerId: C.priya, status: "delivered", placedAt: daysAgo(6), deliveryDate: daysAgoDate(2) }, // small add-on, damaged → under-ceiling refund demo
+  { id: O(23), customerId: C.priya, status: "shipped", placedAt: daysAgo(1), deliveryDate: daysFromNow(3) },
+  { id: O(7), customerId: C.priya, status: "delivered", placedAt: daysAgo(20), deliveryDate: daysAgoDate(16) },
 
   // Diego — paused customer with history
-  { id: O(8), customerId: C.diego, status: "delivered", totalCents: 3600, placedAt: daysAgo(35), deliveryDate: daysAgoDate(31) },
-  { id: O(9), customerId: C.diego, status: "cancelled", totalCents: 3600, placedAt: daysAgo(23), deliveryDate: daysAgoDate(19) },
+  { id: O(8), customerId: C.diego, status: "delivered", placedAt: daysAgo(35), deliveryDate: daysAgoDate(31) },
+  { id: O(9), customerId: C.diego, status: "cancelled", placedAt: daysAgo(23), deliveryDate: daysAgoDate(19) },
 
   // Lena — cancelled customer
-  { id: O(10), customerId: C.lena, status: "cancelled", totalCents: 3400, placedAt: daysAgo(45), deliveryDate: daysAgoDate(41) },
-  { id: O(11), customerId: C.lena, status: "delivered", totalCents: 3400, placedAt: daysAgo(59), deliveryDate: daysAgoDate(55) },
+  { id: O(10), customerId: C.lena, status: "cancelled", placedAt: daysAgo(45), deliveryDate: daysAgoDate(41) },
+  { id: O(11), customerId: C.lena, status: "delivered", placedAt: daysAgo(59), deliveryDate: daysAgoDate(55) },
 
   // Tom — refund-cooldown demo: FC1015 is a fresh refundable box, but FC1016 was
   // already refunded 5 days ago, so a 2nd refund now hits the 14-day cooldown.
-  { id: O(12), customerId: C.tom, status: "delivered", totalCents: 900, placedAt: daysAgo(9), deliveryDate: daysAgoDate(5) },
-  { id: O(13), customerId: C.tom, status: "delivered", totalCents: 3800, placedAt: daysAgo(23), deliveryDate: daysAgoDate(19), refundedAt: daysAgo(5) },
+  { id: O(12), customerId: C.tom, status: "delivered", placedAt: daysAgo(9), deliveryDate: daysAgoDate(5) },
+  { id: O(13), customerId: C.tom, status: "delivered", placedAt: daysAgo(23), deliveryDate: daysAgoDate(19), refundedAt: daysAgo(5) },
 
   // Sara — paused, but a box still in transit
-  { id: O(14), customerId: C.sara, status: "delivered", totalCents: 5200, placedAt: daysAgo(22), deliveryDate: daysAgoDate(18) },
-  { id: O(15), customerId: C.sara, status: "shipped", totalCents: 5200, placedAt: daysAgo(3), deliveryDate: daysFromNow(1) },
+  { id: O(14), customerId: C.sara, status: "delivered", placedAt: daysAgo(22), deliveryDate: daysAgoDate(18) },
+  { id: O(15), customerId: C.sara, status: "shipped", placedAt: daysAgo(3), deliveryDate: daysFromNow(1) },
 
   // Noah — US-4 refund ceiling escalation: high-value delivered order (> 5000c)
-  { id: O(16), customerId: C.noah, status: "delivered", totalCents: 9800, placedAt: daysAgo(7), deliveryDate: daysAgoDate(3) },
-  { id: O(17), customerId: C.noah, status: "shipped", totalCents: 9800, placedAt: daysAgo(1), deliveryDate: daysFromNow(3) },
+  { id: O(16), customerId: C.noah, status: "delivered", placedAt: daysAgo(7), deliveryDate: daysAgoDate(3) },
+  { id: O(17), customerId: C.noah, status: "shipped", placedAt: daysAgo(1), deliveryDate: daysFromNow(3) },
 
   // Mia — cancelled customer history
-  { id: O(18), customerId: C.mia, status: "cancelled", totalCents: 4800, placedAt: daysAgo(40), deliveryDate: daysAgoDate(36) },
-  { id: O(19), customerId: C.mia, status: "delivered", totalCents: 4800, placedAt: daysAgo(54), deliveryDate: daysAgoDate(50) },
+  { id: O(18), customerId: C.mia, status: "cancelled", placedAt: daysAgo(40), deliveryDate: daysAgoDate(36) },
+  { id: O(19), customerId: C.mia, status: "delivered", placedAt: daysAgo(54), deliveryDate: daysAgoDate(50) },
 
   // Jamal — active, one in-flight order (pause candidate)
-  { id: O(20), customerId: C.jamal, status: "processing", totalCents: 3800, placedAt: daysAgo(1), deliveryDate: daysFromNow(3) },
-  { id: O(21), customerId: C.jamal, status: "delivered", totalCents: 750, placedAt: daysAgo(15), deliveryDate: daysAgoDate(11) }, // small add-on → under-ceiling refund demo
+  { id: O(20), customerId: C.jamal, status: "processing", placedAt: daysAgo(1), deliveryDate: daysFromNow(3) },
+  { id: O(21), customerId: C.jamal, status: "delivered", placedAt: daysAgo(15), deliveryDate: daysAgoDate(11) }, // small add-on → under-ceiling refund demo
 ];
 
 const E = (n: number) => `33333333-3333-3333-3333-3333333300${n.toString().padStart(2, "0")}`;
@@ -221,6 +230,7 @@ async function main() {
   for (const c of customerRows) {
     c.billingDate = daysFromNow(BILLING_OFFSET_DAYS[c.id!]);
     c.lastReconciledAt = seededAt;
+    c.dietaryTrack = TRACK_BY_CUSTOMER[c.id!];
   }
   // Diego is a FINITE pause (auto-resumes ~3 weeks out — skip-forward demo);
   // Sara stays indefinite (accrues the $8/week fee monthly while paused).
@@ -231,12 +241,23 @@ async function main() {
 
   // Each order is one meal (FC1001…): subscription meals are free (list price
   // shown struck through), extra meals are charged; both can carry paid add-ons.
-  const pricedOrders = orderRows.map((o, i) => ({
-    ...o,
-    orderNumber: `FC${1001 + i}`,
-    items: [MEALS[i % MEALS.length]],
-    ...orderPricing(i),
-  }));
+  // The meal comes from the CUSTOMER'S track, cycling that track's menu by the
+  // customer's own order ordinal.
+  const ordinal = new Map<string, number>();
+  const pricedOrders = orderRows.map((o, i) => {
+    const track = TRACK_BY_CUSTOMER[o.customerId];
+    const n = ordinal.get(o.customerId) ?? 0;
+    ordinal.set(o.customerId, n + 1);
+    const menu = mealsForTrack(track);
+    const meal = menu[n % menu.length];
+    return {
+      ...o,
+      orderNumber: `FC${1001 + i}`,
+      items: [meal.name],
+      dietaryTags: meal.tags,
+      ...orderPricing(i, track),
+    };
+  });
   await db.insert(orders).values(pricedOrders);
 
   // Unified money ledger: monthly billing + pause credits. (Refunds, sign-up

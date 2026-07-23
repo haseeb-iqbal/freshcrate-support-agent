@@ -18,6 +18,7 @@ export const customers = pgTable("customers", {
   email: text("email").notNull(),
   subscriptionStatus: text("subscription_status").notNull(),
   plan: text("plan").notNull(), // e.g. "2 meals/week"
+  dietaryTrack: text("dietary_track").notNull().default("standard"), // standard | gluten-free | vegetarian | dairy-free
   phone: text("phone"),
   address: text("address"),
   paymentMethod: text("payment_method"), // simulated, e.g. "Visa ending 4242"
@@ -43,6 +44,7 @@ export const orders = pgTable("orders", {
   deliveryDate: date("delivery_date"),
   refundedAt: timestamp("refunded_at", { withTimezone: true }), // set when a refund is approved
   items: jsonb("items").$type<string[]>(), // meal name(s) in the box
+  dietaryTags: jsonb("dietary_tags").$type<string[]>(), // the meal's dietary tags, snapshotted when the box was packed
 });
 
 // --- transactions (unified money ledger: charges, fees, refunds) --------------

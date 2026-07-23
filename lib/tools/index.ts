@@ -1,4 +1,5 @@
 import { escalateToHuman } from "./escalate";
+import { changeDietaryTrack } from "./dietary";
 import { listOrders, lookupOrder } from "./orders";
 import { changePlan } from "./plan";
 import { issueRefund } from "./refund";
@@ -23,6 +24,7 @@ export const tools: Tool[] = [
   reactivateSubscription,
   cancelSubscription,
   changePlan,
+  changeDietaryTrack,
   issueRefund,
   escalateToHuman,
 ];

@@ -9,6 +9,7 @@ export const PROPOSAL_EVENTS: Record<string, string> = {
   reactivate_subscription: "reactivate_proposal",
   change_plan: "plan_change_proposal",
   cancel_subscription: "cancel_proposal",
+  change_dietary_track: "diet_change_proposal",
 };
 
 export interface DispatchState {

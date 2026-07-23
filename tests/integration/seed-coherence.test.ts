@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import "dotenv/config";
 import { eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { customers, orders } from "@/db/schema";
+import { customers, orders, subscriptionEvents } from "@/db/schema";
 import { OPEN_STATUSES } from "@/lib/domain/terms";
 import { addOnsForTrack, isDietaryTrack, mealByName, type DietaryTrack } from "@/lib/domain/menu";
 
@@ -55,15 +55,20 @@ describe("seed temporal coherence", () => {
 });
 
 /**
- * A customer's box must match the diet they are on. A vegetarian receiving a
- * beef meal is not a cosmetic seeding slip: it is the exact contradiction the
- * agent would then have to explain to them.
+ * A customer's box must match the diet they are on - as long as they haven't
+ * switched track since that box was packed. A track switch takes effect from
+ * next week and boxes already packed keep the meals they were packed with, so
+ * a customer's historical orders correctly stop matching their current track
+ * once they switch. For a customer with no diet_changed event, though, a
+ * vegetarian receiving a beef meal is not a cosmetic seeding slip: it is the
+ * exact contradiction the agent would then have to explain to them.
  */
 describe("seed dietary coherence", () => {
   const rows = () =>
     db
       .select({
         orderNumber: orders.orderNumber,
+        customerId: orders.customerId,
         items: orders.items,
         addOns: orders.addOns,
         dietaryTags: orders.dietaryTags,
@@ -78,8 +83,19 @@ describe("seed dietary coherence", () => {
     expect(unknown).toEqual([]);
   });
 
-  it("gives every order a meal from its customer's track", async () => {
+  it("gives every order a meal from its customer's track, for a customer who has never switched track", async () => {
+    // A track switch applies from next week and boxes already packed keep their
+    // meals (RULES.dietary), so a customer who HAS switched is expected to have
+    // historical orders that no longer match their current track. Scope the
+    // assertion to customers with no diet_changed event, where the invariant
+    // still holds absolutely.
+    const switched = await db
+      .select({ customerId: subscriptionEvents.customerId })
+      .from(subscriptionEvents)
+      .where(eq(subscriptionEvents.eventType, "diet_changed"));
+    const switchedIds = new Set(switched.map((s) => s.customerId));
     const wrong = (await rows())
+      .filter((r) => !switchedIds.has(r.customerId))
       .filter((r) => mealByName((r.items ?? [])[0] ?? "")?.track !== r.track)
       .map((r) => `${r.orderNumber}: "${(r.items ?? [])[0]}" is not on the ${r.track} menu`);
     expect(wrong).toEqual([]);

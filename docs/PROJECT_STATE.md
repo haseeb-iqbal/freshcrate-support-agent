@@ -73,7 +73,7 @@ cp .env.example .env         # set OPENAI_API_KEY; DATABASE_URL defaults to loca
 npm run db:up                # start pgvector
 npm run db:reset             # enable vector + push schema + seed
 npm run kb:ingest            # embed KB articles (needs OPENAI_API_KEY)
-npm run kb:test              # retrieval gate (12 cases)
+npm run kb:test              # retrieval gate (14 cases)
 npm run typecheck
 npm test                     # unit tests (Vitest, TZ=UTC) — pure, no DB or network
 npm run test:api             # route-handler tests (tests/api) — needs the seeded DB
@@ -86,10 +86,10 @@ npm run dev                  # http://localhost:3000
 
 **E2E (Cypress, deterministic — no live OpenAI calls):**
 ```bash
-npm run test:e2e             # db:reset + dev:mock + headless Cypress (13 specs) in one command
+npm run test:e2e             # db:reset + dev:mock + headless Cypress (20 specs) in one command
 # npm run cypress:open       # interactive runner — run `npm run db:reset` first
 ```
-`MockChatProvider` is gated behind `MOCK_LLM=1` (never active in production) and scripts canned tool-call/text turns keyed off the incoming message, so all 13 E2E specs run without hitting OpenAI: 10 read-only in `agent.cy.ts` (positional order lookup, order-history double-text fix, pause, resume card, plan-change-while-paused redirect, over-ceiling refund escalation, 14-day refund-cooldown escalation, confirmable refund card, off-topic refusal, ambiguous-cancel clarification) plus 3 in `confirm.cy.ts` that click Confirm/Not now and therefore **mutate the DB** — hence the reseed baked into `test:e2e`.
+`MockChatProvider` is gated behind `MOCK_LLM=1` (never active in production) and scripts canned tool-call/text turns keyed off the incoming message, so all 20 E2E specs run without hitting OpenAI: 11 read-only in `agent.cy.ts` (positional order lookup, order-history double-text fix, pause, resume card, plan-change-while-paused redirect, over-ceiling refund escalation, 14-day refund-cooldown escalation, confirmable refund card, off-topic refusal, ambiguous-cancel clarification, dietary-track switch confirmation card) plus 5 in `chips.cy.ts` (the shared example-prompt chips) plus 4 in `confirm.cy.ts` that click Confirm/Not now and therefore **mutate the DB** (pause confirm, pause decline, refund confirm, dietary-track switch confirm) — hence the reseed baked into `test:e2e`.
 
 `lib/llm/mock-scripts.test.ts` binds the two together: every question a spec asks needs a script, every script needs a spec, and a fixture may not state an order status no spec asserts.
 

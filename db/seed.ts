@@ -156,7 +156,7 @@ type SeedOrder = Omit<
 const orderRows: SeedOrder[] = [
   // Ava — US-1 order status: one recent in-flight order + history
   { id: O(1), customerId: C.ava, status: "shipped", placedAt: daysAgo(2), deliveryDate: daysFromNow(2) },
-  { id: O(2), customerId: C.ava, status: "delivered", placedAt: daysAgo(16), deliveryDate: daysAgoDate(12) }, // small add-on → under-ceiling refund demo
+  { id: O(2), customerId: C.ava, status: "delivered", placedAt: daysAgo(16), deliveryDate: daysAgoDate(12) }, // plain delivered box, no add-ons
   { id: O(22), customerId: C.ava, status: "delivered", placedAt: daysAgo(30), deliveryDate: daysAgoDate(26) },
 
   // Marcus — US-6 clarify: TWO open orders (processing + shipped) + history
@@ -166,7 +166,7 @@ const orderRows: SeedOrder[] = [
   { id: O(24), customerId: C.marcus, status: "delivered", placedAt: daysAgo(31), deliveryDate: daysAgoDate(27) },
 
   // Priya — US-4 refund (under ceiling) + US-5 multi-tool (refund last box, pause next)
-  { id: O(6), customerId: C.priya, status: "delivered", placedAt: daysAgo(6), deliveryDate: daysAgoDate(2) }, // small add-on, damaged → under-ceiling refund demo
+  { id: O(6), customerId: C.priya, status: "delivered", placedAt: daysAgo(6), deliveryDate: daysAgoDate(2) }, // plain $17.50 box, no add-ons → under-ceiling refund demo (FC1008)
   { id: O(23), customerId: C.priya, status: "shipped", placedAt: daysAgo(1), deliveryDate: daysFromNow(3) },
   { id: O(7), customerId: C.priya, status: "delivered", placedAt: daysAgo(20), deliveryDate: daysAgoDate(16) },
 
@@ -197,7 +197,7 @@ const orderRows: SeedOrder[] = [
 
   // Jamal — active, one in-flight order (pause candidate)
   { id: O(20), customerId: C.jamal, status: "processing", placedAt: daysAgo(1), deliveryDate: daysFromNow(3) },
-  { id: O(21), customerId: C.jamal, status: "delivered", placedAt: daysAgo(15), deliveryDate: daysAgoDate(11) }, // small add-on → under-ceiling refund demo
+  { id: O(21), customerId: C.jamal, status: "delivered", placedAt: daysAgo(15), deliveryDate: daysAgoDate(11) }, // plain delivered box, no add-ons
 ];
 
 const E = (n: number) => `33333333-3333-3333-3333-3333333300${n.toString().padStart(2, "0")}`;

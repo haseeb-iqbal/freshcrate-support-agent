@@ -893,7 +893,7 @@ function OrderRow({ o }: { o: OrderView }) {
           Add-ons: {o.add_ons.map((a) => `${a.name} (${money(a.priceCents)})`).join(", ")}
         </p>
       )}
-      {o.dietary_tags && o.dietary_tags.length > 0 && (
+      {o.dietary_tags && o.dietary_tags.length > 0 && !(o.dietary_tags.length === 1 && o.dietary_tags[0] === "standard") && (
         <p className="text-[10px] text-slate-400">Diets: {o.dietary_tags.join(", ")}</p>
       )}
       <div className="mt-0.5 flex flex-wrap gap-x-3 text-[10px] text-slate-400">

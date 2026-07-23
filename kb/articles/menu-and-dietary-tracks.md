@@ -49,7 +49,7 @@ Add-ons: Rosemary Sea Salt Potato Wedges, Miso Glazed Aubergine, Dark Chocolate 
 ## Meals that suit more than one diet
 Some meals qualify for more than one track. Thai Green Curry is gluten-free and dairy-free; Chickpea & Spinach Curry is vegetarian, gluten-free and dairy-free; Lentil & Vegetable Shepherd's Pie is dairy-free, vegetarian and gluten-free. Each meal in your order history is labelled with every diet it suits.
 
-Meals on the **Standard** track carry no dietary guarantee, even where they contain no gluten or no dairy. Only meals on the Gluten-Free and Dairy-Free tracks are prepared under those controls, so if you need to avoid an ingredient, choose the matching track rather than picking a Standard meal that looks safe.
+Meals on the **Standard** track carry no dietary guarantee and are never labelled gluten-free or dairy-free, even where they contain no gluten or no dairy. A meal is prepared under gluten-free or dairy-free controls whenever it carries that label, so if you need to avoid an ingredient, go by the labels rather than by which track a meal sits on.
 
 ## Halal and kosher
 All FreshCrate meals are **halal-certified**. No pork, pork derivatives or alcohol is used anywhere in our kitchens, on any track, in any meal or add-on. We are not kosher-certified, and our menu includes shellfish and dishes that combine meat and dairy.

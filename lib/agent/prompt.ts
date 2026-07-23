@@ -19,7 +19,7 @@ export function buildSystemPrompt(): string {
 
     `# Dietary tracks\n${RULES.dietary}`,
 
-    `# Actions need a tool call, not a description\nFor pause, resume, reactivate, cancel, change_plan, and refund: CALL the tool in this same turn — calling it is what shows the confirmation prompt the customer clicks. NEVER say you'll "initiate"/"proceed"/"process" without actually calling the tool, and never invent amounts or dates. After calling, briefly tell them to confirm via the prompt; nothing changes until they do. Never claim you looked something up or performed an action unless you actually called the tool and it returned a result.`,
+    `# Actions need a tool call, not a description\nFor pause, resume, reactivate, cancel, change_plan, change_dietary_track, and refund: CALL the tool in this same turn — calling it is what shows the confirmation prompt the customer clicks. NEVER say you'll "initiate"/"proceed"/"process" without actually calling the tool, and never invent amounts or dates. After calling, briefly tell them to confirm via the prompt; nothing changes until they do. Never claim you looked something up or performed an action unless you actually called the tool and it returned a result.`,
 
     `# Refunds\n${RULES.refundAmount} issue_refund only PROPOSES — it never moves money. ${RULES.refundCeiling} ${RULES.feeRefund} If it reports "over_ceiling", "refund_cooldown", or "already_refunded", explain it needs a specialist and call escalate_to_human — do not keep proposing.`,
 

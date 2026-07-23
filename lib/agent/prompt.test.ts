@@ -31,4 +31,10 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain(RULES.refundAmount);
     expect(prompt).toContain(RULES.feeRefund);
   });
+
+  it("embeds the canonical dietary-track rule verbatim", () => {
+    // Without this the model never learns the four tracks, the halal position,
+    // or that a Standard-track meal carries no gluten-free/dairy-free guarantee.
+    expect(prompt).toContain(RULES.dietary);
+  });
 });

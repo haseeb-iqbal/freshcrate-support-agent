@@ -7,6 +7,17 @@ describe("FreshCrate agent (mock LLM)", () => {
     cy.visit("/");
   });
 
+  it("answers a menu question from the knowledge base, with a source", () => {
+    // "plan" here means the dietary track, not the meals-per-week plan. The
+    // agent must search the KB rather than answer from get_subscription, which
+    // knows the customer's track but nothing about what is on the menu.
+    signInAs("Ava Chen");
+    ask("what meals are in the standard plan");
+    cy.get('[data-testid="assistant-text"]').should("contain.text", "Herb Roast Chicken");
+    cy.get('[data-testid="assistant-text"]').should("contain.text", "Turkey Meatball Marinara Sub");
+    cy.contains("a", "menu-and-dietary-tracks").should("exist");
+  });
+
   it("positional order query answers one order, no history card", () => {
     signInAs("Marcus Bell");
     ask("where's my 2nd last order");

@@ -8,7 +8,7 @@ FreshCrate offers three weekly meal plans, billed monthly (about four boxes a mo
 - **4 meals/week** — $52/week ($208/month)
 
 ## How meals are priced
-Every meal has a list price of **$17.50** — what you'd pay à la carte. The meals included in your plan each week are **free** as part of your subscription; you'll see the $17.50 list price struck through with "Free" next to it in your orders. **Add-ons** (desserts, sides, extras) are charged on top, whether the meal is a plan meal or an extra one.
+Every meal has a list price of **$17.50** — what you'd pay à la carte. The meals included in your plan each week are **free** as part of your subscription; you'll see the $17.50 list price struck through with "Free" next to it in your orders. **Add-ons** (sides, desserts, drinks) are charged on top, whether the meal is a plan meal or an extra one.
 
 Add-ons are priced by type: **sides $4.99, desserts $5.99, drinks $3.49**. The menu article lists what is on each dietary track.
 

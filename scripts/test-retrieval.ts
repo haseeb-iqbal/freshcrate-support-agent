@@ -23,6 +23,7 @@ const CASES: Case[] = [
   { q: "How do I switch from 2 meals to 4 meals a week?", expect: "plan-changes" },
   { q: "What dietary options do you have?", expect: "dietary-options" },
   { q: "How much do add-ons cost?", expect: "menu-and-dietary-tracks" },
+  { q: "How do I switch to the gluten-free menu?", expect: "menu-and-dietary-tracks" },
   { q: "How do I update the credit card on my account?", expect: "account-and-billing" },
   { q: "How does the referral program work and what do I earn?", expect: "referral-program" },
   { q: "When will my box be delivered and what's the time window?", expect: "delivery-schedule" },

@@ -10,6 +10,3 @@ A meal on the Standard track that happens to contain no gluten or no dairy is no
 
 ## Choosing your weekly recipes
 Even with a track set, you can hand-pick each week's recipes from that track's menu before the Wednesday cutoff. If you don't choose, we auto-select recipes from your track. There's no extra charge for any track.
-
-## Customizing or swapping proteins
-Some recipes let you swap the default protein (for example, chicken for tofu) for a small surcharge shown at checkout. Protein swaps are set per recipe, per week, and don't change your track or your plan.

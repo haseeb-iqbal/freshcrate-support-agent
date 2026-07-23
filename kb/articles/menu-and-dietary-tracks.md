@@ -5,7 +5,7 @@ Every FreshCrate menu is built on one of four dietary tracks, and you pick the o
 
 - **Standard** - no restrictions.
 - **Gluten-Free** - excludes wheat, barley, rye and malt.
-- **Vegetarian** - no meat, poultry, fish or seafood. Contains dairy and eggs.
+- **Vegetarian** - no meat, poultry, fish or seafood. Contains dairy and eggs unless the meal is also tagged dairy-free.
 - **Dairy-Free** - no milk, butter, cream, cheese, yoghurt, ghee, whey or casein. We use olive oil or a plant spread instead of butter.
 
 Each track offers 8 meals and 5 add-ons each week. Every track costs exactly the same: there is no surcharge for choosing a specialist track.
@@ -52,7 +52,7 @@ Some meals qualify for more than one track. Thai Green Curry is gluten-free and 
 Meals on the **Standard** track carry no dietary guarantee, even where they contain no gluten or no dairy. Only meals on the Gluten-Free and Dairy-Free tracks are prepared under those controls, so if you need to avoid an ingredient, choose the matching track rather than picking a Standard meal that looks safe.
 
 ## Halal and kosher
-All FreshCrate meals are **halal-certified**. No pork, pork derivatives or alcohol is used anywhere in our kitchens, on any track, in any meal or add-on. That also makes our meals suitable for many kosher-observant customers, though we are not kosher-certified.
+All FreshCrate meals are **halal-certified**. No pork, pork derivatives or alcohol is used anywhere in our kitchens, on any track, in any meal or add-on. We are not kosher-certified, and our menu includes shellfish and dishes that combine meat and dairy.
 
 ## Changing your dietary track
 You can switch tracks any time, on any plan, and it is free. Ask in chat and we will show you the new menu to confirm. The switch applies from **next week's menu**, so a box that is already processing or shipped keeps the meals it was packed with. Switching track does not change how many meals you get each week or what you pay - to change that, change your plan.

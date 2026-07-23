@@ -287,7 +287,7 @@ const A = (code: string, name: string, type: AddOnType, tags: Tags, kcal: number
 export const MEAL_CATALOGUE: Meal[] = [
   // Standard - no restrictions, and no specialist guarantee.
   M("S1", "Herb Roast Chicken & Garlic Mash", "Half chicken breast, buttery mashed potato, green beans", ["standard"], [620, 48, 42, 28]),
-  M("S2", "Beef Lasagne", "Layered pasta, beef ragu, bechamel, mozzarella", ["standard"], [710, 38, 58, 36]),
+  M("S2", "Beef Lasagne", "Layered pasta, beef ragù, béchamel, mozzarella", ["standard"], [710, 38, 58, 36]),
   M("S3", "Teriyaki Salmon Rice Bowl", "Glazed salmon fillet, jasmine rice, edamame, sesame", ["standard"], [580, 40, 55, 20]),
   M("S4", "Chicken Tikka Masala & Basmati", "Yoghurt-marinated chicken, tomato cream sauce, rice", ["standard"], [660, 42, 62, 26]),
   M("S5", "Beef Smash Burger & Fries", "Two beef patties, cheddar, brioche bun, seasoned fries", ["standard"], [890, 44, 68, 48]),

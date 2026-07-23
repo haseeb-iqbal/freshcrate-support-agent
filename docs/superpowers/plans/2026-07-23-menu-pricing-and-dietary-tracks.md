@@ -620,7 +620,9 @@ Then replace the `pricedOrders` block:
 - [ ] **Step 6: Reset the database and reseed**
 
 Run: `npm run db:reset`
-Expected: the schema pushes, then `✓ 10 customers`, `✓ 24 orders`, `✓ 12 transactions`, `✓ 17 subscription events`, `Done.` No `Unknown add-on code` or `is not <track>` error.
+Expected: the schema pushes, then `✓ 10 customers`, `✓ 24 orders`, `✓ 11 transactions`, `✓ 17 subscription events`, `Done.` No `Unknown add-on code` or `is not <track>` error.
+
+(11 = 8 monthly-billing rows, since Lena and Mia are cancelled, + 2 pause credits for Diego and Sara + Tom's refund.)
 
 - [ ] **Step 7: Run the coherence tests**
 

@@ -79,6 +79,8 @@ interface PauseProposal {
   reimbursement_cents: number;
   weekly_fee_cents: number;
   weeks_to_billing: number;
+  /** Already paused, so the up-front credit was spent on this billing period. */
+  already_paused: boolean;
 }
 
 interface ResumeProposal {
@@ -995,6 +997,8 @@ function PauseCard({
       <p className="mt-1 text-xs text-slate-500">
         {hasCredit ? (
           <>You&apos;ll be credited <span className="font-medium text-emerald-600">{credit}</span> now for the weeks skipped before billing, </>
+        ) : proposal.already_paused ? (
+          <>Your subscription is already paused, so this cycle&apos;s credit has been paid, </>
         ) : (
           <>No credit is due this cycle (billing is due within the week), </>
         )}

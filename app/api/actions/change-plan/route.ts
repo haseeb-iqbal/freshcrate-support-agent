@@ -1,38 +1,28 @@
-import type { NextRequest } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { customers, subscriptionEvents, transactions } from "@/db/schema";
-import { getPlan, prorationCents, weeksUntilDate } from "@/lib/billing/pricing";
-import { reconcile } from "@/lib/billing/reconcile";
-import { now } from "@/lib/clock";
+import { getPlan } from "@/lib/billing/plans";
+import { quotePlanChange } from "@/lib/billing/quotes";
+import { actionRoute, type ActionBody } from "@/lib/http/action-route";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-interface ChangePlanBody {
-  customerId?: string;
+interface ChangePlanBody extends ActionBody {
   plan?: string;
 }
 
 /** Applies a plan change, records the prorated charge/refund, and logs the
  *  status change. Called by the confirmation prompt, never the model. */
-export async function POST(req: NextRequest) {
-  let body: ChangePlanBody;
-  try {
-    body = (await req.json()) as ChangePlanBody;
-  } catch {
-    return new Response("Invalid JSON body", { status: 400 });
-  }
+export const POST = actionRoute<ChangePlanBody>(async ({ body, customer, now }) => {
+  const newPlan = body.plan;
+  if (!newPlan) return new Response("Missing plan", { status: 400 });
 
-  const { customerId, plan: newPlan } = body;
-  if (!customerId || !newPlan) return new Response("Missing customerId or plan", { status: 400 });
-
+  // Checked before the status guards: an unknown plan is a bad request whatever
+  // state the subscription is in.
   const plan = await getPlan(newPlan);
   if (!plan) return Response.json({ ok: false, error: "unknown_plan" }, { status: 400 });
 
-  await reconcile(customerId, now());
-  const [customer] = await db.select().from(customers).where(eq(customers.id, customerId)).limit(1);
-  if (!customer) return new Response("Unknown customer", { status: 404 });
   if (customer.subscriptionStatus === "cancelled") {
     return Response.json({ ok: false, error: "cancelled" }, { status: 409 });
   }
@@ -45,19 +35,23 @@ export async function POST(req: NextRequest) {
     return Response.json({ ok: false, error: "same_plan" }, { status: 409 });
   }
 
-  const currentPlan = await getPlan(customer.plan);
-  const weeksLeft = weeksUntilDate(customer.billingDate, now());
-  const proration = currentPlan ? prorationCents(currentPlan.weeklyCents, plan.weeklyCents, weeksLeft) : 0;
+  const quote = quotePlanChange({
+    currentPlan: await getPlan(customer.plan),
+    billingDate: customer.billingDate,
+    plan,
+    now,
+  });
+  const proration = quote.proration_cents;
 
-  await db.update(customers).set({ plan: newPlan }).where(eq(customers.id, customerId));
+  await db.update(customers).set({ plan: newPlan }).where(eq(customers.id, customer.id));
   await db.insert(subscriptionEvents).values({
-    customerId,
+    customerId: customer.id,
     eventType: "plan_changed",
     metadata: { from: customer.plan, to: newPlan },
   });
   if (proration !== 0) {
     await db.insert(transactions).values({
-      customerId,
+      customerId: customer.id,
       type: "proration",
       amountCents: proration,
       description: proration > 0 ? `Plan upgrade proration → ${newPlan}` : `Plan downgrade credit → ${newPlan}`,
@@ -65,4 +59,4 @@ export async function POST(req: NextRequest) {
   }
 
   return Response.json({ ok: true, plan: newPlan, monthly_cents: plan.monthlyCents, proration_cents: proration });
-}
+});

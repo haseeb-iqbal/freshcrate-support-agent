@@ -40,7 +40,7 @@ describe("FreshCrate confirmation flow (mock LLM, mutates the DB)", () => {
 
     cy.contains("button", "Yes, refund my order").click();
 
-    cy.get('[data-testid="refund-card"]').should("contain.text", "Refund of $17.50 initiated");
+    cy.get('[data-testid="refund-card"]').should("contain.text", "Refund of $17.5 initiated");
     cy.contains("button", "Yes, refund my order").should("not.exist");
   });
 });

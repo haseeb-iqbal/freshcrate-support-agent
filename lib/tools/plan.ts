@@ -1,7 +1,8 @@
 import { eq } from "drizzle-orm";
 import { db } from "../../db";
 import { customers } from "../../db/schema";
-import { getPlan, listPlans, prorationCents, weeklySavingsCents, weeksUntilDate } from "../billing/pricing";
+import { getPlan, listPlans } from "../billing/plans";
+import { quotePlanChange } from "../billing/quotes";
 import { money } from "../money";
 import type { Tool } from "./types";
 
@@ -58,27 +59,22 @@ export const changePlan: Tool = {
       return { ok: true, summary: `Already on ${newPlan}`, data: { status: "noop", message: "The customer is already on this plan — let them know, no change needed." } };
     }
 
-    // Proration: charge/refund the weekly-rate difference for the weeks left
-    // until the billing date. The new plan starts the following week.
-    const currentPlan = customer ? await getPlan(customer.plan) : null;
-    const weeksLeft = weeksUntilDate(customer?.billingDate, ctx.now);
-    const proration = currentPlan ? prorationCents(currentPlan.weeklyCents, plan.weeklyCents, weeksLeft) : 0;
+    // The same quote /api/actions/change-plan applies on confirm: charge/refund
+    // the weekly-rate difference for the weeks left until the billing date. The
+    // new plan starts the following week.
+    const proposal = quotePlanChange({
+      currentPlan: customer ? await getPlan(customer.plan) : null,
+      billingDate: customer?.billingDate ?? null,
+      plan,
+      now: ctx.now,
+    });
 
     return {
       ok: true,
-      summary: `Proposed plan change to ${newPlan} (${money(plan.monthlyCents)}/mo, proration ${money(proration)})`,
+      summary: `Proposed plan change to ${newPlan} (${money(plan.monthlyCents)}/mo, proration ${money(proposal.proration_cents)})`,
       data: {
         status: "needs_confirmation",
-        proposal: {
-          plan: newPlan,
-          monthly_cents: plan.monthlyCents,
-          weekly_cents: plan.weeklyCents,
-          current_plan: customer?.plan ?? null,
-          proration_cents: proration,
-          weeks_until_billing: weeksLeft,
-          billing_date: customer?.billingDate ?? null,
-          weekly_savings_cents: weeklySavingsCents(plan.mealsPerWeek, plan.weeklyCents),
-        },
+        proposal,
         message:
           "A confirmation prompt shows the new plan, its monthly price, and the prorated charge/refund for the weeks left until billing (the new plan starts the following week). Ask the customer to confirm; do NOT say it's changed until they confirm.",
       },

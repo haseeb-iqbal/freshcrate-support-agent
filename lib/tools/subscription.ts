@@ -1,20 +1,14 @@
 import { eq } from "drizzle-orm";
 import { db } from "../../db";
 import { customers } from "../../db/schema";
-import {
-  PAUSE_FEE_CENTS,
-  SIGNUP_FEE_CENTS,
-  getPlan,
-  pauseReimbursementCents,
-  resumeChargeCents,
-  weeksUntilDate,
-  withinBillingPeriod,
-} from "../billing/pricing";
-import { addWeeksIso } from "../date";
+import { PAUSE_FEE_CENTS, SIGNUP_FEE_CENTS, weeksUntilDate } from "../billing/pricing";
+import { getPlan } from "../billing/plans";
+import { quotePause, quoteReactivate, quoteResume } from "../billing/quotes";
+import type { SubStatus } from "../billing/reconcile";
 import { money } from "../money";
 import type { Tool } from "./types";
 
-/** The pause fee as it is written for humans and for the model, e.g. "$8.00/week".
+/** The pause fee as it is written for humans and for the model, e.g. "$8/week".
  *  Derived so the fee quoted in tool descriptions, summaries and model-facing
  *  messages cannot drift from PAUSE_FEE_CENTS. */
 const PAUSE_FEE_PER_WEEK = `${money(PAUSE_FEE_CENTS)}/week`;
@@ -93,7 +87,6 @@ export const pauseSubscription: Tool = {
         if (!Number.isFinite(weeks) || weeks < 1 || weeks > 52) {
           return { ok: false, summary: "Provide 1-52 weeks, a date within a year, or indefinite." };
         }
-        resumeDate = addWeeksIso(weeks, ctx.now);
       }
     }
 
@@ -103,27 +96,29 @@ export const pauseSubscription: Tool = {
       return { ok: true, summary: "Cancelled — can't pause", data: { status: "cancelled", message: "A cancelled subscription can't be paused; tell the customer they'd need to reactivate first." } };
     }
 
-    const plan = await getPlan(customer.plan);
-    const weeksToBilling = weeksUntilDate(customer.billingDate, ctx.now);
-    const reimbursement = plan ? pauseReimbursementCents(plan.weeklyCents, indefinite ? null : weeks, weeksToBilling) : 0;
+    // The same quote /api/actions/pause applies on confirm, so the card cannot
+    // promise a credit the write path would then refuse to pay.
+    const proposal = quotePause({
+      status: customer.subscriptionStatus as SubStatus,
+      billingDate: customer.billingDate,
+      plan: await getPlan(customer.plan),
+      indefinite,
+      weeks,
+      resumeDate,
+      now: ctx.now,
+    });
+    const credit = money(proposal.reimbursement_cents);
 
     return {
       ok: true,
       summary: indefinite
-        ? `Proposed indefinite pause (${money(reimbursement)} credit now, then ${PAUSE_FEE_PER_WEEK} billed monthly)`
-        : `Proposed ${weeks}-week pause (resumes ${resumeDate}, ${money(reimbursement)} credit now, then ${PAUSE_FEE_PER_WEEK} billed monthly)`,
+        ? `Proposed indefinite pause (${credit} credit now, then ${PAUSE_FEE_PER_WEEK} billed monthly)`
+        : `Proposed ${weeks}-week pause (resumes ${proposal.resume_date}, ${credit} credit now, then ${PAUSE_FEE_PER_WEEK} billed monthly)`,
       data: {
         status: "needs_confirmation",
-        proposal: {
-          indefinite,
-          weeks,
-          resume_date: resumeDate,
-          reimbursement_cents: reimbursement,
-          weekly_fee_cents: PAUSE_FEE_CENTS,
-          weeks_to_billing: weeksToBilling,
-        },
+        proposal,
         message:
-          `A confirmation prompt is shown with the credit the customer receives now and the ${PAUSE_FEE_PER_WEEK} pause fee, which is billed at each billing date for as long as the pause runs (finite or indefinite); the plan pauses from next week (this week's box still ships), and they can resume early at any time. Briefly relay it and ask them to confirm. Do NOT say it's paused until they confirm.`,
+          `A confirmation prompt is shown with the credit the customer receives now and the ${PAUSE_FEE_PER_WEEK} pause fee, which is billed at each billing date for as long as the pause runs (finite or indefinite); the plan pauses from next week (this week's box still ships), and they can resume early at any time. Briefly relay it and ask them to confirm. Do NOT say it's paused until they confirm.${proposal.already_paused ? " NOTE: this subscription is already paused, so no new credit is due — do not tell them they will be credited." : ""}`,
       },
     };
   },
@@ -162,29 +157,24 @@ export const resumeSubscription: Tool = {
     const plan = await getPlan(requestedPlan || customer.plan);
     if (!plan) return { ok: false, summary: `Unknown plan "${requestedPlan}"`, data: { message: "That plan doesn't exist — ask the customer to pick 2, 3, or 4 meals/week." } };
 
-    const effectivePlan = requestedPlan || customer.plan;
-    const planChanged = !!requestedPlan && requestedPlan !== customer.plan;
-    const weeksToBilling = weeksUntilDate(customer.billingDate, ctx.now);
-    const charge = resumeChargeCents(plan.weeklyCents, weeksToBilling);
+    // The same quote /api/actions/resume applies on confirm.
+    const proposal = quoteResume({
+      currentPlan: customer.plan,
+      billingDate: customer.billingDate,
+      plan,
+      requestedPlan,
+      now: ctx.now,
+    });
+    const charge = money(proposal.charge_cents);
 
     return {
       ok: true,
-      summary: planChanged
-        ? `Proposed resume on ${effectivePlan} — charge ${money(charge)}`
-        : `Proposed resume — charge ${money(charge)}`,
+      summary: proposal.plan_changed
+        ? `Proposed resume on ${proposal.plan} — charge ${charge}`
+        : `Proposed resume — charge ${charge}`,
       data: {
         status: "needs_confirmation",
-        proposal: {
-          plan: effectivePlan,
-          previous_plan: customer.plan,
-          plan_changed: planChanged,
-          weekly_cents: plan.weeklyCents,
-          // Sent so the resume card can quote the fee instead of hard-coding it.
-          weekly_fee_cents: PAUSE_FEE_CENTS,
-          charge_cents: charge,
-          weeks_to_billing: weeksToBilling,
-          billing_date: customer.billingDate,
-        },
+        proposal,
         message:
           `A confirmation prompt shows the resume charge (weeks left to billing at the plan's weekly rate, net of the ${PAUSE_FEE_PER_WEEK} pause fee) and any plan switch; the plan resumes from next week. Ask them to confirm; do NOT say it's resumed until they confirm.`,
       },
@@ -221,32 +211,24 @@ export const reactivateSubscription: Tool = {
     const plan = await getPlan(requestedPlan || customer.plan);
     if (!plan) return { ok: false, summary: `Unknown plan "${requestedPlan}"`, data: { message: "That plan doesn't exist — ask the customer to pick 2, 3, or 4 meals/week." } };
 
-    const effectivePlan = requestedPlan || customer.plan;
-    const planChanged = !!requestedPlan && requestedPlan !== customer.plan;
-    const within = withinBillingPeriod(customer.billingDate, ctx.now);
-    // Free only when resubscribing within the billing period on the SAME plan.
-    const free = within && !planChanged;
-    const signupFee = within ? 0 : SIGNUP_FEE_CENTS;
-    const total = free ? 0 : plan.monthlyCents + signupFee;
+    // The same quote /api/actions/reactivate applies on confirm.
+    const proposal = quoteReactivate({
+      currentPlan: customer.plan,
+      billingDate: customer.billingDate,
+      plan,
+      requestedPlan,
+      now: ctx.now,
+    });
+    const free = proposal.free;
 
     return {
       ok: true,
       summary: free
         ? "Proposed reactivation — free (within billing period, same plan)"
-        : `Proposed reactivation on ${effectivePlan} — first charge ${money(total)}`,
+        : `Proposed reactivation on ${proposal.plan} — first charge ${money(proposal.total_cents)}`,
       data: {
         status: "needs_confirmation",
-        proposal: {
-          plan: effectivePlan,
-          previous_plan: customer.plan,
-          plan_changed: planChanged,
-          monthly_cents: plan.monthlyCents,
-          signup_fee_cents: signupFee,
-          total_cents: total,
-          free,
-          within_billing: within,
-          billing_date: customer.billingDate,
-        },
+        proposal,
         message: free
           ? "The customer is within their billing period on the same plan, so reactivation is FREE (no charge). Ask them to confirm; do NOT say it's done until they confirm."
           : "A confirmation prompt shows the first charge (plan price plus sign-up fee where it applies). Ask them to confirm before it's charged; do NOT say it's reactivated until they confirm.",

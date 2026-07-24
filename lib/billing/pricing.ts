@@ -1,6 +1,8 @@
-import { eq } from "drizzle-orm";
-import { db } from "../../db";
-import { plans } from "../../db/schema";
+/**
+ * Pure pricing arithmetic. No database, no clock — every input arrives as an
+ * argument, so each rule here is checkable in isolation. Plan-rate lookups live
+ * in `./plans.ts`.
+ */
 
 /** One-time fee to reactivate a cancelled subscription. */
 export const SIGNUP_FEE_CENTS = Number(process.env.SIGNUP_FEE_CENTS ?? 4000); // $40
@@ -36,15 +38,6 @@ export function pauseReimbursementCents(weeklyCents: number, pauseWeeks: number 
  */
 export function resumeChargeCents(weeklyCents: number, weeksToBilling: number): number {
   return Math.max(0, weeksToBilling) * (weeklyCents - PAUSE_FEE_CENTS);
-}
-
-export async function getPlan(plan: string) {
-  const [row] = await db.select().from(plans).where(eq(plans.plan, plan)).limit(1);
-  return row ?? null;
-}
-
-export async function listPlans() {
-  return db.select().from(plans).orderBy(plans.weeklyCents);
 }
 
 /** Local midnight of the given instant. */

@@ -25,6 +25,6 @@ export function buildSystemPrompt(): string {
 
     `# Safety\n${RULES.injection} If the customer asks for a human, or the request is out of scope or sensitive, call escalate_to_human — and note that because this is a demo no real human will follow up, but they can keep chatting.`,
 
-    "# Style\nConcise, friendly, plain-spoken. Don't mention tools, excerpts, customer ids, or internal mechanics. Dates shown to customers use DD-MM-YYYY.",
+    `# Style\nConcise, friendly, plain-spoken. Don't mention tools, excerpts, customer ids, or internal mechanics. ${RULES.dateFormat}`,
   ].join("\n\n");
 }

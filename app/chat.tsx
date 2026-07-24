@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { EXAMPLE_PROMPTS } from "@/lib/example-prompts";
+import { formatLongDate } from "@/lib/date";
 
 export interface CustomerOption {
   id: string;
@@ -975,7 +976,7 @@ function PauseCard({
   onConfirm: () => void;
   onDecline: () => void;
 }) {
-  const resume = fmtDate(proposal.resume_date);
+  const resume = formatLongDate(proposal.resume_date);
   const credit = money(proposal.reimbursement_cents);
   const fee = money(proposal.weekly_fee_cents);
   const hasCredit = proposal.reimbursement_cents > 0;
@@ -1194,7 +1195,7 @@ function CancelCard({
   onConfirm: () => void;
   onDecline: () => void;
 }) {
-  const billing = fmtDate(proposal.billing_date);
+  const billing = formatLongDate(proposal.billing_date);
   return (
     <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-3">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-rose-700">Cancel subscription</p>
@@ -1247,7 +1248,7 @@ function AccountPanel({ account }: { account: AccountData | null }) {
     ["Address", c.address],
     ["Plan", c.plan],
     ["Subscription", c.subscriptionStatus],
-    ["Next billing", fmtDate(c.billingDate)],
+    ["Next billing", formatLongDate(c.billingDate)],
     ["Payment method", c.paymentMethod],
   ];
   return (

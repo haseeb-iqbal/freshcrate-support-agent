@@ -31,4 +31,10 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain(RULES.refundAmount);
     expect(prompt).toContain(RULES.feeRefund);
   });
+
+  it("embeds the canonical date-format rule and no longer says DD-MM-YYYY", () => {
+    // The old Style line told the model to print bare DD-MM-YYYY dates.
+    expect(prompt).toContain(RULES.dateFormat);
+    expect(prompt).not.toContain("Dates shown to customers use DD-MM-YYYY");
+  });
 });

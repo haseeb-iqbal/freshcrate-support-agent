@@ -34,3 +34,40 @@ export function addDaysIso(days: number, from: Date): string {
   d.setDate(d.getDate() + days);
   return toIsoDate(d);
 }
+
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+/** 1 -> "st", 2 -> "nd", 3 -> "rd", everything else -> "th". 11-13 are the
+ *  exceptions: they take "th" despite ending in 1, 2 and 3. */
+function ordinalSuffix(day: number): string {
+  if (day >= 11 && day <= 13) return "th";
+  if (day % 10 === 1) return "st";
+  if (day % 10 === 2) return "nd";
+  if (day % 10 === 3) return "rd";
+  return "th";
+}
+
+/**
+ * Long-form display date: "8th January 2026 (08-01-2026)".
+ *
+ * Used in prose - proposal card sentences, the account panel, and the agent's
+ * own answers - where a bare DD-MM-YYYY reads as a code rather than a day.
+ * Dense list rows keep the compact form.
+ *
+ * Parses the ISO string textually rather than via `new Date(iso)`, which would
+ * treat a date-only string as UTC midnight and shift the day at a negative
+ * offset. That is the same trap `toIsoDate` exists to avoid.
+ */
+export function formatLongDate(iso?: string | null): string {
+  if (!iso) return "";
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (!m) return iso;
+  const [, year, month, day] = m;
+  const monthName = MONTHS[Number(month) - 1];
+  if (!monthName) return iso;
+  const dayNum = Number(day);
+  return `${dayNum}${ordinalSuffix(dayNum)} ${monthName} ${year} (${day}-${month}-${year})`;
+}

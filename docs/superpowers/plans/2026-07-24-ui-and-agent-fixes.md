@@ -15,7 +15,9 @@
 - Pure logic goes in `lib/` with a colocated `*.test.ts`; React goes in `app/`. `lib/` must never import from `app/`.
 - `app/markdown.tsx` must contain no hooks and no `"use client"` directive: a client component (`app/chat.tsx`) and a server component (`app/kb/[slug]/page.tsx`) both import it.
 - Date format for prose: `8th January 2026 (08-01-2026)`. Compact list rows stay `DD-MM-YYYY`.
-- Mock scripts must never call `search_knowledge_base`: it needs live embeddings and an ingested KB, which would break the "no live OpenAI calls in E2E" property.
+- Mock scripts must never call `search_knowledge_base`. `MOCK_LLM=1` swaps only the chat provider; `getEmbeddingProvider()` hard-returns the OpenAI provider, so the query embedding would be a live paid call, and the hits would depend on whatever is currently ingested. That breaks both the "no live OpenAI calls" and the determinism properties of the E2E suite. (`db:reset` does NOT wipe `kb_chunks` - `db/seed.ts` deletes six tables and that is not one of them - so an ingested KB does persist; the query embedding is the blocker, not the corpus.)
+- `npm run lint` has never worked in this repo (no eslint dependency, no config). Do not run it or add it to any gate.
+- Run `npm run test:all` BEFORE `npm run test:e2e`, never after: the `confirm.cy.ts` specs mutate the database and `test:e2e` reseeds at its start, not its end.
 - `lib/llm/mock-scripts.test.ts` enforces a two-way binding - every `ask("…")` string in a spec needs a script, and every script needs a spec or a suggestion chip. Adding one without the other fails the unit suite.
 - Local gate: `npm run test:all` (typecheck + unit + api + integration). E2E: `npm run test:e2e`. The api and integration suites need the seeded Docker DB up.
 

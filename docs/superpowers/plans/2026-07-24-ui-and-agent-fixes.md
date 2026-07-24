@@ -1944,6 +1944,11 @@ Add a bullet: `Confirmation-prompt outcomes (confirmed / declined / still unansw
 
 In §9, update the E2E line: the spec count is no longer 13, and there are now four spec files (`agent.cy.ts`, `chips.cy.ts`, `confirm.cy.ts`, `ui.cy.ts`). Count the specs from the Cypress run output rather than guessing.
 
+In §10, under **Known**, add these two follow-ups so they are not lost:
+
+- `E2E cannot exercise `search_knowledge_base`: `MOCK_LLM=1` swaps only the chat provider, while `getEmbeddingProvider()` hard-returns the OpenAI one and throws without a key - and `db:reset` does not run `kb:ingest`, so `kb_chunks` is empty. Fixing it means a `MockEmbeddingProvider` behind the same flag plus seeded deterministic vectors; `retrieve()` already accepts an injectable provider, so the seam is half-built.`
+- `Whether the model actually obeys the no-inline-citation rule is not deterministically testable - the client-side strip guarantees the customer never sees a label, but compliance itself belongs in a Phase 5 grounding eval case.`
+
 - [ ] **Step 4: Commit**
 
 ```bash

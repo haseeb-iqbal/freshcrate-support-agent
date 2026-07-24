@@ -94,6 +94,9 @@ describe("FreshCrate agent (mock LLM)", () => {
   it("never shows an inline source label in the answer text", () => {
     signInAs("Ava Chen");
     ask("how do i change or cancel my subscription?");
+    // Anchor on content first: without this, an empty bubble would satisfy both
+    // negatives below and the spec could never fail.
+    cy.get('[data-testid="assistant-text"]').should("contain.text", "Change or Cancel Subscription");
     cy.get('[data-testid="assistant-text"]').should("not.contain.text", "subscription-changes");
     cy.get('[data-testid="assistant-text"]').should("not.contain.text", "›");
   });

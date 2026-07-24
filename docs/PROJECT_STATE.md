@@ -64,7 +64,7 @@ Browser (`app/chat.tsx`, SSE) → `POST /api/chat` (`app/api/chat/route.ts`, bui
 - Sources shown only if genuinely relevant (score within 0.12 of top, ≥0.32). Sources are shown only as links beneath the reply - the model never cites them inline, and any label that slips through is stripped client-side.
 - Cards/sources render **after** the text completes.
 - Dates display long-form in prose (`8th January 2026 (08-01-2026)`) and **DD-MM-YYYY** in dense list rows. Off-topic questions are refused. KB/tool content treated as untrusted data (injection resistance).
-- Confirmation-prompt outcomes (confirmed / declined / still unanswered) are sent back with each turn as an enum-only payload and rendered into a system note, so the model knows what the customer did.
+- Confirmation-prompt outcomes (confirmed / declined / still unanswered / failed) are sent back with each turn as an enum-only payload and rendered into a system note, so the model knows what the customer did.
 
 ## 9. Run & verify
 ```bash
@@ -89,7 +89,7 @@ npm run dev                  # http://localhost:3000
 npm run test:e2e             # db:reset + dev:mock + headless Cypress (28 specs across 4 files) in one command
 # npm run cypress:open       # interactive runner — run `npm run db:reset` first
 ```
-`MockChatProvider` is gated behind `MOCK_LLM=1` (never active in production) and scripts canned tool-call/text turns keyed off the incoming message, so all 28 E2E specs run without hitting OpenAI: 14 read-only in `agent.cy.ts` (positional order lookup, order-history double-text fix, pause, resume card, plan-change-while-paused redirect, over-ceiling refund escalation, 14-day refund-cooldown escalation, confirmable refund card, off-topic refusal, ambiguous-cancel clarification, rendered markdown, stripped inline citation, and the two confirmation-outcome-payload cases) plus 5 in `chips.cy.ts` (shared prompt chips and their answers) plus 6 in `ui.cy.ts` (preview-note hover/click, the My Account label, route-driven tab titles, and the slug-free help center) that are all read-only, plus 3 in `confirm.cy.ts` that click Confirm/Not now and therefore **mutate the DB** — hence the reseed baked into `test:e2e`.
+`MockChatProvider` is gated behind `MOCK_LLM=1` (never active in production) and scripts canned tool-call/text turns keyed off the incoming message, so all 28 E2E specs run without hitting OpenAI: 14 read-only in `agent.cy.ts` (positional order lookup, order-history double-text fix, pause, resume card, plan-change-while-paused redirect, over-ceiling refund escalation, 14-day refund-cooldown escalation, confirmable refund card, off-topic refusal, ambiguous-cancel clarification, rendered markdown, stripped inline citation, and the two confirmation-outcome-payload cases) plus 5 in `chips.cy.ts` (shared prompt chips and their answers) plus 6 in `ui.cy.ts` (preview-note hover/focus/click, the My Account label, route-driven tab titles, and the slug-free help center) that are all read-only, plus 3 in `confirm.cy.ts` that click Confirm/Not now and therefore **mutate the DB** — hence the reseed baked into `test:e2e`.
 
 `lib/llm/mock-scripts.test.ts` binds the two together: every question a spec asks needs a script, every script needs a spec, and a fixture may not state an order status no spec asserts.
 

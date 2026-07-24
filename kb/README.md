@@ -2,7 +2,7 @@
 
 Markdown help articles plus the ingest pipeline (chunk → embed → load into pgvector).
 
-- `articles/*.md` — 12 help articles (one H1 title, `##` sections). Each `##`
+- `articles/*.md` — 14 help articles (one H1 title, `##` sections). Each `##`
   section becomes one `kb_chunks` row; `article_slug` (filename) + `heading`
   are the citation source.
 - `ingest.ts` — parse → chunk → embed (`text-embedding-3-small`) → replace

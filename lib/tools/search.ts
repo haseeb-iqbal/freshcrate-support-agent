@@ -9,7 +9,7 @@ export const searchKnowledgeBase: Tool = {
   definition: {
     name: "search_knowledge_base",
     description:
-      "Search the FreshCrate help center for policy and how-to information (delivery, pausing, cancellation, refunds, plans, pricing, dietary options, billing, referrals, etc.). Returns relevant article excerpts with citation labels. Use this for any policy/how-to question and answer only from what it returns.",
+      "Search the FreshCrate help center for policy, how-to and MENU information (delivery, pausing, cancellation, refunds, plans, pricing, dietary tracks, which meals and add-ons are on each menu, what is in a meal, ingredients and allergens, billing, referrals, etc.). Returns relevant article excerpts with citation labels. Use this for any policy, how-to or menu question - including \"what meals are on the standard/vegetarian/gluten-free/dairy-free menu\" - and answer only from what it returns.",
     parameters: {
       type: "object",
       properties: {

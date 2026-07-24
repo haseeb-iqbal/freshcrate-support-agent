@@ -9,6 +9,7 @@ export interface TestCustomerInput {
   subscriptionStatus?: "active" | "paused" | "cancelled";
   billingDate?: string;
   pauseResumeDate?: string | null;
+  dietaryTrack?: string;
 }
 
 export interface TestOrderInput {
@@ -45,6 +46,7 @@ export async function createTestCustomer(input: TestCustomerInput): Promise<void
     email: `test-${suffix}@example.test`,
     subscriptionStatus: input.subscriptionStatus ?? "active",
     plan: input.plan ?? "2 meals/week",
+    dietaryTrack: input.dietaryTrack ?? "standard",
     paymentMethod: "Visa ending 0000",
     billingDate: input.billingDate ?? "2026-08-17",
     pauseResumeDate: input.pauseResumeDate ?? null,

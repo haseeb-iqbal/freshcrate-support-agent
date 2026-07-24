@@ -10,4 +10,4 @@ Change your plan any time from **Account → Plan**. Switching the number of mea
 When you change plans, the new price applies to the first box that ships on the new plan. You're never charged a fee to switch, and switching up or down doesn't reset your delivery day or preferences.
 
 ## Dietary preference vs. plan
-Changing your recipe preferences (such as vegetarian or low-carb) is separate from changing your plan size. You can update recipe preferences without changing how many meals you get — see the dietary options article.
+Changing your dietary track (Standard, Gluten-Free, Vegetarian or Dairy-Free) is separate from changing your plan size. You can switch track without changing how many meals you get, and it's free - see the menu and dietary tracks article.

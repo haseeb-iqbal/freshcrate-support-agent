@@ -66,6 +66,20 @@ export const MOCK_SCRIPTS: Record<string, Script> = {
     pre_tool: [call("issue_refund", { order_number: "FC1008", reason: "damaged box" })],
     post_tool: [t("I can refund that box — please confirm below to send it back to your original payment method.")],
   },
+  "switch me to vegetarian meals": {
+    pre_tool: [call("change_dietary_track", { track: "vegetarian" })],
+    post_tool: [t("I can move you onto our vegetarian menu - confirm below and it starts with next week's box.")],
+  },
+  // Demo mode must be able to show the menu, or the one feature a meal service
+  // is most asked about answers "(mock) No script for this input."
+  "what meals are in the standard plan": {
+    pre_tool: [call("search_knowledge_base", { query: "standard menu meals" })],
+    post_tool: [
+      t(
+        "The Standard menu has eight meals: Herb Roast Chicken & Garlic Mash, Beef Lasagne, Teriyaki Salmon Rice Bowl, Chicken Tikka Masala & Basmati, Beef Smash Burger & Fries, Creamy Mushroom Chicken Pasta, Lamb Kofta & Couscous, and Turkey Meatball Marinara Sub. [menu-and-dietary-tracks › Standard menu]",
+      ),
+    ],
+  },
   "what's the capital of france?": {
     pre_tool: [t("I can only help with FreshCrate orders, subscriptions, and policies — anything about your account I can help with?")],
     post_tool: [],

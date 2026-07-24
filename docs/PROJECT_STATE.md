@@ -2,7 +2,7 @@
 
 > Read this first when continuing work in a new session. It captures where the project actually is (which has diverged from `support-agent-prd.md`), the business rules, agent conventions, and what's left. The original PRD is still the north star for the remaining phases (5–7).
 
-_Last updated: 2026-07-09._
+_Last updated: 2026-07-23._
 
 ## 1. What this is
 Agentic AI customer-support assistant for a fictional meal-kit company (FreshCrate). It answers help questions grounded in a knowledge base (with citations) and performs guard-railed account actions against Postgres. Portfolio project — the engineering patterns are the deliverable.
@@ -31,21 +31,21 @@ Agentic AI customer-support assistant for a fictional meal-kit company (FreshCra
 Next.js 14 (App Router) + React 18 + Tailwind v3 · TypeScript · PostgreSQL + pgvector (local Docker: `docker compose up -d`, image `pgvector/pgvector:pg16`) · Drizzle ORM (`postgres.js` driver) · OpenAI (`gpt-4o-mini` chat, `text-embedding-3-small` embeddings). Everything is `DATABASE_URL`-driven (swaps to Supabase for deploy). `gh` CLI is installed for PRs.
 
 ## 5. Architecture / request flow
-Browser (`app/chat.tsx`, SSE) → `POST /api/chat` (`app/api/chat/route.ts`, builds trusted `customerLabel`) → **agent loop** (`lib/agent/loop.ts`, think→act→observe over OpenAI function calling) → tools (`lib/tools/*`) → Postgres. The loop streams `delta` text and emits SSE events: `sources`, `history`, `refund_proposal`, `pause_proposal`, `resume_proposal`, `reactivate_proposal`, `plan_change_proposal`, `cancel_proposal`, `tool_call`, `tool_result`, `reset`, `done`. Confirmation actions never write from the model — the card's confirm button calls `/api/actions/*`, which re-validates server-side. Every choke point (chat, account, all action routes) first calls `reconcile(customerId, now())` (`lib/billing/reconcile.ts`) to bring the subscription current on read — billing rollover, monthly pause fees, and finite-pause auto-resume — keyed off `lib/clock`. Forward-only, idempotent (`FOR UPDATE` row lock). At real time this is a no-op; **Phase 5's skip-forward will move the clock to exercise it.**
+Browser (`app/chat.tsx`, SSE) → `POST /api/chat` (`app/api/chat/route.ts`, builds trusted `customerLabel`) → **agent loop** (`lib/agent/loop.ts`, think→act→observe over OpenAI function calling) → tools (`lib/tools/*`) → Postgres. The loop streams `delta` text and emits SSE events: `sources`, `history`, `refund_proposal`, `pause_proposal`, `resume_proposal`, `reactivate_proposal`, `plan_change_proposal`, `cancel_proposal`, `diet_change_proposal`, `tool_call`, `tool_result`, `reset`, `done`. Confirmation actions never write from the model — the card's confirm button calls `/api/actions/*`, which re-validates server-side. Every choke point (chat, account, all action routes) first calls `reconcile(customerId, now())` (`lib/billing/reconcile.ts`) to bring the subscription current on read — billing rollover, monthly pause fees, and finite-pause auto-resume — keyed off `lib/clock`. Forward-only, idempotent (`FOR UPDATE` row lock). At real time this is a no-op; **Phase 5's skip-forward will move the clock to exercise it.**
 
 **The loop is now a thin orchestrator over four pure/testable units** (`lib/agent/`): `messages.ts` (`buildAgentMessages` — assembles the OpenAI message array from system prompt + history), `prompt.ts` (`buildSystemPrompt()` — assembles the system prompt from `lib/domain/terms.ts`'s `RULES`, so rule wording lives in one place instead of duplicated inline strings), `dispatch.ts` (`dispatchTool` — pure mapping from a tool call + its result to SSE events + model-visible content, including proposal-card dedupe as a tested invariant), and `nudge.ts` (`shouldNudge` — a tested predicate, replacing the old inline regex, that decides whether to re-prompt the model when it describes an account action without calling the tool). `runAgent(opts, deps)` wires these together and takes an injectable `deps` (provider/tool registry) so tests can swap in fakes without hitting OpenAI or Postgres.
 
 **Streaming `reset` fixes the duplicate-reply-text bug:** any turn that streams `delta` text but isn't the model's final answer (because it goes on to call a tool, or gets nudged) now emits a `reset` SSE event before the next turn starts. The client (`app/chat.tsx`) clears the accumulated preamble on `reset`, so only the FINAL turn's text is ever shown to the user — previously, tool-call/nudge turns that streamed prose left it stuck in the UI ahead of the real answer.
 
-### The 11 tools (`lib/tools/`)
-`search_knowledge_base`, `lookup_order` (one order — resolved via `selectOrder`, a pure resolver in `lib/tools/select-order.ts` that takes `order_number` OR `position` (1 = most recent, 2 = 2nd most recent, …) OR `kind` (subscription|extra) OR `status`, so "my 2nd last order" or "my most recent extra meal" resolve without dumping full history to the model), `list_orders` (history → card; details withheld from the model), `get_subscription` (live status — must be called for status/plan/billing/pause questions), `pause_subscription`, `resume_subscription`, `reactivate_subscription`, `cancel_subscription`, `change_plan`, `issue_refund`, `escalate_to_human`.
+### The 12 tools (`lib/tools/`)
+`search_knowledge_base`, `lookup_order` (one order — resolved via `selectOrder`, a pure resolver in `lib/tools/select-order.ts` that takes `order_number` OR `position` (1 = most recent, 2 = 2nd most recent, …) OR `kind` (subscription|extra) OR `status`, so "my 2nd last order" or "my most recent extra meal" resolve without dumping full history to the model), `list_orders` (history → card; details withheld from the model), `get_subscription` (live status — must be called for status/plan/billing/pause questions), `pause_subscription`, `resume_subscription`, `reactivate_subscription`, `cancel_subscription`, `change_plan`, `change_dietary_track`, `issue_refund`, `escalate_to_human`.
 
 ## 6. Data model (8 tables, `db/schema.ts`)
-- **customers** — status (active|paused|cancelled), plan, `billingDate`, `pauseResumeDate` (set iff finite-paused → drives auto-resume), `lastReconciledAt` (reconcile watermark), contact + `paymentMethod` (simulated).
-- **orders** — one meal each: `orderNumber` (FC1001…), `kind` (subscription|extra), `totalCents` (charged; 0 for a free subscription meal), `listPriceCents` (undiscounted), `addOns` `[{name, priceCents}]`, `items` `[mealName]`, `refundedAt`.
+- **customers** — status (active|paused|cancelled), plan, `dietaryTrack` (standard|gluten-free|vegetarian|dairy-free), `billingDate`, `pauseResumeDate` (set iff finite-paused → drives auto-resume), `lastReconciledAt` (reconcile watermark), contact + `paymentMethod` (simulated).
+- **orders** — one meal each: `orderNumber` (FC1001…), `kind` (subscription|extra), `totalCents` (charged; 0 for a free subscription meal), `listPriceCents` (undiscounted), `addOns` `[{name, priceCents}]`, `items` `[mealName]`, `dietaryTags` (the meal's tags, snapshotted when the box was packed), `refundedAt`.
 - **plans** — plan → weekly/monthly cents.
 - **transactions** — money ledger: `type` (monthly_billing|signup_fee|hold_fee|proration|refund), signed `amountCents` (+charge/−credit), description, `orderNumber?`.
-- **subscription_events** — status-change audit (subscribed|paused|resumed|cancelled|reactivated|plan_changed).
+- **subscription_events** — status-change audit (subscribed|paused|resumed|cancelled|reactivated|plan_changed|diet_changed).
 - **escalations**, **kb_chunks** (pgvector), **traces** (defined, unused).
 
 ## 7. Business rules (single source: `lib/billing/pricing.ts` + seed)
@@ -56,6 +56,7 @@ Browser (`app/chat.tsx`, SSE) → `POST /api/chat` (`app/api/chat/route.ts`, bui
 - **Resume (paused, propose→confirm):** charges `weeksToBilling × (weekly − $8)` — at the NEW plan's weekly rate if switching plan at the same time (`new_plan`). Takes effect next week. Writes a `resume_charge` row.
 - **Reactivation (cancelled):** free within the billing period on the same plan; otherwise plan price + **$40 sign-up fee**. Can switch plan while reactivating (`new_plan`).
 - **Change plan:** active only; prorated by weeks-to-billing; new plan starts next week. Paused → resume with `new_plan`; cancelled → reactivate with `new_plan`.
+- **Dietary tracks:** four tracks (standard / gluten-free / vegetarian / dairy-free), same price on all. Add-ons flat by type: side $4.99, dessert $5.99, drink $3.49. Switching track is free, propose→confirm, effective next week.
 
 ## 8. Agent conventions (enforced in `lib/agent/prompt.ts` (`buildSystemPrompt`, sourced from `lib/domain/terms.ts`) + `loop.ts`/`dispatch.ts`/`nudge.ts`)
 - Every confirmation action → the model MUST call the tool. If it only describes the action instead, `shouldNudge` (`lib/agent/nudge.ts`, unit-tested) re-prompts it to actually call the tool. Duplicate proposal cards are **deduped** as a tested invariant inside `dispatchTool` (`lib/agent/dispatch.ts`) — the old `system-prompt.ts` module and inline regex nudge check have both been deleted/replaced.
@@ -72,7 +73,7 @@ cp .env.example .env         # set OPENAI_API_KEY; DATABASE_URL defaults to loca
 npm run db:up                # start pgvector
 npm run db:reset             # enable vector + push schema + seed
 npm run kb:ingest            # embed KB articles (needs OPENAI_API_KEY)
-npm run kb:test              # retrieval gate (12 cases)
+npm run kb:test              # retrieval gate (14 cases)
 npm run typecheck
 npm test                     # unit tests (Vitest, TZ=UTC) — pure, no DB or network
 npm run test:api             # route-handler tests (tests/api) — needs the seeded DB
@@ -81,14 +82,14 @@ npm run test:all             # typecheck + unit + api + integration (the local g
 npm run test:coverage        # unit coverage over lib/
 npm run dev                  # http://localhost:3000
 ```
-`npm run db:seed` resets demo data (shared DB — mutations persist). **Demo customers:** Ava (active), Marcus (2 open orders → clarify), Priya (plain $17.50 box → confirmable refund), Noah (FC1020 $26 with add-ons → over-ceiling escalation), Tom (FC1016 refunded 5 days ago → 14-day cooldown escalation on FC1015), Lena (cancelled, within billing → free reactivation), Mia (cancelled, past billing → fee), Diego (**finite** pause, `pauseResumeDate` ~21 days out → accrues pause fees then auto-resumes on skip-forward) / Sara (**indefinite** pause → accrues $32/month indefinitely). Order numbers `FC1001…`. **Every date is seeded relative to real time** (`daysFromNow`/`daysAgo`/`daysAgoDate`) — billing dates, Tom's recent refund, and order `placedAt`/`deliveryDate` — so the weeks-to-billing money demos (pause credit, resume charge, free-vs-fee reactivation, refund cooldown) stay correct whenever you reseed, and an open order always has a delivery date still ahead of it. `tests/integration/seed-coherence.test.ts` enforces the latter.
+`npm run db:seed` resets demo data (shared DB — mutations persist). **Demo customers** (each customer's track, from `TRACK_BY_CUSTOMER` in `db/seed.ts`, decides which meals and add-ons their orders draw from): Ava (active, `standard`), Marcus (`standard`, 2 open orders → clarify), Priya (`vegetarian`, plain $17.50 box → confirmable refund), Noah (`standard`, FC1020 $28.48 with add-ons → over-ceiling escalation), Tom (`dairy-free`, FC1016 refunded 5 days ago → 14-day cooldown escalation on FC1015), Lena (`standard`, cancelled, within billing → free reactivation), Mia (`gluten-free`, cancelled, past billing → fee), Diego (`gluten-free`, **finite** pause, `pauseResumeDate` ~21 days out → accrues pause fees then auto-resumes on skip-forward) / Sara (`vegetarian`, **indefinite** pause → accrues $32/month indefinitely). Order numbers `FC1001…`. **Every date is seeded relative to real time** (`daysFromNow`/`daysAgo`/`daysAgoDate`) — billing dates, Tom's recent refund, and order `placedAt`/`deliveryDate` — so the weeks-to-billing money demos (pause credit, resume charge, free-vs-fee reactivation, refund cooldown) stay correct whenever you reseed, and an open order always has a delivery date still ahead of it. `tests/integration/seed-coherence.test.ts` enforces the latter.
 
 **E2E (Cypress, deterministic — no live OpenAI calls):**
 ```bash
-npm run test:e2e             # db:reset + dev:mock + headless Cypress (13 specs) in one command
+npm run test:e2e             # db:reset + dev:mock + headless Cypress (20 specs) in one command
 # npm run cypress:open       # interactive runner — run `npm run db:reset` first
 ```
-`MockChatProvider` is gated behind `MOCK_LLM=1` (never active in production) and scripts canned tool-call/text turns keyed off the incoming message, so all 13 E2E specs run without hitting OpenAI: 10 read-only in `agent.cy.ts` (positional order lookup, order-history double-text fix, pause, resume card, plan-change-while-paused redirect, over-ceiling refund escalation, 14-day refund-cooldown escalation, confirmable refund card, off-topic refusal, ambiguous-cancel clarification) plus 3 in `confirm.cy.ts` that click Confirm/Not now and therefore **mutate the DB** — hence the reseed baked into `test:e2e`.
+`MockChatProvider` is gated behind `MOCK_LLM=1` (never active in production) and scripts canned tool-call/text turns keyed off the incoming message, so all 20 E2E specs run without hitting OpenAI: 11 read-only in `agent.cy.ts` (positional order lookup, order-history double-text fix, pause, resume card, plan-change-while-paused redirect, over-ceiling refund escalation, 14-day refund-cooldown escalation, confirmable refund card, off-topic refusal, ambiguous-cancel clarification, dietary-track switch confirmation card) plus 5 in `chips.cy.ts` (the shared example-prompt chips) plus 4 in `confirm.cy.ts` that click Confirm/Not now and therefore **mutate the DB** (pause confirm, pause decline, refund confirm, dietary-track switch confirm) — hence the reseed baked into `test:e2e`.
 
 `lib/llm/mock-scripts.test.ts` binds the two together: every question a spec asks needs a script, every script needs a spec, and a fixture may not state an order status no spec asserts.
 

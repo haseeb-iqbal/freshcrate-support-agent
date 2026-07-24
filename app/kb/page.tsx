@@ -20,10 +20,9 @@ export default async function HelpCenterIndex() {
           <li key={a.slug}>
             <Link
               href={`/kb/${a.slug}`}
-              className="flex items-center justify-between px-4 py-3 text-sm hover:bg-slate-50"
+              className="flex items-center px-4 py-3 text-sm hover:bg-slate-50"
             >
               <span className="font-medium text-slate-800">{a.title}</span>
-              <span className="text-xs text-slate-400">{a.slug}</span>
             </Link>
           </li>
         ))}

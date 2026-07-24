@@ -16,7 +16,6 @@ export default async function ArticlePage({ params }: { params: { slug: string }
         ← All help articles
       </Link>
       <h1 className="mt-4 text-2xl font-bold text-slate-900">{article.title}</h1>
-      <p className="mt-1 text-xs text-slate-400">Source: {article.slug}</p>
 
       <div className="mt-6 space-y-6">
         {article.sections.map((s) => (

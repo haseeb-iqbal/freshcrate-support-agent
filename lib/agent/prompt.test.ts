@@ -45,4 +45,9 @@ describe("buildSystemPrompt", () => {
     expect(prompt).not.toContain("Cite inline");
     expect(prompt).not.toContain("pause-resume › How pausing works");
   });
+
+  it("tells the model how to use the confirmation-outcome note", () => {
+    expect(prompt).toContain("# Confirmation outcomes");
+    expect(prompt).toContain("already confirmed");
+  });
 });

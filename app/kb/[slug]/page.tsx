@@ -1,10 +1,18 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getArticle } from "@/lib/kb/articles";
 import { InlineMarkdown } from "@/app/markdown";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+  const article = await getArticle(params.slug);
+  // A missing article still renders notFound() in the page body; the title just
+  // needs a sensible fallback for the moment before that happens.
+  return { title: article?.title ?? "Help Center" };
+}
 
 export default async function ArticlePage({ params }: { params: { slug: string } }) {
   const article = await getArticle(params.slug);

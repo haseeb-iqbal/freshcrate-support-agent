@@ -3,6 +3,7 @@ import { listArticles } from "@/lib/kb/articles";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Help Center" };
 
 export default async function HelpCenterIndex() {
   const articles = await listArticles();

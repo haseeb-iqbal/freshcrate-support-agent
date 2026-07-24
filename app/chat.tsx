@@ -363,6 +363,12 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
+  // The home route renders both the chat and the account panel, so the tab title
+  // follows the visible view rather than the route.
+  useEffect(() => {
+    document.title = showAccount ? "My Account · FreshCrate" : "FreshCrate Support";
+  }, [showAccount]);
+
   async function send(text: string) {
     const question = text.trim();
     if (!question || busy) return;

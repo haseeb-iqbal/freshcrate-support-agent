@@ -132,6 +132,32 @@ describe("parseBlocks", () => {
       { type: "paragraph", spans: [{ text: "Ready: **Cha" }] },
     ]);
   });
+
+  it("keeps a stray literal asterisk and everything after it while streaming", () => {
+    // Parity alone would delete from the asterisk to the end of the text, so a
+    // reply briefly lost content mid-stream and got it back when streaming ended.
+    expect(parseBlocks("The price is $10 * 3 units", { streaming: true })).toEqual([
+      { type: "paragraph", spans: [{ text: "The price is $10 * 3 units" }] },
+    ]);
+  });
+
+  it("keeps a stray asterisk that follows a closed bold run while streaming", () => {
+    expect(parseBlocks("**a** and 2 * 3", { streaming: true })).toEqual([
+      { type: "paragraph", spans: [{ text: "a", bold: true }, { text: " and 2 * 3" }] },
+    ]);
+  });
+
+  it("hides a bare trailing marker with nothing after it yet while streaming", () => {
+    expect(parseBlocks("Ready: **", { streaming: true })).toEqual([
+      { type: "paragraph", spans: [{ text: "Ready:" }] },
+    ]);
+  });
+
+  it("still hides a real unterminated italic run while streaming", () => {
+    expect(parseBlocks("a **b** c *d", { streaming: true })).toEqual([
+      { type: "paragraph", spans: [{ text: "a " }, { text: "b", bold: true }, { text: " c" }] },
+    ]);
+  });
 });
 
 describe("stripCitations", () => {
@@ -164,5 +190,9 @@ describe("stripCitations", () => {
 
   it("returns text with no citation unchanged", () => {
     expect(stripCitations("nothing to strip")).toBe("nothing to strip");
+  });
+
+  it("leaves no leading space when a citation opens the text", () => {
+    expect(stripCitations("[refunds › When we refund] is important")).toBe("is important");
   });
 });

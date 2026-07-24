@@ -61,22 +61,36 @@ export function parseInline(text: string): Span[] {
 /**
  * Drop a trailing marker whose partner has not streamed in yet.
  *
- * Decided by parity, not by position: an odd number of `**` means the last one
- * opened a run that is still unclosed, so it and whatever follows it are a
- * partial token. Checking position alone would eat the closing `**` of a
- * finished run.
+ * Two conditions must both hold. Parity: an odd number of `**` (or of lone
+ * `*`) means the last one opened a run that is still unclosed. Shape: the
+ * marker must look like an emphasis OPENER, meaning a non-space character
+ * follows it, or it must sit at the very end of the text. Emphasis can never
+ * open with "* ", so an ordinary literal asterisk such as the one in "2 * 3"
+ * is left alone.
+ *
+ * Both conditions are needed. Parity alone deletes everything after any stray
+ * literal asterisk; shape alone would eat the closing marker of a finished run.
  */
 function hideUnterminatedMarker(text: string): string {
   let out = text;
-  if ((out.match(/\*\*/g)?.length ?? 0) % 2 === 1) out = out.replace(/\*\*[^*]*$/, "");
-  if ((out.match(/\*/g)?.length ?? 0) % 2 === 1) out = out.replace(/\*[^*\n]*$/, "");
+  if ((out.match(/\*\*/g)?.length ?? 0) % 2 === 1) {
+    out = out.replace(/\*\*[^*\s][^*]*$|\*\*$/, "");
+  }
+  // Strip the `**` pairs before counting, so only genuinely lone asterisks
+  // drive this parity check. Done without a lookbehind on purpose: a regex
+  // literal using one is a parse-time SyntaxError on older Safari, which
+  // would take the whole client bundle down rather than degrade.
+  const lone = out.replace(/\*\*/g, "").match(/\*/g)?.length ?? 0;
+  if (lone % 2 === 1) {
+    out = out.replace(/\*[^*\s\n][^*\n]*$|\*$/, "");
+  }
   return out;
 }
 
 /** Remove inline source labels. The sources are shown as links below the reply,
  *  so a bracketed label in the prose is duplication. */
 export function stripCitations(text: string): string {
-  return text.replace(CITATION, "");
+  return text.replace(CITATION, "").replace(/^\s+/, "");
 }
 
 /** Split text into paragraphs, headings and lists. */

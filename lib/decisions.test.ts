@@ -110,6 +110,12 @@ describe("parseDecisions", () => {
     ]);
   });
 
+  it("drops an absurdly long order number", () => {
+    // The decisions payload is not covered by the route's input-length limit.
+    const out = parseDecisions([{ kind: "refund", outcome: "confirmed", orderNumber: `FC${"1".repeat(50)}` }]);
+    expect(out).toEqual([{ kind: "refund", outcome: "confirmed" }]);
+  });
+
   it("caps an over-long array", () => {
     const many = Array.from({ length: 50 }, () => ({ kind: "pause", outcome: "declined" }));
     expect(parseDecisions(many)).toHaveLength(20);

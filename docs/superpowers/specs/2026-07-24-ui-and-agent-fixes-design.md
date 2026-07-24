@@ -109,7 +109,7 @@ The note renders when either is true, so moving the mouse away never dismisses a
   - `parseInline(text): Span[]` where `Span = { text: string; bold?: boolean; italic?: boolean }`
   - `parseBlocks(text, opts?): Block[]` where `Block` is a paragraph, bullet list, ordered list, or heading
   - `stripCitations(text): string` (item 1)
-  - Supported: `**bold**`, `*italic*`, `-`/`*` bullets, `1.` ordered lists, `#`-`###` headings. Anything else falls through as literal text. Deliberately narrow: this renders model output, not a document format.
+  - Supported: `**bold**`, `*italic*`, `-`/`*` bullets, `1.`/`1)` ordered lists, `#`-`###` headings. Anything else falls through as literal text. Deliberately narrow: this renders model output, not a document format.
 - **`app/markdown.tsx`** - a `<Markdown text streaming />` component that maps blocks to elements, plus an `<InlineMarkdown text />` for a single run of spans. Headings render as a bold line rather than an `<h*>`, because these appear inside a chat bubble that already sits under the page's heading hierarchy. The module holds no hooks and no `"use client"` directive, so the client chat and the server-rendered article page can both import it.
 - **Streaming.** Mid-stream, a half-emitted `**Cha` would render as literal asterisks for a frame and then lose them. `parseBlocks` takes `{ streaming: true }` and suppresses a trailing unterminated `**` or `*` run, so the marker is never visible.
 - **`app/kb/[slug]/page.tsx`** replaces its local bold-only `renderInline` with `<InlineMarkdown>` and deletes the duplicate. Article paragraphs keep their existing paragraph splitting; only the inline pass is shared.
@@ -146,7 +146,7 @@ The note renders when either is true, so moving the mouse away never dismisses a
 
    The sentence is built server-side from the enums. Signature stays backward compatible (`decisions` defaults to `[]`).
 
-5. **`lib/agent/prompt.ts`** - a `# Confirmation outcomes` section: treat those facts as authoritative; do not re-propose an action already confirmed; for an unanswered prompt, point the customer at the prompt on screen rather than calling the tool again (a repeat call is deduped by `dispatch.ts` and produces no new card anyway).
+5. **`lib/agent/prompt.ts`** - a `# Confirmation outcomes` section: treat those facts as authoritative; do not re-propose an action already confirmed; for an unanswered prompt, point the customer at the prompt on screen rather than calling the tool again. `dispatch.ts`'s dedupe only holds within one turn - `DispatchState` is constructed fresh inside `runAgent` - so a repeat call in a LATER turn would produce a second card; that is why the rule exists.
 
 **Rejected alternative.** Re-reading the DB server-side catches confirmations but cannot distinguish "declined" from "never answered" - the two cases this item exists to fix.
 
@@ -169,6 +169,8 @@ The note renders when either is true, so moving the mouse away never dismisses a
 2. A pause confirmation followed by a question about it, asserting the reply reflects the confirmed state.
 
 Plus assertions for the hover tooltip, the `My Account` label, the removed help-center slugs, and `document.title` on each route. The confirm-click spec mutates the DB, so it belongs in `confirm.cy.ts` alongside the existing ones covered by the reseed baked into `test:e2e`.
+
+**Deviation.** The planned second mock script (a pause confirmation plus a follow-up question asserting the reply reflects the confirmed state) was replaced by two `cy.intercept` request-body assertions, because `MockChatProvider` keys only on the last user message and a scripted reply could never actually reflect the system note.
 
 ---
 

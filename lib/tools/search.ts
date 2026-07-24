@@ -9,7 +9,7 @@ export const searchKnowledgeBase: Tool = {
   definition: {
     name: "search_knowledge_base",
     description:
-      "Search the FreshCrate help center for policy and how-to information (delivery, pausing, cancellation, refunds, plans, pricing, dietary options, billing, referrals, etc.). Returns relevant article excerpts with citation labels. Use this for any policy/how-to question and answer only from what it returns.",
+      "Search the FreshCrate help center for policy and how-to information (delivery, pausing, cancellation, refunds, plans, pricing, dietary options, billing, referrals, etc.). Returns relevant article excerpts. Use this for any policy/how-to question and answer only from what it returns.",
     parameters: {
       type: "object",
       properties: {

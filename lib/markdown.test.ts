@@ -43,6 +43,21 @@ describe("parseInline", () => {
   it("drops empty spans", () => {
     expect(parseInline("**a**")).toHaveLength(1);
   });
+
+  it("does not pair two literal asterisks into an italic run", () => {
+    // Without an opener rule these two asterisks paired up and BOTH were
+    // deleted, so the customer saw "5  4 = 20 and 6  2 = 12".
+    expect(parseInline("5 * 4 = 20 and 6 * 2 = 12")).toEqual([
+      { text: "5 * 4 = 20 and 6 * 2 = 12" },
+    ]);
+  });
+
+  it("still finds a real italic run after a literal asterisk", () => {
+    expect(parseInline("2 * 3 and *soon*")).toEqual([
+      { text: "2 * 3 and " },
+      { text: "soon", italic: true },
+    ]);
+  });
 });
 
 describe("parseBlocks", () => {

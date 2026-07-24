@@ -192,14 +192,22 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
   const [account, setAccount] = useState<AccountData | null>(null);
   const [pinnedPreview, setPinnedPreview] = useState(false);
   const [hoveredPreview, setHoveredPreview] = useState(false);
+  const [focusedPreview, setFocusedPreview] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
 
   const activeCustomer = customers.find((c) => c.id === customerId);
-  // The note opens on hover or focus, and stays open when deliberately clicked.
-  // Keeping the two signals separate means moving the mouse away never dismisses
-  // a note the customer pinned open.
-  const showPreviewNote = pinnedPreview || hoveredPreview;
+  // The note opens on hover, on keyboard focus, or on a deliberate click. The
+  // three signals are tracked separately so hovering away cannot dismiss a note
+  // the customer clicked open, and so a click while it is already showing can
+  // close it - with one shared flag, focus from the click itself held it open.
+  const showPreviewNote = pinnedPreview || hoveredPreview || focusedPreview;
+
+  const closePreview = () => {
+    setPinnedPreview(false);
+    setHoveredPreview(false);
+    setFocusedPreview(false);
+  };
 
   function startNewChat() {
     if (busy) return;
@@ -224,16 +232,16 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
     }
   }
 
-  // Close a pinned preview note on outside-click or Escape.
+  // Dismiss the preview note on outside-click or Escape, however it was opened.
   useEffect(() => {
-    if (!pinnedPreview) return;
+    if (!showPreviewNote) return;
     function onPointer(e: MouseEvent) {
       if (previewRef.current && !previewRef.current.contains(e.target as Node)) {
-        setPinnedPreview(false);
+        closePreview();
       }
     }
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setPinnedPreview(false);
+      if (e.key === "Escape") closePreview();
     }
     document.addEventListener("mousedown", onPointer);
     document.addEventListener("keydown", onKey);
@@ -241,7 +249,7 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
       document.removeEventListener("mousedown", onPointer);
       document.removeEventListener("keydown", onKey);
     };
-  }, [pinnedPreview]);
+  }, [showPreviewNote]);
 
   // Load the account panel data whenever it's open or the customer changes.
   useEffect(() => {
@@ -497,11 +505,11 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
             >
               <button
                 type="button"
-                onClick={() => setPinnedPreview((v) => !v)}
-                onFocus={() => setHoveredPreview(true)}
-                onBlur={() => setHoveredPreview(false)}
+                onClick={() => (showPreviewNote ? closePreview() : setPinnedPreview(true))}
+                onFocus={() => setFocusedPreview(true)}
+                onBlur={() => setFocusedPreview(false)}
                 aria-expanded={showPreviewNote}
-                aria-describedby="preview-note"
+                aria-describedby={showPreviewNote ? "preview-note" : undefined}
                 className={
                   "flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide transition " +
                   (showPreviewNote

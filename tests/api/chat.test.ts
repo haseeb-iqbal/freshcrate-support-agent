@@ -10,9 +10,9 @@ const TODAY = new Date(2026, 6, 20);
 const user = (content: string) => [{ role: "user" as const, content }];
 
 /**
- * Validation only. Every case here is rejected before runAgent is reached, so
- * no model is called and no API key is needed. The streaming path is covered by
- * the Cypress specs.
+ * Input validation. Most cases here are rejected before runAgent is reached;
+ * the few that return 200 assert only the status, so no assertion depends on a
+ * model call. The streaming path is covered by the Cypress specs.
  */
 describe("POST /api/chat input validation", () => {
   beforeAll(() => createTestCustomer({ id: ID, billingDate: "2026-08-17" }));

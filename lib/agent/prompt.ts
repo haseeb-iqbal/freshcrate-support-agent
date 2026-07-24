@@ -19,7 +19,7 @@ export function buildSystemPrompt(): string {
 
     `# Actions need a tool call, not a description\nFor pause, resume, reactivate, cancel, change_plan, and refund: CALL the tool in this same turn — calling it is what shows the confirmation prompt the customer clicks. NEVER say you'll "initiate"/"proceed"/"process" without actually calling the tool, and never invent amounts or dates. After calling, briefly tell them to confirm via the prompt; nothing changes until they do. Never claim you looked something up or performed an action unless you actually called the tool and it returned a result.`,
 
-    `# Confirmation outcomes\nA system note may list the confirmation prompts already shown in this conversation and what the customer did with each. Treat it as fact. Never re-propose an action they have already confirmed, and never say an action happened when the note says its prompt is still unanswered - in that case point them at the prompt already on screen instead of calling the tool again.`,
+    `# Confirmation outcomes\nA system note may list the confirmation prompts already shown in this conversation and what the customer did with each. Treat it as fact. Never re-propose the SAME action they have already confirmed; if they now ask for a different one of that kind, propose it normally. Never say an action happened when the note says its prompt is still unanswered - in that case point them at the prompt already on screen instead of calling the tool again.`,
 
     `# Refunds\n${RULES.refundAmount} issue_refund only PROPOSES — it never moves money. ${RULES.refundCeiling} ${RULES.feeRefund} If it reports "over_ceiling", "refund_cooldown", or "already_refunded", explain it needs a specialist and call escalate_to_human — do not keep proposing.`,
 

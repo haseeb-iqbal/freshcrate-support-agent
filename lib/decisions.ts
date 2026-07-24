@@ -58,7 +58,7 @@ const OUTCOME_OF: Record<ProposalState, DecisionOutcome> = {
 };
 
 const MAX_DECISIONS = 20;
-const ORDER_NUMBER = /^FC\d+$/;
+const ORDER_NUMBER = /^FC\d{1,12}$/;
 
 /** Walk the transcript into one Decision per confirmation prompt shown. */
 export function collectDecisions(messages: DecisionSource[]): Decision[] {
@@ -90,7 +90,7 @@ export function collectDecisions(messages: DecisionSource[]): Decision[] {
 export function parseDecisions(raw: unknown): Decision[] {
   if (!Array.isArray(raw)) return [];
   const out: Decision[] = [];
-  for (const item of raw.slice(0, MAX_DECISIONS)) {
+  for (const item of raw) {
     if (!item || typeof item !== "object") continue;
     const { kind, outcome, orderNumber } = item as Record<string, unknown>;
     if (!DECISION_KINDS.includes(kind as DecisionKind)) continue;
@@ -100,6 +100,7 @@ export function parseDecisions(raw: unknown): Decision[] {
       decision.orderNumber = orderNumber;
     }
     out.push(decision);
+    if (out.length >= MAX_DECISIONS) break;
   }
   return out;
 }

@@ -29,9 +29,11 @@ export interface ParseOptions {
 }
 
 /** `**bold**` or `*italic*`. Bold is tried first so `**x**` never reads as two
- *  empty italic runs. Neither run may contain an asterisk, which keeps the
- *  match non-greedy without lookahead. */
-const INLINE = /\*\*[^*]+\*\*|\*[^*\n]+\*/g;
+ *  empty italic runs. A run may not open or close on whitespace, which is what
+ *  keeps a literal asterisk - the one in "2 * 3" - from pairing with another
+ *  and silently deleting both. Same opener/closer rule hideUnterminatedMarker
+ *  applies to the streaming path. */
+const INLINE = /\*\*[^*\s](?:[^*]*[^*\s])?\*\*|\*[^*\s\n](?:[^*\n]*[^*\s\n])?\*/g;
 
 /** `[slug › heading]` or `[slug > heading]`, with any space that precedes it.
  *  The separator is what distinguishes a citation from ordinary bracketed text

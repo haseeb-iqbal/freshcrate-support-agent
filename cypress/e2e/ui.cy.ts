@@ -23,6 +23,22 @@ describe("FreshCrate chrome", () => {
     cy.get('[data-testid="preview-note"]').should("be.visible");
   });
 
+  it("closes the preview note on a second click", () => {
+    cy.visit("/");
+    cy.contains("button", "Preview").click();
+    cy.get('[data-testid="preview-note"]').should("be.visible");
+    cy.contains("button", "Preview").click();
+    cy.get('[data-testid="preview-note"]').should("not.exist");
+  });
+
+  it("closes a keyboard-opened preview note on Escape", () => {
+    cy.visit("/");
+    cy.contains("button", "Preview").focus();
+    cy.get('[data-testid="preview-note"]').should("be.visible");
+    cy.get("body").type("{esc}");
+    cy.get('[data-testid="preview-note"]').should("not.exist");
+  });
+
   it("labels the account toggle My Account", () => {
     cy.visit("/");
     cy.contains("button", "My Account").should("exist");

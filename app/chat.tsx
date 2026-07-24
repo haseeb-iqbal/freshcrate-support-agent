@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { EXAMPLE_PROMPTS } from "@/lib/example-prompts";
 import { formatLongDate } from "@/lib/date";
+import { collectDecisions } from "@/lib/decisions";
 import { Markdown } from "./markdown";
 import { stripCitations } from "@/lib/markdown";
 
@@ -386,6 +387,7 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
         body: JSON.stringify({
           customerId,
           messages: history.map(({ role, content }) => ({ role, content })),
+          decisions: collectDecisions(messages),
         }),
       });
 

@@ -65,4 +65,25 @@ describe("POST /api/chat input validation", () => {
     expect(res.status).toBe(400);
     expect(await res.text()).toBe("Unknown customer");
   });
+
+  it("accepts a well-formed decisions payload", async () => {
+    const res = await postJson(POST, {
+      customerId: ID,
+      messages: user("did my refund go through?"),
+      decisions: [{ kind: "refund", outcome: "confirmed", orderNumber: "FC1006" }],
+    });
+    expect(res.status).toBe(200);
+  });
+
+  it("does not reject a request whose decisions payload is garbage", async () => {
+    // The payload is sanitized, not validated into a 4xx: a stale or malformed
+    // decision log should never block the customer's question. parseDecisions
+    // unit tests cover what actually survives.
+    const res = await postJson(POST, {
+      customerId: ID,
+      messages: user("hello"),
+      decisions: "not an array",
+    });
+    expect(res.status).toBe(200);
+  });
 });

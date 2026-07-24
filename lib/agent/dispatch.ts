@@ -1,7 +1,11 @@
 import type { ToolCall } from "@/lib/llm/types";
 import type { ToolResult } from "@/lib/tools/types";
 
-/** tool name → SSE event for a needs_confirmation proposal. */
+/**
+ * tool name → SSE event for a needs_confirmation proposal. The client half of
+ * this contract is the PROPOSALS table in app/chat/proposals.ts, which keys the
+ * same event names by card kind - keep the two in step.
+ */
 export const PROPOSAL_EVENTS: Record<string, string> = {
   issue_refund: "refund_proposal",
   pause_subscription: "pause_proposal",

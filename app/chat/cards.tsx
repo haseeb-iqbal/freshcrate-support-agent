@@ -16,13 +16,13 @@ export function RefundCard({
   proposal,
   state,
   paymentMethod,
-  onInitiate,
+  onConfirm,
   onDecline,
 }: {
   proposal: RefundProposal;
   state: ProposalState;
   paymentMethod?: string | null;
-  onInitiate: () => void;
+  onConfirm: () => void;
   onDecline: () => void;
 }) {
   const amount = money(proposal.amount_cents);
@@ -44,7 +44,7 @@ export function RefundCard({
           <p className="mt-2 text-sm text-slate-700">Do you wish to initiate the refund?</p>
           <div className="mt-2 flex gap-2">
             <button
-              onClick={onInitiate}
+              onClick={onConfirm}
               className="rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-white transition hover:bg-brand-dark"
             >
               Yes, refund my order

@@ -4,18 +4,15 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { MessageBubble } from "./chat/message-bubble";
 import { AccountPanel, Welcome } from "./chat/panels";
+import { PROPOSALS, proposalKindForEvent, withProposal } from "./chat/proposals";
 import type {
   AccountData,
-  CancelProposal,
+  AnyProposal,
   CustomerOption,
   HistoryData,
   Message,
-  PauseProposal,
-  PlanChangeProposal,
+  ProposalKind,
   ProposalState,
-  ReactivateProposal,
-  RefundProposal,
-  ResumeProposal,
   Source,
 } from "./chat/types";
 
@@ -94,20 +91,13 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
     };
   }, [showAccount, customerId]);
 
-  function setProposalState(index: number, state: ProposalState) {
-    setMessages((prev) => prev.map((m, i) => (i === index ? { ...m, proposalState: state } : m)));
-  }
-  function setPauseState(index: number, state: ProposalState) {
-    setMessages((prev) => prev.map((m, i) => (i === index ? { ...m, pauseState: state } : m)));
-  }
-  function setResumeState(index: number, state: ProposalState) {
-    setMessages((prev) => prev.map((m, i) => (i === index ? { ...m, resumeState: state } : m)));
-  }
-  function setReactivateState(index: number, state: ProposalState) {
-    setMessages((prev) => prev.map((m, i) => (i === index ? { ...m, reactivateState: state } : m)));
-  }
-  function setPlanState(index: number, state: ProposalState) {
-    setMessages((prev) => prev.map((m, i) => (i === index ? { ...m, planState: state } : m)));
+  function setProposalState(index: number, kind: ProposalKind, state: ProposalState) {
+    setMessages((prev) =>
+      prev.map((m, i) => {
+        const entry = i === index ? m.proposals?.[kind] : undefined;
+        return entry ? { ...m, proposals: withProposal(m.proposals, kind, { ...entry, state }) } : m;
+      }),
+    );
   }
 
   async function postAction(url: string, payload: Record<string, unknown>): Promise<boolean> {
@@ -124,60 +114,15 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
     }
   }
 
-  async function confirmReactivate(index: number, proposal: ReactivateProposal) {
-    const ok = await postAction("/api/actions/reactivate", {
-      customerId,
-      newPlan: proposal.plan_changed ? proposal.plan : undefined,
-    });
-    setReactivateState(index, ok ? "approved" : "error");
-    if (ok) refreshCustomers();
-  }
-
-  async function confirmPlanChange(index: number, proposal: PlanChangeProposal) {
-    const ok = await postAction("/api/actions/change-plan", { customerId, plan: proposal.plan });
-    setPlanState(index, ok ? "approved" : "error");
-    if (ok) refreshCustomers();
-  }
-
-  async function confirmResume(index: number, proposal: ResumeProposal) {
-    const ok = await postAction("/api/actions/resume", {
-      customerId,
-      newPlan: proposal.plan_changed ? proposal.plan : undefined,
-    });
-    setResumeState(index, ok ? "approved" : "error");
-    if (ok) refreshCustomers();
-  }
-
-  function setCancelState(index: number, state: ProposalState) {
-    setMessages((prev) => prev.map((m, i) => (i === index ? { ...m, cancelState: state } : m)));
-  }
-  async function confirmCancel(index: number) {
-    const ok = await postAction("/api/actions/cancel", { customerId });
-    setCancelState(index, ok ? "approved" : "error");
-    if (ok) refreshCustomers();
-  }
-
-  // Initiate a proposed refund: the write happens here (server endpoint), never
-  // in the agent loop.
-  async function initiateRefund(index: number, proposal: RefundProposal) {
-    const ok = await postAction("/api/actions/refund", {
-      customerId,
-      orderNumber: proposal.order_number,
-      reason: proposal.reason,
-    });
-    setProposalState(index, ok ? "approved" : "error");
-  }
-
-  // Apply a proposed pause via the server endpoint, then refresh the selector.
-  async function confirmPause(index: number, proposal: PauseProposal) {
-    const ok = await postAction("/api/actions/pause", {
-      customerId,
-      weeks: proposal.weeks,
-      resumeDate: proposal.resume_date,
-      indefinite: proposal.indefinite,
-    });
-    setPauseState(index, ok ? "approved" : "error");
-    if (ok) refreshCustomers();
+  // Apply a proposal: the write happens here (server endpoint), never in the
+  // agent loop.
+  async function confirmProposal(index: number, kind: ProposalKind) {
+    const entry = messages[index]?.proposals?.[kind];
+    if (!entry) return;
+    const { endpoint, body, refreshesCustomers } = PROPOSALS[kind];
+    const ok = await postAction(endpoint, { customerId, ...body(entry.data) });
+    setProposalState(index, kind, ok ? "approved" : "error");
+    if (ok && refreshesCustomers) refreshCustomers();
   }
 
   useEffect(() => {
@@ -243,22 +188,16 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
       return;
     }
 
+    const kind = proposalKindForEvent(event);
+    if (kind) {
+      addProposal(kind, data as AnyProposal);
+      return;
+    }
+
     if (event === "sources") {
       patchLast({ sources: data as Source[] });
     } else if (event === "history") {
       patchLast({ history: data as HistoryData });
-    } else if (event === "refund_proposal") {
-      patchLast({ proposal: data as RefundProposal, proposalState: "pending" });
-    } else if (event === "pause_proposal") {
-      patchLast({ pauseProposal: data as PauseProposal, pauseState: "pending" });
-    } else if (event === "resume_proposal") {
-      patchLast({ resumeProposal: data as ResumeProposal, resumeState: "pending" });
-    } else if (event === "reactivate_proposal") {
-      patchLast({ reactivateProposal: data as ReactivateProposal, reactivateState: "pending" });
-    } else if (event === "plan_change_proposal") {
-      patchLast({ planProposal: data as PlanChangeProposal, planState: "pending" });
-    } else if (event === "cancel_proposal") {
-      patchLast({ cancelProposal: data as CancelProposal, cancelState: "pending" });
     } else if (event === "tool_call") {
       const { name } = data as { name: string };
       setMessages((prev) => updateLast(prev, (m) => ({ ...m, steps: [...(m.steps ?? []), { name, status: "running" }] })));
@@ -288,6 +227,13 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
 
   function patchLast(patch: Partial<Message>) {
     setMessages((prev) => updateLast(prev, (m) => ({ ...m, ...patch })));
+  }
+
+  // Merge rather than replace: one turn can propose several kinds at once.
+  function addProposal(kind: ProposalKind, data: AnyProposal) {
+    setMessages((prev) =>
+      updateLast(prev, (m) => ({ ...m, proposals: withProposal(m.proposals, kind, { data, state: "pending" }) })),
+    );
   }
 
   return (
@@ -388,18 +334,8 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
                 message={m}
                 streaming={busy && i === messages.length - 1}
                 paymentMethod={activeCustomer?.paymentMethod}
-                onInitiateRefund={() => m.proposal && initiateRefund(i, m.proposal)}
-                onDeclineRefund={() => setProposalState(i, "declined")}
-                onConfirmPause={() => m.pauseProposal && confirmPause(i, m.pauseProposal)}
-                onDeclinePause={() => setPauseState(i, "declined")}
-                onConfirmResume={() => m.resumeProposal && confirmResume(i, m.resumeProposal)}
-                onDeclineResume={() => setResumeState(i, "declined")}
-                onConfirmReactivate={() => m.reactivateProposal && confirmReactivate(i, m.reactivateProposal)}
-                onDeclineReactivate={() => setReactivateState(i, "declined")}
-                onConfirmPlan={() => m.planProposal && confirmPlanChange(i, m.planProposal)}
-                onDeclinePlan={() => setPlanState(i, "declined")}
-                onConfirmCancel={() => confirmCancel(i)}
-                onDeclineCancel={() => setCancelState(i, "declined")}
+                onConfirm={(kind) => confirmProposal(i, kind)}
+                onDecline={(kind) => setProposalState(i, kind, "declined")}
               />
             ))}
           </>

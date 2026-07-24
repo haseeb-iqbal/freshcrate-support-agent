@@ -117,24 +117,35 @@ export interface CancelProposal {
 
 export type ProposalState = "pending" | "approved" | "declined" | "error";
 
+/** The proposal kinds, each with the payload its SSE event carries. */
+export interface ProposalPayloads {
+  refund: RefundProposal;
+  pause: PauseProposal;
+  resume: ResumeProposal;
+  reactivate: ReactivateProposal;
+  plan: PlanChangeProposal;
+  cancel: CancelProposal;
+}
+
+export type ProposalKind = keyof ProposalPayloads;
+
+export type AnyProposal = ProposalPayloads[ProposalKind];
+
+export interface ProposalEntry<K extends ProposalKind = ProposalKind> {
+  data: ProposalPayloads[K];
+  state: ProposalState;
+}
+
+/** At most one proposal per kind per message. */
+export type MessageProposals = { [K in ProposalKind]?: ProposalEntry<K> };
+
 export interface Message {
   role: "user" | "assistant";
   content: string;
   sources?: Source[];
   steps?: Step[];
   history?: HistoryData;
-  proposal?: RefundProposal;
-  proposalState?: ProposalState;
-  pauseProposal?: PauseProposal;
-  pauseState?: ProposalState;
-  resumeProposal?: ResumeProposal;
-  resumeState?: ProposalState;
-  reactivateProposal?: ReactivateProposal;
-  reactivateState?: ProposalState;
-  planProposal?: PlanChangeProposal;
-  planState?: ProposalState;
-  cancelProposal?: CancelProposal;
-  cancelState?: ProposalState;
+  proposals?: MessageProposals;
 }
 
 export interface AccountData {

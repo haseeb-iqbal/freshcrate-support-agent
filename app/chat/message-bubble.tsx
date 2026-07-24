@@ -1,42 +1,22 @@
 "use client";
 
-import { CancelCard, PauseCard, PlanCard, ReactivateCard, RefundCard, ResumeCard } from "./cards";
 import { HistoryCard } from "./order-views";
 import { Thinking, ToolSteps } from "./panels";
-import type { Message } from "./types";
+import { PROPOSAL_KINDS, PROPOSALS } from "./proposals";
+import type { Message, ProposalKind } from "./types";
 
 export function MessageBubble({
   message,
   streaming,
   paymentMethod,
-  onInitiateRefund,
-  onDeclineRefund,
-  onConfirmPause,
-  onDeclinePause,
-  onConfirmResume,
-  onDeclineResume,
-  onConfirmReactivate,
-  onDeclineReactivate,
-  onConfirmPlan,
-  onDeclinePlan,
-  onConfirmCancel,
-  onDeclineCancel,
+  onConfirm,
+  onDecline,
 }: {
   message: Message;
   streaming: boolean;
   paymentMethod?: string | null;
-  onInitiateRefund: () => void;
-  onDeclineRefund: () => void;
-  onConfirmPause: () => void;
-  onDeclinePause: () => void;
-  onConfirmResume: () => void;
-  onDeclineResume: () => void;
-  onConfirmReactivate: () => void;
-  onDeclineReactivate: () => void;
-  onConfirmPlan: () => void;
-  onDeclinePlan: () => void;
-  onConfirmCancel: () => void;
-  onDeclineCancel: () => void;
+  onConfirm: (kind: ProposalKind) => void;
+  onDecline: (kind: ProposalKind) => void;
 }) {
   const isUser = message.role === "user";
   // Result cards (sources, order history, action prompts) appear only once the
@@ -49,12 +29,7 @@ export function MessageBubble({
     !message.content &&
     (message.steps?.length ?? 0) === 0 &&
     !message.history &&
-    !message.proposal &&
-    !message.pauseProposal &&
-    !message.resumeProposal &&
-    !message.reactivateProposal &&
-    !message.planProposal &&
-    !message.cancelProposal;
+    !PROPOSAL_KINDS.some((kind) => message.proposals?.[kind]);
 
   return (
     <div className={isUser ? "flex justify-end" : "flex justify-start"}>
@@ -80,60 +55,23 @@ export function MessageBubble({
           <HistoryCard history={message.history} />
         )}
 
-        {!isUser && showResults && message.proposal && (
-          <RefundCard
-            proposal={message.proposal}
-            state={message.proposalState ?? "pending"}
-            paymentMethod={paymentMethod}
-            onInitiate={onInitiateRefund}
-            onDecline={onDeclineRefund}
-          />
-        )}
-
-        {!isUser && showResults && message.pauseProposal && (
-          <PauseCard
-            proposal={message.pauseProposal}
-            state={message.pauseState ?? "pending"}
-            onConfirm={onConfirmPause}
-            onDecline={onDeclinePause}
-          />
-        )}
-
-        {!isUser && showResults && message.resumeProposal && (
-          <ResumeCard
-            proposal={message.resumeProposal}
-            state={message.resumeState ?? "pending"}
-            onConfirm={onConfirmResume}
-            onDecline={onDeclineResume}
-          />
-        )}
-
-        {!isUser && showResults && message.reactivateProposal && (
-          <ReactivateCard
-            proposal={message.reactivateProposal}
-            state={message.reactivateState ?? "pending"}
-            onConfirm={onConfirmReactivate}
-            onDecline={onDeclineReactivate}
-          />
-        )}
-
-        {!isUser && showResults && message.planProposal && (
-          <PlanCard
-            proposal={message.planProposal}
-            state={message.planState ?? "pending"}
-            onConfirm={onConfirmPlan}
-            onDecline={onDeclinePlan}
-          />
-        )}
-
-        {!isUser && showResults && message.cancelProposal && (
-          <CancelCard
-            proposal={message.cancelProposal}
-            state={message.cancelState ?? "pending"}
-            onConfirm={onConfirmCancel}
-            onDecline={onDeclineCancel}
-          />
-        )}
+        {!isUser &&
+          showResults &&
+          PROPOSAL_KINDS.map((kind) => {
+            const entry = message.proposals?.[kind];
+            if (!entry) return null;
+            const Card = PROPOSALS[kind].card;
+            return (
+              <Card
+                key={kind}
+                proposal={entry.data}
+                state={entry.state}
+                paymentMethod={paymentMethod}
+                onConfirm={() => onConfirm(kind)}
+                onDecline={() => onDecline(kind)}
+              />
+            );
+          })}
 
         {!isUser && showResults && message.sources && message.sources.length > 0 && (
           <div className="mt-3 border-t border-slate-100 pt-2">

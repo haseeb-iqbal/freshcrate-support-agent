@@ -189,11 +189,16 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
   const [busy, setBusy] = useState(false);
   const [showAccount, setShowAccount] = useState(false);
   const [account, setAccount] = useState<AccountData | null>(null);
-  const [showPreviewNote, setShowPreviewNote] = useState(false);
+  const [pinnedPreview, setPinnedPreview] = useState(false);
+  const [hoveredPreview, setHoveredPreview] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
 
   const activeCustomer = customers.find((c) => c.id === customerId);
+  // The note opens on hover or focus, and stays open when deliberately clicked.
+  // Keeping the two signals separate means moving the mouse away never dismisses
+  // a note the customer pinned open.
+  const showPreviewNote = pinnedPreview || hoveredPreview;
 
   function startNewChat() {
     if (busy) return;
@@ -218,16 +223,16 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
     }
   }
 
-  // Close the preview note on outside-click or Escape.
+  // Close a pinned preview note on outside-click or Escape.
   useEffect(() => {
-    if (!showPreviewNote) return;
+    if (!pinnedPreview) return;
     function onPointer(e: MouseEvent) {
       if (previewRef.current && !previewRef.current.contains(e.target as Node)) {
-        setShowPreviewNote(false);
+        setPinnedPreview(false);
       }
     }
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setShowPreviewNote(false);
+      if (e.key === "Escape") setPinnedPreview(false);
     }
     document.addEventListener("mousedown", onPointer);
     document.addEventListener("keydown", onKey);
@@ -235,7 +240,7 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
       document.removeEventListener("mousedown", onPointer);
       document.removeEventListener("keydown", onKey);
     };
-  }, [showPreviewNote]);
+  }, [pinnedPreview]);
 
   // Load the account panel data whenever it's open or the customer changes.
   useEffect(() => {
@@ -476,11 +481,19 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
             >
               FreshCrate Support
             </button>
-            <div ref={previewRef} className="relative">
+            <div
+              ref={previewRef}
+              className="relative"
+              onMouseEnter={() => setHoveredPreview(true)}
+              onMouseLeave={() => setHoveredPreview(false)}
+            >
               <button
                 type="button"
-                onClick={() => setShowPreviewNote((v) => !v)}
+                onClick={() => setPinnedPreview((v) => !v)}
+                onFocus={() => setHoveredPreview(true)}
+                onBlur={() => setHoveredPreview(false)}
                 aria-expanded={showPreviewNote}
+                aria-describedby="preview-note"
                 className={
                   "flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide transition " +
                   (showPreviewNote
@@ -492,7 +505,12 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
                 Preview
               </button>
               {showPreviewNote && (
-                <div className="absolute left-0 top-full z-10 mt-1.5 w-64 rounded-lg border border-slate-200 bg-white p-3 text-xs leading-relaxed text-slate-600 shadow-lg">
+                <div
+                  id="preview-note"
+                  role="tooltip"
+                  data-testid="preview-note"
+                  className="absolute left-0 top-full z-10 mt-1.5 w-64 rounded-lg border border-slate-200 bg-white p-3 text-xs leading-relaxed text-slate-600 shadow-lg"
+                >
                   An evolving demo - some features are still on the way, so you
                   may spot the occasional rough edge.
                 </div>
@@ -516,7 +534,7 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
                 : "border-slate-300 bg-white text-slate-600 hover:border-brand hover:text-brand")
             }
           >
-            {showAccount ? "Chat" : "Account"}
+            {showAccount ? "Chat" : "My Account"}
           </button>
           {messages.length > 0 && (
             <button

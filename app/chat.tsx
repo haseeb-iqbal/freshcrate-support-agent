@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { EXAMPLE_PROMPTS } from "@/lib/example-prompts";
+import { money } from "@/lib/money";
 
 export interface CustomerOption {
   id: string;
@@ -85,6 +86,7 @@ interface ResumeProposal {
   previous_plan?: string | null;
   plan_changed: boolean;
   weekly_cents: number;
+  weekly_fee_cents: number;
   charge_cents: number;
   weeks_to_billing: number;
   billing_date?: string | null;
@@ -168,8 +170,6 @@ const TOOL_LABELS: Record<string, string> = {
   issue_refund: "Preparing a refund",
   escalate_to_human: "Escalating to a human",
 };
-
-const money = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
 /** Format an ISO YYYY-MM-DD date as DD-MM-YYYY for display. */
 const fmtDate = (iso?: string | null): string => {
@@ -1037,6 +1037,7 @@ function ResumeCard({
 }) {
   const charge = money(proposal.charge_cents);
   const hasCharge = proposal.charge_cents > 0;
+  const fee = money(proposal.weekly_fee_cents);
   return (
     <div data-testid="resume-card" className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-3">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-700">Resume request</p>
@@ -1046,7 +1047,7 @@ function ResumeCard({
       <p className="mt-1 text-sm text-slate-800">
         Resume your <span className="font-semibold">{proposal.plan}</span> plan? It restarts from next week
         {hasCharge ? (
-          <> — you&apos;ll be charged <span className="font-semibold">{charge}</span> for the weeks left until billing (net of the $8/week pause fee).</>
+          <> — you&apos;ll be charged <span className="font-semibold">{charge}</span> for the weeks left until billing (net of the {fee}/week pause fee).</>
         ) : (
           <> at no charge this cycle (billing is due within the week).</>
         )}

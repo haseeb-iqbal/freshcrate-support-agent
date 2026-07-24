@@ -4,6 +4,7 @@ import { orders } from "../../db/schema";
 import { evaluateRefund } from "../guardrails/refund-policy";
 import { latestRefundAt, refundAmountCents } from "./orders";
 import { toIsoDate } from "../date";
+import { money } from "../money";
 import type { Tool } from "./types";
 
 /**
@@ -45,7 +46,7 @@ export const issueRefund: Tool = {
     // Refund = the meal's list (undiscounted) price + add-ons, even for a free
     // subscription meal.
     const refundCents = refundAmountCents(order);
-    const amount = `$${(refundCents / 100).toFixed(2)}`;
+    const amount = money(refundCents);
 
     // Safeguard: an order refunded once cannot be auto-refunded again.
     if (order.refundedAt) {

@@ -1,0 +1,20 @@
+{
+  "root": true,
+  "parser": "@typescript-eslint/parser",
+  "plugins": ["@typescript-eslint"],
+  "extends": ["next/core-web-vitals", "plugin:@typescript-eslint/recommended"],
+  "ignorePatterns": [".next/", "coverage/", "node_modules/", "next-env.d.ts"],
+  "rules": {
+    "@typescript-eslint/no-unused-vars": [
+      "error",
+      { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["cypress/**/*.ts"],
+      "env": { "browser": true },
+      "globals": { "cy": "readonly", "Cypress": "readonly" }
+    }
+  ]
+}

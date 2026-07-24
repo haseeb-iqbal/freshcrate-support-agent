@@ -11,7 +11,13 @@ import {
   withinBillingPeriod,
 } from "../billing/pricing";
 import { addWeeksIso } from "../date";
+import { money } from "../money";
 import type { Tool } from "./types";
+
+/** The pause fee as it is written for humans and for the model, e.g. "$8.00/week".
+ *  Derived so the fee quoted in tool descriptions, summaries and model-facing
+ *  messages cannot drift from PAUSE_FEE_CENTS. */
+const PAUSE_FEE_PER_WEEK = `${money(PAUSE_FEE_CENTS)}/week`;
 
 
 /** Read-only live subscription details. The model must call this for status /
@@ -58,7 +64,7 @@ export const pauseSubscription: Tool = {
   definition: {
     name: "pause_subscription",
     description:
-      "Start a pause for the current customer's subscription. Provide EITHER weeks (1-52), OR until_date (YYYY-MM-DD, within a year) if they named a date (never convert a date to weeks yourself), OR indefinite=true to pause indefinitely (resume anytime). Calling this shows a confirmation prompt with the credit they get now and the $8/week pause fee; it does not pause until they confirm.",
+      `Start a pause for the current customer's subscription. Provide EITHER weeks (1-52), OR until_date (YYYY-MM-DD, within a year) if they named a date (never convert a date to weeks yourself), OR indefinite=true to pause indefinitely (resume anytime). Calling this shows a confirmation prompt with the credit they get now and the ${PAUSE_FEE_PER_WEEK} pause fee; it does not pause until they confirm.`,
     parameters: {
       type: "object",
       properties: {
@@ -96,6 +102,7 @@ export const pauseSubscription: Tool = {
     if (customer.subscriptionStatus === "cancelled") {
       return { ok: true, summary: "Cancelled — can't pause", data: { status: "cancelled", message: "A cancelled subscription can't be paused; tell the customer they'd need to reactivate first." } };
     }
+
     const plan = await getPlan(customer.plan);
     const weeksToBilling = weeksUntilDate(customer.billingDate, ctx.now);
     const reimbursement = plan ? pauseReimbursementCents(plan.weeklyCents, indefinite ? null : weeks, weeksToBilling) : 0;
@@ -103,8 +110,8 @@ export const pauseSubscription: Tool = {
     return {
       ok: true,
       summary: indefinite
-        ? `Proposed indefinite pause ($${(reimbursement / 100).toFixed(2)} credit now, then $8/week billed monthly)`
-        : `Proposed ${weeks}-week pause (resumes ${resumeDate}, $${(reimbursement / 100).toFixed(2)} credit now, then $8/week billed monthly)`,
+        ? `Proposed indefinite pause (${money(reimbursement)} credit now, then ${PAUSE_FEE_PER_WEEK} billed monthly)`
+        : `Proposed ${weeks}-week pause (resumes ${resumeDate}, ${money(reimbursement)} credit now, then ${PAUSE_FEE_PER_WEEK} billed monthly)`,
       data: {
         status: "needs_confirmation",
         proposal: {
@@ -116,7 +123,7 @@ export const pauseSubscription: Tool = {
           weeks_to_billing: weeksToBilling,
         },
         message:
-          "A confirmation prompt is shown with the credit the customer receives now and the $8/week pause fee, which is billed at each billing date for as long as the pause runs (finite or indefinite); the plan pauses from next week (this week's box still ships), and they can resume early at any time. Briefly relay it and ask them to confirm. Do NOT say it's paused until they confirm.",
+          `A confirmation prompt is shown with the credit the customer receives now and the ${PAUSE_FEE_PER_WEEK} pause fee, which is billed at each billing date for as long as the pause runs (finite or indefinite); the plan pauses from next week (this week's box still ships), and they can resume early at any time. Briefly relay it and ask them to confirm. Do NOT say it's paused until they confirm.`,
       },
     };
   },
@@ -152,10 +159,10 @@ export const resumeSubscription: Tool = {
     }
 
     const requestedPlan = args.new_plan ? String(args.new_plan).trim() : undefined;
-    const effectivePlan = requestedPlan || customer.plan;
-    const plan = await getPlan(effectivePlan);
+    const plan = await getPlan(requestedPlan || customer.plan);
     if (!plan) return { ok: false, summary: `Unknown plan "${requestedPlan}"`, data: { message: "That plan doesn't exist — ask the customer to pick 2, 3, or 4 meals/week." } };
 
+    const effectivePlan = requestedPlan || customer.plan;
     const planChanged = !!requestedPlan && requestedPlan !== customer.plan;
     const weeksToBilling = weeksUntilDate(customer.billingDate, ctx.now);
     const charge = resumeChargeCents(plan.weeklyCents, weeksToBilling);
@@ -163,8 +170,8 @@ export const resumeSubscription: Tool = {
     return {
       ok: true,
       summary: planChanged
-        ? `Proposed resume on ${effectivePlan} — charge $${(charge / 100).toFixed(2)}`
-        : `Proposed resume — charge $${(charge / 100).toFixed(2)}`,
+        ? `Proposed resume on ${effectivePlan} — charge ${money(charge)}`
+        : `Proposed resume — charge ${money(charge)}`,
       data: {
         status: "needs_confirmation",
         proposal: {
@@ -172,12 +179,14 @@ export const resumeSubscription: Tool = {
           previous_plan: customer.plan,
           plan_changed: planChanged,
           weekly_cents: plan.weeklyCents,
+          // Sent so the resume card can quote the fee instead of hard-coding it.
+          weekly_fee_cents: PAUSE_FEE_CENTS,
           charge_cents: charge,
           weeks_to_billing: weeksToBilling,
           billing_date: customer.billingDate,
         },
         message:
-          "A confirmation prompt shows the resume charge (weeks left to billing at the plan's weekly rate, net of the $8/week pause fee) and any plan switch; the plan resumes from next week. Ask them to confirm; do NOT say it's resumed until they confirm.",
+          `A confirmation prompt shows the resume charge (weeks left to billing at the plan's weekly rate, net of the ${PAUSE_FEE_PER_WEEK} pause fee) and any plan switch; the plan resumes from next week. Ask them to confirm; do NOT say it's resumed until they confirm.`,
       },
     };
   },
@@ -209,10 +218,10 @@ export const reactivateSubscription: Tool = {
     }
 
     const requestedPlan = args.new_plan ? String(args.new_plan).trim() : undefined;
-    const effectivePlan = requestedPlan || customer.plan;
-    const plan = await getPlan(effectivePlan);
+    const plan = await getPlan(requestedPlan || customer.plan);
     if (!plan) return { ok: false, summary: `Unknown plan "${requestedPlan}"`, data: { message: "That plan doesn't exist — ask the customer to pick 2, 3, or 4 meals/week." } };
 
+    const effectivePlan = requestedPlan || customer.plan;
     const planChanged = !!requestedPlan && requestedPlan !== customer.plan;
     const within = withinBillingPeriod(customer.billingDate, ctx.now);
     // Free only when resubscribing within the billing period on the SAME plan.
@@ -224,7 +233,7 @@ export const reactivateSubscription: Tool = {
       ok: true,
       summary: free
         ? "Proposed reactivation — free (within billing period, same plan)"
-        : `Proposed reactivation on ${effectivePlan} — first charge $${(total / 100).toFixed(2)}`,
+        : `Proposed reactivation on ${effectivePlan} — first charge ${money(total)}`,
       data: {
         status: "needs_confirmation",
         proposal: {

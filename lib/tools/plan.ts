@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../../db";
 import { customers } from "../../db/schema";
 import { getPlan, listPlans, prorationCents, weeklySavingsCents, weeksUntilDate } from "../billing/pricing";
+import { money } from "../money";
 import type { Tool } from "./types";
 
 /** Change the customer's plan — propose-only, with the new monthly price. */
@@ -65,7 +66,7 @@ export const changePlan: Tool = {
 
     return {
       ok: true,
-      summary: `Proposed plan change to ${newPlan} ($${(plan.monthlyCents / 100).toFixed(2)}/mo, proration $${(proration / 100).toFixed(2)})`,
+      summary: `Proposed plan change to ${newPlan} (${money(plan.monthlyCents)}/mo, proration ${money(proration)})`,
       data: {
         status: "needs_confirmation",
         proposal: {

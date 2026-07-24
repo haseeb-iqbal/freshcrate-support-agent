@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { EXAMPLE_PROMPTS } from "@/lib/example-prompts";
 import { formatLongDate } from "@/lib/date";
+import { Markdown } from "./markdown";
+import { stripCitations } from "@/lib/markdown";
 
 export interface CustomerOption {
   id: string;
@@ -710,10 +712,16 @@ function MessageBubble({
         {!isUser && message.steps && message.steps.length > 0 && <ToolSteps steps={message.steps} />}
 
         {message.content && (
-          <p data-testid={isUser ? "user-text" : "assistant-text"} className="whitespace-pre-wrap">
-            {message.content}
-            {streaming && !isUser && <span className="ml-0.5 animate-pulse">▋</span>}
-          </p>
+          <div data-testid={isUser ? "user-text" : "assistant-text"}>
+            {isUser ? (
+              <p className="whitespace-pre-wrap">{message.content}</p>
+            ) : (
+              <>
+                <Markdown text={stripCitations(message.content)} streaming={streaming} />
+                {streaming && <span className="ml-0.5 animate-pulse">▋</span>}
+              </>
+            )}
+          </div>
         )}
 
         {!isUser && showResults && message.history && (

@@ -1,22 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getArticle } from "@/lib/kb/articles";
+import { InlineMarkdown } from "@/app/markdown";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-/** Render inline **bold** spans; the articles use no other inline markdown. */
-function renderInline(text: string) {
-  return text.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
-    part.startsWith("**") && part.endsWith("**") ? (
-      <strong key={i} className="font-semibold text-slate-900">
-        {part.slice(2, -2)}
-      </strong>
-    ) : (
-      <span key={i}>{part}</span>
-    ),
-  );
-}
 
 export default async function ArticlePage({ params }: { params: { slug: string } }) {
   const article = await getArticle(params.slug);
@@ -36,7 +24,7 @@ export default async function ArticlePage({ params }: { params: { slug: string }
             <h2 className="text-base font-semibold text-brand">{s.heading}</h2>
             {s.content.split(/\n\n+/).map((para, i) => (
               <p key={i} className="mt-2 text-sm leading-relaxed text-slate-700">
-                {renderInline(para)}
+                <InlineMarkdown text={para} />
               </p>
             ))}
           </section>

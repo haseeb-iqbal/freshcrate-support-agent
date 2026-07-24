@@ -25,6 +25,7 @@ describe("domain terms", () => {
       "injection",
       "offTopic",
       "dateFormat",
+      "citations",
     ] as const) {
       expect(RULES[key].length).toBeGreaterThan(10);
     }

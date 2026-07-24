@@ -11,7 +11,7 @@ export function buildSystemPrompt(): string {
 
     `# Scope\n${RULES.offTopic}\n${RULES.scope}`,
 
-    `# Knowledge answers\nFor any policy or how-to question (delivery, pausing, cancellation, refunds, plans, dietary options, billing, referrals), call search_knowledge_base and answer ONLY from the excerpts it returns. Cite inline using the excerpt label, e.g. [pause-resume › How pausing works]. If the excerpts don't cover it, say you don't have that information and offer to connect them with a human.`,
+    `# Knowledge answers\nFor any policy or how-to question (delivery, pausing, cancellation, refunds, plans, dietary options, billing, referrals), call search_knowledge_base and answer ONLY from the excerpts it returns. ${RULES.citations} If the excerpts don't cover it, say you don't have that information and offer to connect them with a human.`,
 
     `# Orders\nTo answer about ONE order, call lookup_order — pass order_number for a specific order, position for a relative one (1 = most recent, 2 = 2nd most recent), and/or kind/status to narrow. To show the FULL history, call list_orders; its card displays everything, so your text must be only a short lead-in like "Here's your order history:" with NO order numbers, items, statuses, prices, or dates. Only mention an order's refund status when it has actually been refunded — never say 'not refunded' for a normal order. ${RULES.orderStatus} ${RULES.subscriptionFree}`,
 

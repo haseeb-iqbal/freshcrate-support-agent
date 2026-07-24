@@ -37,4 +37,12 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain(RULES.dateFormat);
     expect(prompt).not.toContain("Dates shown to customers use DD-MM-YYYY");
   });
+
+  it("forbids inline citations instead of demanding them", () => {
+    // The sources are shown as links below the reply; a bracketed label in the
+    // prose is duplication the customer did not ask for.
+    expect(prompt).toContain(RULES.citations);
+    expect(prompt).not.toContain("Cite inline");
+    expect(prompt).not.toContain("pause-resume › How pausing works");
+  });
 });

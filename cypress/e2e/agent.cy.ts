@@ -80,4 +80,46 @@ describe("FreshCrate agent (mock LLM)", () => {
     cy.get('[data-testid="assistant-text"]').should("contain.text", "which");
     cy.get('[data-testid="pause-card"]').should("not.exist");
   });
+
+  it("renders markdown emphasis and lists instead of raw asterisks", () => {
+    signInAs("Ava Chen");
+    ask("how do i change or cancel my subscription?");
+    cy.get('[data-testid="assistant-text"]').within(() => {
+      cy.get("strong").should("contain.text", "Change or Cancel Subscription");
+      cy.get("li").should("have.length", 2);
+    });
+    cy.get('[data-testid="assistant-text"]').should("not.contain.text", "**");
+  });
+
+  it("never shows an inline source label in the answer text", () => {
+    signInAs("Ava Chen");
+    ask("how do i change or cancel my subscription?");
+    cy.get('[data-testid="assistant-text"]').should("not.contain.text", "subscription-changes");
+    cy.get('[data-testid="assistant-text"]').should("not.contain.text", "›");
+  });
+
+  it("tells the server a confirmation prompt is still unanswered", () => {
+    signInAs("Ava Chen");
+    ask("pause my subscription for 2 weeks");
+    cy.get('[data-testid="pause-card"]').should("have.length", 1);
+
+    cy.intercept("POST", "/api/chat").as("chat");
+    ask("resume my subscription");
+    cy.wait("@chat")
+      .its("request.body.decisions")
+      .should("deep.equal", [{ kind: "pause", outcome: "awaiting_response" }]);
+  });
+
+  it("tells the server the customer declined a confirmation prompt", () => {
+    signInAs("Ava Chen");
+    ask("pause my subscription for 2 weeks");
+    cy.get('[data-testid="pause-card"]').should("have.length", 1);
+    cy.contains("button", "Not now").click();
+
+    cy.intercept("POST", "/api/chat").as("chat");
+    ask("resume my subscription");
+    cy.wait("@chat")
+      .its("request.body.decisions")
+      .should("deep.equal", [{ kind: "pause", outcome: "declined" }]);
+  });
 });

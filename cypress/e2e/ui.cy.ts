@@ -16,18 +16,33 @@ describe("FreshCrate chrome", () => {
     cy.get('[data-testid="preview-note"]').should("not.exist");
   });
 
+  // The two click specs below hover FIRST and assert before clicking. Cypress
+  // fires mouseover, focus and click in one synchronous burst, so React has not
+  // committed the hover/focus state by the time the click handler runs - which
+  // is exactly the race a real browser does hit. The intervening assertion
+  // forces the commit, so these specs see what a real user sees.
+  // They also clear hover and focus before the final assertion, so only the
+  // pinned state can hold the note open.
+
   it("keeps the preview note open once it is clicked", () => {
     cy.visit("/");
+    cy.contains("button", "Preview").trigger("mouseover");
+    cy.get('[data-testid="preview-note"]').should("be.visible");
     cy.contains("button", "Preview").click();
     cy.contains("button", "Preview").parent().trigger("mouseout");
+    cy.contains("button", "Preview").blur();
     cy.get('[data-testid="preview-note"]').should("be.visible");
   });
 
   it("closes the preview note on a second click", () => {
     cy.visit("/");
+    cy.contains("button", "Preview").trigger("mouseover");
+    cy.get('[data-testid="preview-note"]').should("be.visible");
     cy.contains("button", "Preview").click();
     cy.get('[data-testid="preview-note"]').should("be.visible");
     cy.contains("button", "Preview").click();
+    cy.contains("button", "Preview").parent().trigger("mouseout");
+    cy.contains("button", "Preview").blur();
     cy.get('[data-testid="preview-note"]').should("not.exist");
   });
 
@@ -35,7 +50,10 @@ describe("FreshCrate chrome", () => {
     cy.visit("/");
     cy.contains("button", "Preview").focus();
     cy.get('[data-testid="preview-note"]').should("be.visible");
-    cy.get("body").type("{esc}");
+    // Typed into the focused button, not the body: typing into body makes
+    // Cypress click it first, which trips the outside-mousedown handler and
+    // would close the note even with the Escape branch deleted.
+    cy.focused().type("{esc}");
     cy.get('[data-testid="preview-note"]').should("not.exist");
   });
 

@@ -138,7 +138,7 @@ The note renders when either is true, so moving the mouse away never dismisses a
 
 2. **`app/chat.tsx`** - `send()` posts `decisions: collectDecisions(history)` alongside `messages`.
 
-3. **`app/api/chat/route.ts`** - validates `decisions` as **enums plus an `/^FC\d+$/` order number, and nothing else**. Unknown kinds/outcomes and any extra keys are dropped; the array is capped (20). This is the security-relevant part of the design: because the payload carries no free text, no client-supplied prose reaches the model, so there is no injection surface and nothing to fence.
+3. **`app/api/chat/route.ts`** - validates `decisions` as **enums plus an `/^FC\d{1,12}$/` order number, and nothing else**. Unknown kinds/outcomes and any extra keys are dropped; the array is capped (20). This is the security-relevant part of the design: because the payload carries no free text, no client-supplied prose reaches the model, so there is no injection surface and nothing to fence.
 
 4. **`lib/agent/messages.ts`** - `buildAgentMessages(system, history, decisions)` appends a system message when `decisions` is non-empty:
 
@@ -166,7 +166,7 @@ The note renders when either is true, so moving the mouse away never dismisses a
 **E2E.** Two new mock scripts, each bound to a spec (`lib/llm/mock-scripts.test.ts` enforces the script/spec binding both ways):
 
 1. A reply containing both `**bold**` and a `[slug > heading]` citation. The spec asserts a `<strong>` element renders, no `*` survives in the bubble text, and no bracketed citation appears - while the source chips below still do.
-2. A pause confirmation followed by a question about it, asserting the reply reflects the confirmed state.
+2. ~~A pause confirmation followed by a question about it, asserting the reply reflects the confirmed state.~~ Not built - see the deviation note below.
 
 Plus assertions for the hover tooltip, the `My Account` label, the removed help-center slugs, and `document.title` on each route. The confirm-click spec mutates the DB, so it belongs in `confirm.cy.ts` alongside the existing ones covered by the reseed baked into `test:e2e`.
 

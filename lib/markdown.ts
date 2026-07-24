@@ -31,8 +31,8 @@ export interface ParseOptions {
 /** `**bold**` or `*italic*`. Bold is tried first so `**x**` never reads as two
  *  empty italic runs. A run may not open or close on whitespace, which is what
  *  keeps a literal asterisk - the one in "2 * 3" - from pairing with another
- *  and silently deleting both. Same opener/closer rule hideUnterminatedMarker
- *  applies to the streaming path. */
+ *  and silently deleting both. This is the same opener rule that
+ *  hideUnterminatedMarker applies to the streaming path, so both agree. */
 const INLINE = /\*\*[^*\s](?:[^*]*[^*\s])?\*\*|\*[^*\s\n](?:[^*\n]*[^*\s\n])?\*/g;
 
 /** `[slug › heading]` or `[slug > heading]`, with any space that precedes it.

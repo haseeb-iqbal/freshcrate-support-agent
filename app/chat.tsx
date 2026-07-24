@@ -505,7 +505,12 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
             >
               <button
                 type="button"
-                onClick={() => (showPreviewNote ? closePreview() : setPinnedPreview(true))}
+                // Keyed on pinnedPreview, not showPreviewNote: hover and focus
+                // both commit before the click fires, so reading the combined
+                // flag here made the very first click close the note it was
+                // meant to pin. Only a click can change pinnedPreview, so this
+                // cannot race them.
+                onClick={() => (pinnedPreview ? closePreview() : setPinnedPreview(true))}
                 onFocus={() => setFocusedPreview(true)}
                 onBlur={() => setFocusedPreview(false)}
                 aria-expanded={showPreviewNote}

@@ -5,16 +5,14 @@ describe("money", () => {
   it("drops the decimals entirely for a whole number of dollars", () => {
     expect(money(800)).toBe("$8");
     expect(money(4400)).toBe("$44");
-  });
-
-  it("keeps one decimal when the cents end in a zero", () => {
-    expect(money(1750)).toBe("$17.5");
     expect(money(12000)).toBe("$120");
   });
 
-  it("keeps both decimals when they are significant", () => {
+  it("keeps BOTH decimals whenever there are cents, including a trailing zero", () => {
+    expect(money(1750)).toBe("$17.50");
     expect(money(1725)).toBe("$17.25");
     expect(money(4299)).toBe("$42.99");
+    expect(money(105)).toBe("$1.05");
   });
 
   it("formats zero as a bare dollar amount", () => {

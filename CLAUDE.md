@@ -67,4 +67,10 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ---
 
+## Repo Gotchas
+
+- No ESLint is configured. `npm run lint` opens an interactive setup prompt and hangs (exits 0 while waiting on stdin) - don't run it, and don't add it to any gate. Lint is not part of this project's verification.
+
+---
+
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.

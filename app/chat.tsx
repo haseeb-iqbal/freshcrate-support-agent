@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { collectDecisions, type DecisionSource } from "@/lib/decisions";
+import { collectDecisions } from "@/lib/decisions";
 import { MessageBubble } from "./chat/message-bubble";
 import { AccountPanel, Welcome } from "./chat/panels";
-import { PROPOSALS, proposalKindForEvent, withProposal } from "./chat/proposals";
+import { toDecisionSources } from "./chat/decisions";
+import { PROPOSALS, appendProposal, proposalKindForEvent, setProposalEntryState } from "./chat/proposals";
 import type {
   AccountData,
   AnyProposal,
@@ -32,6 +33,9 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
   const [focusedPreview, setFocusedPreview] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
+  // Keys of confirm requests currently in flight, so a double-click on a card's
+  // Confirm button cannot fire the write endpoint twice.
+  const confirming = useRef<Set<string>>(new Set());
 
   const activeCustomer = customers.find((c) => c.id === customerId);
   // The note opens on hover, on keyboard focus, or on a deliberate click. The
@@ -105,12 +109,9 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
     };
   }, [showAccount, customerId]);
 
-  function setProposalState(index: number, kind: ProposalKind, state: ProposalState) {
+  function setProposalState(index: number, kind: ProposalKind, entryIndex: number, state: ProposalState) {
     setMessages((prev) =>
-      prev.map((m, i) => {
-        const entry = i === index ? m.proposals?.[kind] : undefined;
-        return entry ? { ...m, proposals: withProposal(m.proposals, kind, { ...entry, state }) } : m;
-      }),
+      prev.map((m, i) => (i === index ? { ...m, proposals: setProposalEntryState(m.proposals, kind, entryIndex, state) } : m)),
     );
   }
 
@@ -129,14 +130,22 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
   }
 
   // Apply a proposal: the write happens here (server endpoint), never in the
-  // agent loop.
-  async function confirmProposal(index: number, kind: ProposalKind) {
-    const entry = messages[index]?.proposals?.[kind];
-    if (!entry) return;
-    const { endpoint, body, refreshesCustomers } = PROPOSALS[kind];
-    const ok = await postAction(endpoint, { customerId, ...body(entry.data) });
-    setProposalState(index, kind, ok ? "approved" : "error");
-    if (ok && refreshesCustomers) refreshCustomers();
+  // agent loop. Guarded so a double-click can't post the write twice, and only a
+  // still-pending prompt acts - a resolved card is inert.
+  async function confirmProposal(index: number, kind: ProposalKind, entryIndex: number) {
+    const key = `${index}:${kind}:${entryIndex}`;
+    if (confirming.current.has(key)) return;
+    const entry = messages[index]?.proposals?.[kind]?.[entryIndex];
+    if (!entry || entry.state !== "pending") return;
+    confirming.current.add(key);
+    try {
+      const { endpoint, body, refreshesCustomers } = PROPOSALS[kind];
+      const ok = await postAction(endpoint, { customerId, ...body(entry.data) });
+      setProposalState(index, kind, entryIndex, ok ? "approved" : "error");
+      if (ok && refreshesCustomers) refreshCustomers();
+    } finally {
+      confirming.current.delete(key);
+    }
   }
 
   useEffect(() => {
@@ -166,7 +175,7 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
         body: JSON.stringify({
           customerId,
           messages: history.map(({ role, content }) => ({ role, content })),
-          decisions: collectDecisions(messages.map(toDecisionSource)),
+          decisions: collectDecisions(messages.flatMap(toDecisionSources)),
         }),
       });
 
@@ -250,10 +259,11 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
     setMessages((prev) => updateLast(prev, (m) => ({ ...m, ...patch })));
   }
 
-  // Merge rather than replace: one turn can propose several kinds at once.
+  // Append rather than replace: one turn can propose several kinds at once, or
+  // the same kind more than once (two refunds), and all must reach the customer.
   function addProposal(kind: ProposalKind, data: AnyProposal) {
     setMessages((prev) =>
-      updateLast(prev, (m) => ({ ...m, proposals: withProposal(m.proposals, kind, { data, state: "pending" }) })),
+      updateLast(prev, (m) => ({ ...m, proposals: appendProposal(m.proposals, kind, { data, state: "pending" }) })),
     );
   }
 
@@ -373,8 +383,8 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
                 message={m}
                 streaming={busy && i === messages.length - 1}
                 paymentMethod={activeCustomer?.paymentMethod}
-                onConfirm={(kind) => confirmProposal(i, kind)}
-                onDecline={(kind) => setProposalState(i, kind, "declined")}
+                onConfirm={(kind, entryIndex) => confirmProposal(i, kind, entryIndex)}
+                onDecline={(kind, entryIndex) => setProposalState(i, kind, entryIndex, "declined")}
               />
             ))}
           </>
@@ -420,28 +430,3 @@ function updateLast(prev: Message[], fn: (m: Message) => Message): Message[] {
   return next;
 }
 
-/**
- * Adapt a message's `proposals` map to the per-kind field shape lib/decisions
- * reads. The decisions module is server-side validation with its own vocabulary
- * (plan_change, dietary_track) and must not import from app/, so the mapping
- * between the two lives here at the boundary rather than in either module.
- */
-function toDecisionSource(m: Message): DecisionSource {
-  const p = m.proposals;
-  return {
-    proposal: p?.refund ? { order_number: p.refund.data.order_number } : undefined,
-    proposalState: p?.refund?.state,
-    pauseProposal: p?.pause?.data,
-    pauseState: p?.pause?.state,
-    resumeProposal: p?.resume?.data,
-    resumeState: p?.resume?.state,
-    reactivateProposal: p?.reactivate?.data,
-    reactivateState: p?.reactivate?.state,
-    planProposal: p?.plan?.data,
-    planState: p?.plan?.state,
-    cancelProposal: p?.cancel?.data,
-    cancelState: p?.cancel?.state,
-    dietProposal: p?.diet?.data,
-    dietState: p?.diet?.state,
-  };
-}

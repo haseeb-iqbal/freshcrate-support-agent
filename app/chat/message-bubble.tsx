@@ -17,8 +17,8 @@ export function MessageBubble({
   message: Message;
   streaming: boolean;
   paymentMethod?: string | null;
-  onConfirm: (kind: ProposalKind) => void;
-  onDecline: (kind: ProposalKind) => void;
+  onConfirm: (kind: ProposalKind, entryIndex: number) => void;
+  onDecline: (kind: ProposalKind, entryIndex: number) => void;
 }) {
   const isUser = message.role === "user";
   // Result cards (sources, order history, action prompts) appear only once the
@@ -31,7 +31,7 @@ export function MessageBubble({
     !message.content &&
     (message.steps?.length ?? 0) === 0 &&
     !message.history &&
-    !PROPOSAL_KINDS.some((kind) => message.proposals?.[kind]);
+    !PROPOSAL_KINDS.some((kind) => message.proposals?.[kind]?.length);
 
   return (
     <div className={isUser ? "flex justify-end" : "flex justify-start"}>
@@ -65,20 +65,20 @@ export function MessageBubble({
 
         {!isUser &&
           showResults &&
-          PROPOSAL_KINDS.map((kind) => {
-            const entry = message.proposals?.[kind];
-            if (!entry) return null;
+          PROPOSAL_KINDS.flatMap((kind) => {
+            const entries = message.proposals?.[kind];
+            if (!entries) return [];
             const Card = PROPOSALS[kind].card;
-            return (
+            return entries.map((entry, entryIndex) => (
               <Card
-                key={kind}
+                key={`${kind}-${entryIndex}`}
                 proposal={entry.data}
                 state={entry.state}
                 paymentMethod={paymentMethod}
-                onConfirm={() => onConfirm(kind)}
-                onDecline={() => onDecline(kind)}
+                onConfirm={() => onConfirm(kind, entryIndex)}
+                onDecline={() => onDecline(kind, entryIndex)}
               />
-            );
+            ));
           })}
 
         {!isUser && showResults && message.sources && message.sources.length > 0 && (

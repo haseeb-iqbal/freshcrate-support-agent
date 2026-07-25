@@ -7,8 +7,9 @@ export default defineConfig({
   test: {
     environment: "node",
     // Unit tests are pure: no DB, no network, no env. Anything needing those
-    // belongs in tests/api or tests/integration.
-    include: ["lib/**/*.test.ts"],
+    // belongs in tests/api or tests/integration. app/ tests are for pure client
+    // helpers (data adapters, formatters) - not component rendering.
+    include: ["lib/**/*.test.ts", "app/**/*.test.ts"],
     exclude: ["node_modules/**", "tests/**"],
     coverage: {
       provider: "v8",

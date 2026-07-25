@@ -145,8 +145,13 @@ export interface ProposalEntry<K extends ProposalKind = ProposalKind> {
   state: ProposalState;
 }
 
-/** At most one proposal per kind per message. */
-export type MessageProposals = { [K in ProposalKind]?: ProposalEntry<K> };
+/**
+ * The proposals shown on one message, grouped by kind. A kind holds a LIST, not
+ * a single entry: one turn can propose the same kind more than once - two
+ * refunds for two different orders - and both must reach the customer, so a
+ * second proposal appends rather than overwriting the first.
+ */
+export type MessageProposals = { [K in ProposalKind]?: ProposalEntry<K>[] };
 
 export interface Message {
   role: "user" | "assistant";

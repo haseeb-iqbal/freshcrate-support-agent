@@ -105,13 +105,28 @@ export function proposalKindForEvent(event: string): ProposalKind | undefined {
 }
 
 /**
- * Write one kind's entry, keeping the others. The cast re-asserts the kind →
- * payload pairing that a union-typed `kind` hides from the compiler.
+ * Append an entry to its kind's list, keeping earlier ones of that kind and
+ * every other kind. Two proposals of the same kind in one turn both survive.
+ * The cast re-asserts the kind → payload pairing a union-typed `kind` hides.
  */
-export function withProposal<K extends ProposalKind>(
+export function appendProposal<K extends ProposalKind>(
   proposals: MessageProposals | undefined,
   kind: K,
   entry: ProposalEntry<K>,
 ): MessageProposals {
-  return { ...proposals, [kind]: entry } as MessageProposals;
+  const existing = (proposals?.[kind] ?? []) as ProposalEntry<K>[];
+  return { ...proposals, [kind]: [...existing, entry] } as MessageProposals;
+}
+
+/** Replace the state of one entry, identified by kind and position in its list. */
+export function setProposalEntryState(
+  proposals: MessageProposals | undefined,
+  kind: ProposalKind,
+  entryIndex: number,
+  state: ProposalState,
+): MessageProposals {
+  const existing = proposals?.[kind];
+  if (!existing?.[entryIndex]) return proposals ?? {};
+  const next = existing.map((e, i) => (i === entryIndex ? { ...e, state } : e));
+  return { ...proposals, [kind]: next } as MessageProposals;
 }

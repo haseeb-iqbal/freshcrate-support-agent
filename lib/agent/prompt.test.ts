@@ -54,4 +54,23 @@ describe("buildSystemPrompt", () => {
     // or that a Standard-track meal carries no gluten-free/dairy-free guarantee.
     expect(prompt).toContain(RULES.dietary);
   });
+
+  it("embeds the canonical date-format rule and no longer says DD-MM-YYYY", () => {
+    // The old Style line told the model to print bare DD-MM-YYYY dates.
+    expect(prompt).toContain(RULES.dateFormat);
+    expect(prompt).not.toContain("Dates shown to customers use DD-MM-YYYY");
+  });
+
+  it("forbids inline citations instead of demanding them", () => {
+    // The sources are shown as links below the reply; a bracketed label in the
+    // prose is duplication the customer did not ask for.
+    expect(prompt).toContain(RULES.citations);
+    expect(prompt).not.toContain("Cite inline");
+    expect(prompt).not.toContain("pause-resume › How pausing works");
+  });
+
+  it("tells the model how to use the confirmation-outcome note", () => {
+    expect(prompt).toContain("# Confirmation outcomes");
+    expect(prompt).toContain("already confirmed");
+  });
 });

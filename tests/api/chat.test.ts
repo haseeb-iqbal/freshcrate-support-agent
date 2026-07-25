@@ -10,9 +10,9 @@ const TODAY = new Date(2026, 6, 20);
 const user = (content: string) => [{ role: "user" as const, content }];
 
 /**
- * Validation only. Every case here is rejected before runAgent is reached, so
- * no model is called and no API key is needed. The streaming path is covered by
- * the Cypress specs.
+ * Input validation. Most cases here are rejected before runAgent is reached;
+ * the few that return 200 assert only the status, so no assertion depends on a
+ * model call. The streaming path is covered by the Cypress specs.
  */
 describe("POST /api/chat input validation", () => {
   beforeAll(() => createTestCustomer({ id: ID, billingDate: "2026-08-17" }));
@@ -64,5 +64,26 @@ describe("POST /api/chat input validation", () => {
     const res = await postJson(POST, { customerId: "88888888-8888-8888-8888-888888880999", messages: user("hello") });
     expect(res.status).toBe(400);
     expect(await res.text()).toBe("Unknown customer");
+  });
+
+  it("accepts a well-formed decisions payload", async () => {
+    const res = await postJson(POST, {
+      customerId: ID,
+      messages: user("did my refund go through?"),
+      decisions: [{ kind: "refund", outcome: "confirmed", orderNumber: "FC1006" }],
+    });
+    expect(res.status).toBe(200);
+  });
+
+  it("does not reject a request whose decisions payload is garbage", async () => {
+    // The payload is sanitized, not validated into a 4xx: a stale or malformed
+    // decision log should never block the customer's question. parseDecisions
+    // unit tests cover what actually survives.
+    const res = await postJson(POST, {
+      customerId: ID,
+      messages: user("hello"),
+      decisions: "not an array",
+    });
+    expect(res.status).toBe(200);
   });
 });

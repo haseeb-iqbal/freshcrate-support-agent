@@ -1,4 +1,5 @@
 import { now } from "@/lib/clock";
+import type { Decision } from "@/lib/decisions";
 import { getChatProvider } from "@/lib/llm";
 import type { AgentMessage, ChatProvider, ToolCall, ToolDefinition } from "@/lib/llm/types";
 import { toolByName as realToolByName, toolDefinitions as realToolDefinitions, type Tool, type ToolResult } from "@/lib/tools";
@@ -13,6 +14,8 @@ export interface RunAgentOptions {
   customerId: string;
   customerLabel?: string;
   history: { role: "user" | "assistant"; content: string }[];
+  /** What the customer did with any confirmation prompt already on screen. */
+  decisions?: Decision[];
   emit: AgentEmit;
 }
 
@@ -31,14 +34,14 @@ const MAX_ITERATIONS = Number(process.env.MAX_LOOP_ITERATIONS ?? 6);
  * about to be nudged) emits `reset` to clear that preamble.
  */
 export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Promise<void> {
-  const { customerId, customerLabel, history, emit } = opts;
+  const { customerId, customerLabel, history, decisions, emit } = opts;
   const provider = deps.provider ?? getChatProvider();
   const registry = deps.toolByName ?? realToolByName;
   const definitions = deps.toolDefinitions ?? realToolDefinitions;
 
   const base = buildSystemPrompt();
   const system = customerLabel ? `${base}\n\nSigned-in customer: ${customerLabel}.` : base;
-  const messages: AgentMessage[] = buildAgentMessages(system, history);
+  const messages: AgentMessage[] = buildAgentMessages(system, history, decisions);
 
   let nudged = false;
   let toolCallsMade = 0;

@@ -88,6 +88,19 @@ export const MOCK_SCRIPTS: Record<string, Script> = {
     pre_tool: [t("You have two open orders, FC1004 and FC1005 — which one would you like to cancel?")],
     post_tool: [],
   },
+  "how do i change or cancel my subscription?": {
+    // Text-only on purpose: a search_knowledge_base call would need live
+    // embeddings and an ingested KB, which breaks the no-OpenAI E2E property.
+    // The fixture carries the two things the UI must handle - markdown emphasis
+    // and an inline source label - and no order status, which the
+    // fixture/spec contract test would otherwise require a spec to verify.
+    pre_tool: [
+      t(
+        "**Change or Cancel Subscription**\n\nYou can switch plans or stop future boxes from your account [subscription-changes › How to change or cancel]. Two options:\n\n- Change your plan, which starts the following week\n- Stop future boxes, which takes effect at your next billing date\n\nJust say the word and I'll set it up.",
+      ),
+    ],
+    post_tool: [],
+  },
 };
 
 export function normalize(s: string): string {

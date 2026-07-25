@@ -38,3 +38,36 @@ describe("buildAgentMessages", () => {
     expect(history).toEqual([{ role: "user", content: "hi" }]);
   });
 });
+
+describe("buildAgentMessages with decisions", () => {
+  it("adds no extra message when nothing was proposed", () => {
+    const out = buildAgentMessages("SYS", [{ role: "user", content: "hi" }], []);
+    expect(out).toHaveLength(2);
+  });
+
+  it("adds no extra message when decisions are omitted entirely", () => {
+    const out = buildAgentMessages("SYS", [{ role: "user", content: "hi" }]);
+    expect(out).toHaveLength(2);
+  });
+
+  it("appends a system note describing what the customer did", () => {
+    const out = buildAgentMessages("SYS", [{ role: "user", content: "hi" }], [
+      { kind: "refund", outcome: "confirmed", orderNumber: "FC1006" },
+    ]);
+    expect(out).toHaveLength(3);
+    expect(out[2].role).toBe("system");
+    expect(out[2].content).toContain("FC1006");
+    expect(out[2].content).toContain("CONFIRMED");
+  });
+
+  it("puts the note last, after the customer's newest turn", () => {
+    // It describes the state of the UI right now, so it must not be buried
+    // behind older turns.
+    const out = buildAgentMessages("SYS", [
+      { role: "user", content: "one" },
+      { role: "assistant", content: "two" },
+      { role: "user", content: "three" },
+    ], [{ kind: "pause", outcome: "declined" }]);
+    expect(out[out.length - 1].role).toBe("system");
+  });
+});

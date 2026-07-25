@@ -8,7 +8,6 @@ export const MIN_SIMILARITY = 0.32;
 export const TOP_MARGIN = 0.12;
 
 export interface Excerpt {
-  citation: string;
   slug: string;
   heading: string;
   /** Fenced as untrusted data - never handed to the model raw. */
@@ -30,7 +29,6 @@ export function selectExcerpts(chunks: RetrievedChunk[]): Excerpt[] {
   const relevant = chunks.filter((c) => c.score >= MIN_SIMILARITY && c.score >= top - TOP_MARGIN);
   const used = relevant.length > 0 ? relevant : chunks.slice(0, 1);
   return used.map((c) => ({
-    citation: citationLabel(c),
     slug: c.articleSlug,
     heading: c.heading,
     content: asUntrustedData(citationLabel(c), c.content),

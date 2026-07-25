@@ -3,6 +3,10 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { EXAMPLE_PROMPTS } from "@/lib/example-prompts";
+import { formatLongDate } from "@/lib/date";
+import { collectDecisions } from "@/lib/decisions";
+import { Markdown } from "./markdown";
+import { stripCitations } from "@/lib/markdown";
 
 export interface CustomerOption {
   id: string;
@@ -198,11 +202,24 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
   const [busy, setBusy] = useState(false);
   const [showAccount, setShowAccount] = useState(false);
   const [account, setAccount] = useState<AccountData | null>(null);
-  const [showPreviewNote, setShowPreviewNote] = useState(false);
+  const [pinnedPreview, setPinnedPreview] = useState(false);
+  const [hoveredPreview, setHoveredPreview] = useState(false);
+  const [focusedPreview, setFocusedPreview] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
 
   const activeCustomer = customers.find((c) => c.id === customerId);
+  // The note opens on hover, on keyboard focus, or on a deliberate click. The
+  // three signals are tracked separately so hovering away cannot dismiss a note
+  // the customer clicked open, and so a click while it is already showing can
+  // close it - with one shared flag, focus from the click itself held it open.
+  const showPreviewNote = pinnedPreview || hoveredPreview || focusedPreview;
+
+  const closePreview = () => {
+    setPinnedPreview(false);
+    setHoveredPreview(false);
+    setFocusedPreview(false);
+  };
 
   function startNewChat() {
     if (busy) return;
@@ -227,16 +244,16 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
     }
   }
 
-  // Close the preview note on outside-click or Escape.
+  // Dismiss the preview note on outside-click or Escape, however it was opened.
   useEffect(() => {
     if (!showPreviewNote) return;
     function onPointer(e: MouseEvent) {
       if (previewRef.current && !previewRef.current.contains(e.target as Node)) {
-        setShowPreviewNote(false);
+        closePreview();
       }
     }
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setShowPreviewNote(false);
+      if (e.key === "Escape") closePreview();
     }
     document.addEventListener("mousedown", onPointer);
     document.addEventListener("keydown", onKey);
@@ -376,6 +393,12 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
+  // The home route renders both the chat and the account panel, so the tab title
+  // follows the visible view rather than the route.
+  useEffect(() => {
+    document.title = showAccount ? "My Account · FreshCrate" : "FreshCrate Support";
+  }, [showAccount]);
+
   async function send(text: string) {
     const question = text.trim();
     if (!question || busy) return;
@@ -393,6 +416,7 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
         body: JSON.stringify({
           customerId,
           messages: history.map(({ role, content }) => ({ role, content })),
+          decisions: collectDecisions(messages),
         }),
       });
 
@@ -496,11 +520,24 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
             >
               FreshCrate Support
             </button>
-            <div ref={previewRef} className="relative">
+            <div
+              ref={previewRef}
+              className="relative"
+              onMouseEnter={() => setHoveredPreview(true)}
+              onMouseLeave={() => setHoveredPreview(false)}
+            >
               <button
                 type="button"
-                onClick={() => setShowPreviewNote((v) => !v)}
+                // Keyed on pinnedPreview, not showPreviewNote: hover and focus
+                // both commit before the click fires, so reading the combined
+                // flag here made the very first click close the note it was
+                // meant to pin. Only a click can change pinnedPreview, so this
+                // cannot race them.
+                onClick={() => (pinnedPreview ? closePreview() : setPinnedPreview(true))}
+                onFocus={() => setFocusedPreview(true)}
+                onBlur={() => setFocusedPreview(false)}
                 aria-expanded={showPreviewNote}
+                aria-describedby={showPreviewNote ? "preview-note" : undefined}
                 className={
                   "flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide transition " +
                   (showPreviewNote
@@ -512,7 +549,12 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
                 Preview
               </button>
               {showPreviewNote && (
-                <div className="absolute left-0 top-full z-10 mt-1.5 w-64 rounded-lg border border-slate-200 bg-white p-3 text-xs leading-relaxed text-slate-600 shadow-lg">
+                <div
+                  id="preview-note"
+                  role="tooltip"
+                  data-testid="preview-note"
+                  className="absolute left-0 top-full z-10 mt-1.5 w-64 rounded-lg border border-slate-200 bg-white p-3 text-xs leading-relaxed text-slate-600 shadow-lg"
+                >
                   An evolving demo - some features are still on the way, so you
                   may spot the occasional rough edge.
                 </div>
@@ -536,7 +578,7 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
                 : "border-slate-300 bg-white text-slate-600 hover:border-brand hover:text-brand")
             }
           >
-            {showAccount ? "Chat" : "Account"}
+            {showAccount ? "Chat" : "My Account"}
           </button>
           {messages.length > 0 && (
             <button
@@ -739,10 +781,16 @@ function MessageBubble({
         {!isUser && message.steps && message.steps.length > 0 && <ToolSteps steps={message.steps} />}
 
         {message.content && (
-          <p data-testid={isUser ? "user-text" : "assistant-text"} className="whitespace-pre-wrap">
-            {message.content}
-            {streaming && !isUser && <span className="ml-0.5 animate-pulse">▋</span>}
-          </p>
+          <div data-testid={isUser ? "user-text" : "assistant-text"}>
+            {isUser ? (
+              <p className="whitespace-pre-wrap">{message.content}</p>
+            ) : (
+              <>
+                <Markdown text={stripCitations(message.content)} streaming={streaming} />
+                {streaming && <span className="ml-0.5 animate-pulse">▋</span>}
+              </>
+            )}
+          </div>
         )}
 
         {!isUser && showResults && message.history && (
@@ -1017,7 +1065,7 @@ function PauseCard({
   onConfirm: () => void;
   onDecline: () => void;
 }) {
-  const resume = fmtDate(proposal.resume_date);
+  const resume = formatLongDate(proposal.resume_date);
   const credit = money(proposal.reimbursement_cents);
   const fee = money(proposal.weekly_fee_cents);
   const hasCredit = proposal.reimbursement_cents > 0;
@@ -1236,7 +1284,7 @@ function CancelCard({
   onConfirm: () => void;
   onDecline: () => void;
 }) {
-  const billing = fmtDate(proposal.billing_date);
+  const billing = formatLongDate(proposal.billing_date);
   return (
     <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-3">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-rose-700">Cancel subscription</p>
@@ -1333,7 +1381,7 @@ function AccountPanel({ account }: { account: AccountData | null }) {
     ["Plan", c.plan],
     ["Dietary track", c.dietaryTrack],
     ["Subscription", c.subscriptionStatus],
-    ["Next billing", fmtDate(c.billingDate)],
+    ["Next billing", formatLongDate(c.billingDate)],
     ["Payment method", c.paymentMethod],
   ];
   return (

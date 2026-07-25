@@ -8,7 +8,7 @@
 
 /** First-person commitment, or passive "it's done" framing. */
 const CLAIM_MARKER =
-  /\b(?:i've|i have|i'll|i will|i'm going to|i am going to|let me|gone ahead|gone ahead and|has been|have been|is now|are now)\b/i;
+  /\b(?:i've|i have|i'll|i will|i'm going to|i am going to|let me|gone ahead|gone ahead and|has been|have been|is now|are now|you're now|you are now)\b/i;
 
 /** State-changing actions the model may only ever propose via a tool. */
 const ACTION_TARGET = /\b(?:paus|resum|re-?activat|cancell?|refund)\w*/i;
@@ -16,11 +16,14 @@ const ACTION_TARGET = /\b(?:paus|resum|re-?activat|cancell?|refund)\w*/i;
 /** Plan changes are only an action when a plan is actually the object. */
 const PLAN_CHANGE = /\b(?:chang|switch|upgrad|downgrad|mov)\w*\b[^.!?]{0,40}\bplans?\b/i;
 
+/** Dietary-track switches are only an action when a track is actually the object. */
+const DIETARY_TRACK = /\b(?:vegetarian|gluten-free|dairy-free|standard)\b[^.!?]{0,20}\b(?:menu|track|meals?|diet)\b/i;
+
 /** True if a sentence both commits to something and names an account action. */
 function claimsStateChange(text: string): boolean {
   for (const sentence of text.split(/[.!?\n]+/)) {
     if (!CLAIM_MARKER.test(sentence)) continue;
-    if (ACTION_TARGET.test(sentence) || PLAN_CHANGE.test(sentence)) return true;
+    if (ACTION_TARGET.test(sentence) || PLAN_CHANGE.test(sentence) || DIETARY_TRACK.test(sentence)) return true;
   }
   return false;
 }

@@ -50,11 +50,18 @@ describe("selectExcerpts", () => {
     }
   });
 
-  it("labels each excerpt with its citation, slug and heading", () => {
+  it("labels each excerpt with its slug and heading", () => {
     const [e] = selectExcerpts([hit("How refunds work", 0.9)]);
     expect(e.slug).toBe("refunds");
     expect(e.heading).toBe("How refunds work");
-    expect(e.citation).toContain("refunds");
-    expect(e.citation).toContain("How refunds work");
+  });
+
+  it("hands the model no ready-made citation string to quote", () => {
+    // A bare `citation: "refunds › How refunds work"` field sitting in the tool
+    // result is a standing invitation to paste it into the answer. The fence
+    // inside `content` still carries the label - that is the injection guard.
+    const [e] = selectExcerpts([hit("How refunds work", 0.9)]);
+    expect(e).not.toHaveProperty("citation");
+    expect(Object.keys(e).sort()).toEqual(["content", "heading", "slug"]);
   });
 });

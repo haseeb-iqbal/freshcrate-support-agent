@@ -43,4 +43,15 @@ describe("FreshCrate confirmation flow (mock LLM, mutates the DB)", () => {
     cy.get('[data-testid="refund-card"]').should("contain.text", "Refund of $17.50 initiated");
     cy.contains("button", "Yes, refund my order").should("not.exist");
   });
+
+  it("confirming a dietary switch applies it and reports it on the card", () => {
+    signInAs("Ava Chen");
+    ask("switch me to vegetarian meals");
+    cy.get('[data-testid="diet-card"]').should("have.length", 1);
+
+    cy.contains("button", "Yes, switch my meals").click();
+
+    cy.get('[data-testid="diet-card"]').should("contain.text", "Switched to vegetarian");
+    cy.contains("button", "Yes, switch my meals").should("not.exist");
+  });
 });

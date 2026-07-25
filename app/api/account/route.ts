@@ -34,6 +34,7 @@ export async function GET(req: NextRequest) {
       address: customer.address,
       paymentMethod: customer.paymentMethod,
       plan: customer.plan,
+      dietaryTrack: customer.dietaryTrack,
       subscriptionStatus: customer.subscriptionStatus,
       billingDate: customer.billingDate,
     },

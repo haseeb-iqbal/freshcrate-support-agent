@@ -40,6 +40,7 @@ export interface OrderView {
   refunded: boolean;
   refunded_at?: string | null;
   items: string[];
+  dietary_tags?: string[];
 }
 
 export interface TransactionView {
@@ -115,6 +116,13 @@ export interface CancelProposal {
   signup_fee_cents: number;
 }
 
+export interface DietChangeProposal {
+  current_track: string;
+  new_track: string;
+  effective_from: string;
+  meals_preview: string[];
+}
+
 export type ProposalState = "pending" | "approved" | "declined" | "error";
 
 /** The proposal kinds, each with the payload its SSE event carries. */
@@ -125,6 +133,7 @@ export interface ProposalPayloads {
   reactivate: ReactivateProposal;
   plan: PlanChangeProposal;
   cancel: CancelProposal;
+  diet: DietChangeProposal;
 }
 
 export type ProposalKind = keyof ProposalPayloads;
@@ -156,6 +165,7 @@ export interface AccountData {
     address?: string | null;
     paymentMethod?: string | null;
     plan: string;
+    dietaryTrack?: string | null;
     subscriptionStatus: string;
     billingDate?: string | null;
   };

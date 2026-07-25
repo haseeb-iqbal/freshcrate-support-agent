@@ -5,6 +5,7 @@ import { customers } from "@/db/schema";
 import { runAgent } from "@/lib/agent/loop";
 import { reconcile } from "@/lib/billing/reconcile";
 import { now } from "@/lib/clock";
+import { parseDecisions } from "@/lib/decisions";
 
 // postgres.js and the OpenAI SDK need the Node runtime (not edge).
 export const runtime = "nodejs";
@@ -13,6 +14,8 @@ export const dynamic = "force-dynamic";
 interface ChatRequestBody {
   messages?: { role: "user" | "assistant"; content: string }[];
   customerId?: string;
+  /** Enum-only log of what the customer did with each confirmation prompt. */
+  decisions?: unknown;
 }
 
 const MAX_INPUT_CHARS = 2000; // reject oversized input before any model call
@@ -38,6 +41,8 @@ export async function POST(req: NextRequest) {
   if (!body.customerId) {
     return new Response("Missing customerId", { status: 400 });
   }
+  // Enum-only by construction, so there is no client-supplied text to fence.
+  const decisions = parseDecisions(body.decisions);
 
   // Bring the subscription up to date (billing, pause fees, auto-resume) before
   // the turn sees its state.
@@ -68,6 +73,7 @@ export async function POST(req: NextRequest) {
           customerId: customer.id,
           customerLabel,
           history: messages,
+          decisions,
           emit,
         });
       } catch (err) {

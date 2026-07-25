@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { runAgent, type AgentDeps } from "./loop";
-import type { AgentStreamEvent, ChatProvider, ToolCall } from "@/lib/llm/types";
+import type { AgentMessage, AgentStreamEvent, ChatProvider, ToolCall } from "@/lib/llm/types";
 import type { Tool } from "@/lib/tools/types";
 
 /** A provider that replays a fixed list of scripted turns. */
@@ -153,6 +153,31 @@ describe("runAgent", () => {
 
     expect(events.find((e) => e.event === "tool_call")?.data).toEqual({ name: "lookup_order", args: {} });
     expect(events.find((e) => e.event === "tool_result")).toMatchObject({ data: { ok: true } });
+  });
+
+  it("forwards decisions into the system note the model sees", async () => {
+    const seenMessages: AgentMessage[][] = [];
+    const provider: ChatProvider = {
+      defaultModel: "fake",
+      async *streamAgentTurn(opts) {
+        seenMessages.push(opts.messages);
+        yield { type: "text", value: "Yes, it went through." };
+      },
+    };
+    const deps: AgentDeps = { provider, toolByName: {}, toolDefinitions: [] };
+
+    await runAgent(
+      {
+        customerId: "x",
+        history: [{ role: "user", content: "did my refund go through?" }],
+        decisions: [{ kind: "refund", outcome: "confirmed", orderNumber: "FC1006" }],
+        emit: () => {},
+      },
+      deps,
+    );
+
+    const note = seenMessages[0].find((m) => m.role === "system" && m.content.includes("FC1006"));
+    expect(note?.content).toContain("CONFIRMED");
   });
 
   it("passes the same instant to every tool in a turn", async () => {

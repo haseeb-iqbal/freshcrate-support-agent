@@ -7,6 +7,17 @@ describe("FreshCrate agent (mock LLM)", () => {
     cy.visit("/");
   });
 
+  it("answers a menu question from the knowledge base, with a source", () => {
+    // "plan" here means the dietary track, not the meals-per-week plan. The
+    // agent must search the KB rather than answer from get_subscription, which
+    // knows the customer's track but nothing about what is on the menu.
+    signInAs("Ava Chen");
+    ask("what meals are in the standard plan");
+    cy.get('[data-testid="assistant-text"]').should("contain.text", "Herb Roast Chicken");
+    cy.get('[data-testid="assistant-text"]').should("contain.text", "Turkey Meatball Marinara Sub");
+    cy.contains("a", "menu-and-dietary-tracks").should("exist");
+  });
+
   it("positional order query answers one order, no history card", () => {
     signInAs("Marcus Bell");
     ask("where's my 2nd last order");
@@ -79,5 +90,58 @@ describe("FreshCrate agent (mock LLM)", () => {
     ask("cancel my order");
     cy.get('[data-testid="assistant-text"]').should("contain.text", "which");
     cy.get('[data-testid="pause-card"]').should("not.exist");
+  });
+
+  it("a dietary-track switch shows a single confirmation card", () => {
+    signInAs("Ava Chen");
+    ask("switch me to vegetarian meals");
+    cy.get('[data-testid="diet-card"]').should("have.length", 1);
+    cy.get('[data-testid="diet-card"]').should("contain.text", "vegetarian");
+    cy.contains("button", "Yes, switch my meals").should("exist");
+  });
+
+  it("renders markdown emphasis and lists instead of raw asterisks", () => {
+    signInAs("Ava Chen");
+    ask("how do i change or cancel my subscription?");
+    cy.get('[data-testid="assistant-text"]').within(() => {
+      cy.get("strong").should("contain.text", "Change or Cancel Subscription");
+      cy.get("li").should("have.length", 2);
+    });
+    cy.get('[data-testid="assistant-text"]').should("not.contain.text", "**");
+  });
+
+  it("never shows an inline source label in the answer text", () => {
+    signInAs("Ava Chen");
+    ask("how do i change or cancel my subscription?");
+    // Anchor on content first: without this, an empty bubble would satisfy both
+    // negatives below and the spec could never fail.
+    cy.get('[data-testid="assistant-text"]').should("contain.text", "Change or Cancel Subscription");
+    cy.get('[data-testid="assistant-text"]').should("not.contain.text", "subscription-changes");
+    cy.get('[data-testid="assistant-text"]').should("not.contain.text", "›");
+  });
+
+  it("tells the server a confirmation prompt is still unanswered", () => {
+    signInAs("Ava Chen");
+    ask("pause my subscription for 2 weeks");
+    cy.get('[data-testid="pause-card"]').should("have.length", 1);
+
+    cy.intercept("POST", "/api/chat").as("chat");
+    ask("resume my subscription");
+    cy.wait("@chat")
+      .its("request.body.decisions")
+      .should("deep.equal", [{ kind: "pause", outcome: "awaiting_response" }]);
+  });
+
+  it("tells the server the customer declined a confirmation prompt", () => {
+    signInAs("Ava Chen");
+    ask("pause my subscription for 2 weeks");
+    cy.get('[data-testid="pause-card"]').should("have.length", 1);
+    cy.contains("button", "Not now").click();
+
+    cy.intercept("POST", "/api/chat").as("chat");
+    ask("resume my subscription");
+    cy.wait("@chat")
+      .its("request.body.decisions")
+      .should("deep.equal", [{ kind: "pause", outcome: "declined" }]);
   });
 });

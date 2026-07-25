@@ -1,5 +1,7 @@
 "use client";
 
+import { Markdown } from "../markdown";
+import { stripCitations } from "@/lib/markdown";
 import { HistoryCard } from "./order-views";
 import { Thinking, ToolSteps } from "./panels";
 import { PROPOSAL_KINDS, PROPOSALS } from "./proposals";
@@ -45,10 +47,16 @@ export function MessageBubble({
         {!isUser && message.steps && message.steps.length > 0 && <ToolSteps steps={message.steps} />}
 
         {message.content && (
-          <p data-testid={isUser ? "user-text" : "assistant-text"} className="whitespace-pre-wrap">
-            {message.content}
-            {streaming && !isUser && <span className="ml-0.5 animate-pulse">▋</span>}
-          </p>
+          <div data-testid={isUser ? "user-text" : "assistant-text"}>
+            {isUser ? (
+              <p className="whitespace-pre-wrap">{message.content}</p>
+            ) : (
+              <>
+                <Markdown text={stripCitations(message.content)} streaming={streaming} />
+                {streaming && <span className="ml-0.5 animate-pulse">▋</span>}
+              </>
+            )}
+          </div>
         )}
 
         {!isUser && showResults && message.history && (

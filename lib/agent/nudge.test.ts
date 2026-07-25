@@ -25,6 +25,22 @@ describe("shouldNudge", () => {
     expect(nudge("I've switched you to the 4-meal plan.")).toBe(true);
   });
 
+  it("nudges on a dietary-track switch claim", () => {
+    expect(nudge("I've switched you to our vegetarian menu.")).toBe(true);
+  });
+
+  it("nudges on a dietary-track switch claim phrased as a move", () => {
+    expect(nudge("I've moved you to the gluten-free track.")).toBe(true);
+  });
+
+  it("nudges on a passive dietary-track completion claim", () => {
+    expect(nudge("You're now on the dairy-free menu.")).toBe(true);
+  });
+
+  it("does not nudge when the model asks the customer to confirm a dietary switch", () => {
+    expect(nudge("Would you like me to switch you to the vegetarian menu?")).toBe(false);
+  });
+
   it("does not nudge an informational answer about the same actions", () => {
     expect(nudge("You can pause your subscription for 1 to 12 weeks, or indefinitely.")).toBe(false);
   });

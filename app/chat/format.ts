@@ -6,6 +6,7 @@ export const TOOL_LABELS: Record<string, string> = {
   reactivate_subscription: "Preparing reactivation",
   cancel_subscription: "Preparing cancellation",
   change_plan: "Preparing a plan change",
+  change_dietary_track: "Preparing a dietary change",
   list_orders: "Fetching your order history",
   issue_refund: "Preparing a refund",
   escalate_to_human: "Escalating to a human",

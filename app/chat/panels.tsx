@@ -1,6 +1,7 @@
 "use client";
 
 import { EXAMPLE_PROMPTS } from "@/lib/example-prompts";
+import { formatLongDate } from "@/lib/date";
 import { fmtDate, TOOL_LABELS } from "./format";
 import { OrderRow, TxnRow } from "./order-views";
 import type { AccountData, CustomerOption, Step } from "./types";
@@ -70,8 +71,9 @@ export function AccountPanel({ account }: { account: AccountData | null }) {
     ["Phone", c.phone],
     ["Address", c.address],
     ["Plan", c.plan],
+    ["Dietary track", c.dietaryTrack],
     ["Subscription", c.subscriptionStatus],
-    ["Next billing", fmtDate(c.billingDate)],
+    ["Next billing", formatLongDate(c.billingDate)],
     ["Payment method", c.paymentMethod],
   ];
   return (

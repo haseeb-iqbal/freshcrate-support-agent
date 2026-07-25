@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { collectDecisions, type DecisionSource } from "@/lib/decisions";
 import { MessageBubble } from "./chat/message-bubble";
 import { AccountPanel, Welcome } from "./chat/panels";
 import { PROPOSALS, proposalKindForEvent, withProposal } from "./chat/proposals";
@@ -26,11 +27,24 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
   const [busy, setBusy] = useState(false);
   const [showAccount, setShowAccount] = useState(false);
   const [account, setAccount] = useState<AccountData | null>(null);
-  const [showPreviewNote, setShowPreviewNote] = useState(false);
+  const [pinnedPreview, setPinnedPreview] = useState(false);
+  const [hoveredPreview, setHoveredPreview] = useState(false);
+  const [focusedPreview, setFocusedPreview] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
 
   const activeCustomer = customers.find((c) => c.id === customerId);
+  // The note opens on hover, on keyboard focus, or on a deliberate click. The
+  // three signals are tracked separately so hovering away cannot dismiss a note
+  // the customer clicked open, and so a click while it is already showing can
+  // close it - with one shared flag, focus from the click itself held it open.
+  const showPreviewNote = pinnedPreview || hoveredPreview || focusedPreview;
+
+  const closePreview = () => {
+    setPinnedPreview(false);
+    setHoveredPreview(false);
+    setFocusedPreview(false);
+  };
 
   function startNewChat() {
     if (busy) return;
@@ -55,16 +69,16 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
     }
   }
 
-  // Close the preview note on outside-click or Escape.
+  // Dismiss the preview note on outside-click or Escape, however it was opened.
   useEffect(() => {
     if (!showPreviewNote) return;
     function onPointer(e: MouseEvent) {
       if (previewRef.current && !previewRef.current.contains(e.target as Node)) {
-        setShowPreviewNote(false);
+        closePreview();
       }
     }
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setShowPreviewNote(false);
+      if (e.key === "Escape") closePreview();
     }
     document.addEventListener("mousedown", onPointer);
     document.addEventListener("keydown", onKey);
@@ -129,6 +143,12 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
+  // The home route renders both the chat and the account panel, so the tab title
+  // follows the visible view rather than the route.
+  useEffect(() => {
+    document.title = showAccount ? "My Account · FreshCrate" : "FreshCrate Support";
+  }, [showAccount]);
+
   async function send(text: string) {
     const question = text.trim();
     if (!question || busy) return;
@@ -146,6 +166,7 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
         body: JSON.stringify({
           customerId,
           messages: history.map(({ role, content }) => ({ role, content })),
+          decisions: collectDecisions(messages.map(toDecisionSource)),
         }),
       });
 
@@ -248,11 +269,24 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
             >
               FreshCrate Support
             </button>
-            <div ref={previewRef} className="relative">
+            <div
+              ref={previewRef}
+              className="relative"
+              onMouseEnter={() => setHoveredPreview(true)}
+              onMouseLeave={() => setHoveredPreview(false)}
+            >
               <button
                 type="button"
-                onClick={() => setShowPreviewNote((v) => !v)}
+                // Keyed on pinnedPreview, not showPreviewNote: hover and focus
+                // both commit before the click fires, so reading the combined
+                // flag here made the very first click close the note it was
+                // meant to pin. Only a click can change pinnedPreview, so this
+                // cannot race them.
+                onClick={() => (pinnedPreview ? closePreview() : setPinnedPreview(true))}
+                onFocus={() => setFocusedPreview(true)}
+                onBlur={() => setFocusedPreview(false)}
                 aria-expanded={showPreviewNote}
+                aria-describedby={showPreviewNote ? "preview-note" : undefined}
                 className={
                   "flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide transition " +
                   (showPreviewNote
@@ -264,7 +298,12 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
                 Preview
               </button>
               {showPreviewNote && (
-                <div className="absolute left-0 top-full z-10 mt-1.5 w-64 rounded-lg border border-slate-200 bg-white p-3 text-xs leading-relaxed text-slate-600 shadow-lg">
+                <div
+                  id="preview-note"
+                  role="tooltip"
+                  data-testid="preview-note"
+                  className="absolute left-0 top-full z-10 mt-1.5 w-64 rounded-lg border border-slate-200 bg-white p-3 text-xs leading-relaxed text-slate-600 shadow-lg"
+                >
                   An evolving demo - some features are still on the way, so you
                   may spot the occasional rough edge.
                 </div>
@@ -288,7 +327,7 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
                 : "border-slate-300 bg-white text-slate-600 hover:border-brand hover:text-brand")
             }
           >
-            {showAccount ? "Chat" : "Account"}
+            {showAccount ? "Chat" : "My Account"}
           </button>
           {messages.length > 0 && (
             <button
@@ -379,4 +418,30 @@ function updateLast(prev: Message[], fn: (m: Message) => Message): Message[] {
   const last = next[next.length - 1];
   if (last?.role === "assistant") next[next.length - 1] = fn(last);
   return next;
+}
+
+/**
+ * Adapt a message's `proposals` map to the per-kind field shape lib/decisions
+ * reads. The decisions module is server-side validation with its own vocabulary
+ * (plan_change, dietary_track) and must not import from app/, so the mapping
+ * between the two lives here at the boundary rather than in either module.
+ */
+function toDecisionSource(m: Message): DecisionSource {
+  const p = m.proposals;
+  return {
+    proposal: p?.refund ? { order_number: p.refund.data.order_number } : undefined,
+    proposalState: p?.refund?.state,
+    pauseProposal: p?.pause?.data,
+    pauseState: p?.pause?.state,
+    resumeProposal: p?.resume?.data,
+    resumeState: p?.resume?.state,
+    reactivateProposal: p?.reactivate?.data,
+    reactivateState: p?.reactivate?.state,
+    planProposal: p?.plan?.data,
+    planState: p?.plan?.state,
+    cancelProposal: p?.cancel?.data,
+    cancelState: p?.cancel?.state,
+    dietProposal: p?.diet?.data,
+    dietState: p?.diet?.state,
+  };
 }

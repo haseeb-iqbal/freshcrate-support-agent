@@ -1,9 +1,11 @@
 "use client";
 
 import { money } from "@/lib/money";
+import { formatLongDate } from "@/lib/date";
 import { fmtDate } from "./format";
 import type {
   CancelProposal,
+  DietChangeProposal,
   PauseProposal,
   PlanChangeProposal,
   ProposalState,
@@ -80,7 +82,7 @@ export function PauseCard({
   onConfirm: () => void;
   onDecline: () => void;
 }) {
-  const resume = fmtDate(proposal.resume_date);
+  const resume = formatLongDate(proposal.resume_date);
   const credit = money(proposal.reimbursement_cents);
   const fee = money(proposal.weekly_fee_cents);
   const hasCredit = proposal.reimbursement_cents > 0;
@@ -302,7 +304,7 @@ export function CancelCard({
   onConfirm: () => void;
   onDecline: () => void;
 }) {
-  const billing = fmtDate(proposal.billing_date);
+  const billing = formatLongDate(proposal.billing_date);
   return (
     <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-3">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-rose-700">Cancel subscription</p>
@@ -325,6 +327,49 @@ export function CancelCard({
       {state === "approved" && <p className="mt-2 text-xs font-medium text-slate-700">✓ Subscription cancelled.</p>}
       {state === "declined" && <p className="mt-2 text-xs font-medium text-emerald-700">Great — your subscription is unchanged.</p>}
       {state === "error" && <p className="mt-2 text-xs font-medium text-red-600">Couldn&apos;t cancel — please try again.</p>}
+    </div>
+  );
+}
+
+export function DietCard({
+  proposal,
+  state,
+  onConfirm,
+  onDecline,
+}: {
+  proposal: DietChangeProposal;
+  state: ProposalState;
+  onConfirm: () => void;
+  onDecline: () => void;
+}) {
+  return (
+    <div data-testid="diet-card" className="mt-3 rounded-lg border border-lime-200 bg-lime-50 p-3">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-lime-700">Dietary track</p>
+      <p className="mt-1 text-sm text-slate-800">
+        Switch from <span className="font-semibold">{proposal.current_track}</span> to{" "}
+        <span className="font-semibold">{proposal.new_track}</span> meals?
+      </p>
+      {proposal.meals_preview.length > 0 && (
+        <p className="mt-1 text-xs text-slate-600">For example: {proposal.meals_preview.join(", ")}.</p>
+      )}
+      <p className="mt-1 text-xs text-slate-500">
+        Free to switch. It applies from next week&apos;s menu ({fmtDate(proposal.effective_from)}); boxes already on
+        their way keep the meals they were packed with.
+      </p>
+
+      {state === "pending" && (
+        <div className="mt-2 flex gap-2">
+          <button onClick={onConfirm} className="rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-white transition hover:bg-brand-dark">
+            Yes, switch my meals
+          </button>
+          <button onClick={onDecline} className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-600 transition hover:bg-slate-50">
+            Not now
+          </button>
+        </div>
+      )}
+      {state === "approved" && <p className="mt-2 text-xs font-medium text-emerald-700">✓ Switched to {proposal.new_track} meals from next week.</p>}
+      {state === "declined" && <p className="mt-2 text-xs font-medium text-slate-500">No problem - your meals are unchanged.</p>}
+      {state === "error" && <p className="mt-2 text-xs font-medium text-red-600">Couldn&apos;t switch your meals - please try again.</p>}
     </div>
   );
 }

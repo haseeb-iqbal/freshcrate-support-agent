@@ -91,4 +91,20 @@ describe("dispatchTool", () => {
     const out = dispatchTool(call("get_subscription"), result, freshState());
     expect(JSON.parse(out.modelContent)).toEqual({ status: "active", plan: "2 meals/week" });
   });
+
+  it("raises a diet_change_proposal card for change_dietary_track", () => {
+    const proposal = {
+      current_track: "standard",
+      new_track: "vegetarian",
+      effective_from: "2026-07-30",
+      meals_preview: ["Paneer Butter Masala & Basmati"],
+    };
+    const result: ToolResult = {
+      ok: true,
+      summary: "Proposed switch to vegetarian",
+      data: { status: "needs_confirmation", proposal },
+    };
+    const out = dispatchTool(call("change_dietary_track", "c1", '{"track":"vegetarian"}'), result, freshState());
+    expect(out.events.find((e) => e.event === "diet_change_proposal")?.data).toEqual(proposal);
+  });
 });

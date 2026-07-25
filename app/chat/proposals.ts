@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import { CancelCard, PauseCard, PlanCard, ReactivateCard, RefundCard, ResumeCard } from "./cards";
+import { CancelCard, DietCard, PauseCard, PlanCard, ReactivateCard, RefundCard, ResumeCard } from "./cards";
 import type {
   AnyProposal,
   MessageProposals,
@@ -85,6 +85,13 @@ export const PROPOSALS = table({
     card: CancelCard,
     endpoint: "/api/actions/cancel",
     body: () => ({}),
+    refreshesCustomers: true,
+  },
+  diet: {
+    event: "diet_change_proposal",
+    card: DietCard,
+    endpoint: "/api/actions/dietary-track",
+    body: (p) => ({ track: p.new_track }),
     refreshesCustomers: true,
   },
 });

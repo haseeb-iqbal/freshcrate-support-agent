@@ -15,5 +15,9 @@ next-env.d.ts
 # generated test coverage report (npm run test:coverage)
 coverage/
 
+# cypress failure artifacts
+cypress/screenshots/
+cypress/videos/
+
 # local editor / harness config
 .claude/

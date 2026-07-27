@@ -71,9 +71,10 @@ calls `/api/actions/*`, which re-validates server-side.
 - **Get subscription** — `get_subscription` fetches live status/plan/billing;
   **mandatory** for any status/plan/billing/pause question (no answers from
   memory).
-- **Pause** — `pause_subscription`: 1–12 weeks, a target date, or **indefinite**.
-- **Resume** — `resume_subscription`: immediate, free, no confirmation (paused →
-  active).
+- **Pause** — `pause_subscription`: 1–52 weeks, a target date, or **indefinite**.
+- **Resume** — `resume_subscription`: paused → active (propose→confirm); charges the
+  weeks left to billing at the plan's weekly rate, net of the $8/week pause fee, and
+  can switch plan in the same step (`new_plan`).
 - **Reactivate** — `reactivate_subscription`: cancelled → active; can switch plan
   in the same step (`new_plan`).
 - **Cancel** — `cancel_subscription`.
@@ -88,9 +89,10 @@ calls `/api/actions/*`, which re-validates server-side.
 - **Meal pricing** — subscription meals are free (list price struck-through +
   "Free"); extra meals charged at list price; add-ons always cost extra.
 - **Refund amount** — list (undiscounted) price + add-ons, for both meal types.
-- **Pause hold fee** — 20% of the skipped boxes' value
-  (`holdFeeCents = weeklyCents × weeks × 0.2`).
-- **Sign-up fee** — $15 one-time (`SIGNUP_FEE_CENTS`) to reactivate a cancelled
+- **Pause fee** — flat **$8/week** (`PAUSE_FEE_CENTS=800`), billed at each billing
+  date for as long as the pause runs (finite or indefinite); on pausing, the
+  customer is credited the skipped weeks before billing, net of that $8/week fee.
+- **Sign-up fee** — $40 one-time (`SIGNUP_FEE_CENTS=4000`) to reactivate a cancelled
   sub past its billing period.
 - **Free-reactivation window** — free within the billing period on the same plan
   (`withinBillingPeriod`); otherwise plan price + sign-up fee.
@@ -111,8 +113,9 @@ calls `/api/actions/*`, which re-validates server-side.
   customer confirmation; the model cannot write directly.
 - **Server-side re-validation** — `/api/actions/*` re-checks every confirmed
   action; the card payload is not trusted.
-- **Refund ceiling** — refunds at/below $10 (`REFUND_CEILING_CENTS=1000`) are
-  self-service; anything above → escalate (never claim a refund was issued).
+- **Refund ceiling** — refunds at/below $20 (`REFUND_CEILING_CENTS=2000`) are
+  self-service; anything above, a second refund within 14 days, or an
+  already-refunded order → escalate (never claim a refund was issued).
 - **Already-refunded guard** — an order refunded once → escalate on a second
   attempt.
 - **Customer scoping** — every tool is bound to the signed-in customer

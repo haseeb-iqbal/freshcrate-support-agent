@@ -1,7 +1,7 @@
 # Delivery Schedule & Changing Your Delivery Day
 
 ## When boxes are delivered
-FreshCrate boxes are delivered weekly. Your delivery day is set when you sign up and stays the same each week unless you change it. Most boxes arrive between 8am and 8pm on your scheduled day. You'll get a tracking email the morning your box ships.
+FreshCrate boxes are delivered weekly. Your delivery day is set when you sign up and stays the same each week unless you change it. Most boxes arrive between 8am and 8pm on your scheduled day. We email you a notification the morning your box ships so you know it's on the way.
 
 ## Changing your delivery day
 You can change your weekly delivery day from **Account → Delivery Settings**. Changes made before the weekly cutoff (Wednesday 11:59pm in your local time zone) take effect the following week. Changes made after the cutoff apply to the week after next, because that week's box is already being packed.

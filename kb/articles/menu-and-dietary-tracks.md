@@ -185,11 +185,70 @@ These 10 meals are vegetarian, wherever they sit on the menu:
 | Lentil & Vegetable Shepherd's Pie | Dairy-Free |
 | Teriyaki Tofu & Soba Noodles | Dairy-Free |
 
-## Allergens and ingredient information
-Every recipe lists its ingredients and major allergens (such as nuts, dairy, gluten, soy and shellfish) on the recipe card and in the app. FreshCrate prepares ingredients in facilities that handle common allergens, so we can't guarantee a recipe is fully free of cross-contact. If you have a severe allergy, check the recipe card for that week's meal before you order, and contact us if anything is unclear.
+## Nutrition
+Every meal is nutritionally balanced and the figures below are **per serving**. Full
+per-recipe nutrition - calories plus protein, carbohydrate and fat - is printed on
+each meal's recipe card and shown on the meal's page in your account before you
+choose it. Add-ons are extra: sides are roughly 180-320 kcal, desserts 320-520 kcal,
+and drinks 90-180 kcal each; exact values are on each add-on's page.
 
-## Vegan and other diets
-We do not offer a vegan track, and we do not certify any meal as vegan. The closest options are the **Vegetarian** and **Dairy-Free** menus - some of those meals contain no animal products at all, but others use eggs, dairy or honey, so check the recipe card's ingredient list before ordering. We also can't build a bespoke menu for a diet we don't list; if none of the four tracks works for you, ask and we'll put you in touch with someone who can help.
+### Standard - nutrition per serving
+
+| Meal | Calories | Protein | Carbs | Fat |
+|---|---|---|---|---|
+| Herb Roast Chicken & Garlic Mash | 640 kcal | 48 g | 52 g | 26 g |
+| Beef Lasagne | 720 kcal | 42 g | 58 g | 34 g |
+| Teriyaki Salmon Rice Bowl | 610 kcal | 38 g | 66 g | 22 g |
+| Chicken Tikka Masala & Basmati | 680 kcal | 44 g | 70 g | 26 g |
+| Beef Smash Burger & Fries | 890 kcal | 46 g | 62 g | 50 g |
+| Creamy Mushroom Chicken Pasta | 750 kcal | 45 g | 72 g | 32 g |
+| Lamb Kofta & Couscous | 700 kcal | 40 g | 58 g | 34 g |
+| Turkey Meatball Marinara Sub | 730 kcal | 43 g | 68 g | 32 g |
+
+### Gluten-Free - nutrition per serving
+
+| Meal | Calories | Protein | Carbs | Fat |
+|---|---|---|---|---|
+| Lemon Herb Grilled Chicken & Quinoa | 580 kcal | 46 g | 54 g | 20 g |
+| Thai Green Curry with Jasmine Rice | 660 kcal | 34 g | 72 g | 28 g |
+| Grilled Salmon & Sweet Potato Mash | 600 kcal | 40 g | 48 g | 26 g |
+| Beef Chilli & Rice Bowl | 640 kcal | 38 g | 70 g | 22 g |
+| Chicken Shawarma Rice Plate | 670 kcal | 44 g | 64 g | 26 g |
+| Prawn & Chorizo-Free Paella | 620 kcal | 40 g | 68 g | 20 g |
+| Turkey & Vegetable Frittata | 520 kcal | 38 g | 22 g | 32 g |
+| Corn Tortilla Beef Tacos (3) | 690 kcal | 36 g | 66 g | 30 g |
+
+### Vegetarian - nutrition per serving
+
+| Meal | Calories | Protein | Carbs | Fat |
+|---|---|---|---|---|
+| Paneer Butter Masala & Basmati | 720 kcal | 24 g | 78 g | 34 g |
+| Wild Mushroom Risotto | 640 kcal | 18 g | 82 g | 26 g |
+| Halloumi & Roast Vegetable Grain Bowl | 660 kcal | 26 g | 60 g | 36 g |
+| Spinach & Ricotta Cannelloni | 680 kcal | 28 g | 66 g | 32 g |
+| Chickpea & Spinach Curry | 560 kcal | 20 g | 78 g | 18 g |
+| Falafel Mezze Plate | 620 kcal | 20 g | 72 g | 28 g |
+| Margherita Flatbread & Rocket | 700 kcal | 26 g | 78 g | 30 g |
+| Black Bean & Sweet Corn Burrito Bowl | 650 kcal | 22 g | 88 g | 22 g |
+
+### Dairy-Free - nutrition per serving
+
+| Meal | Calories | Protein | Carbs | Fat |
+|---|---|---|---|---|
+| Moroccan Chicken Tagine & Couscous | 620 kcal | 42 g | 66 g | 20 g |
+| Coconut Chicken Curry & Rice | 690 kcal | 38 g | 72 g | 28 g |
+| Grilled Sea Bass & Herb Potatoes | 560 kcal | 40 g | 44 g | 24 g |
+| Beef Stir-Fry with Rice Noodles | 640 kcal | 36 g | 72 g | 22 g |
+| Lentil & Vegetable Shepherd's Pie | 540 kcal | 22 g | 74 g | 16 g |
+| Harissa Roast Chicken & Freekeh | 610 kcal | 44 g | 58 g | 22 g |
+| Teriyaki Tofu & Soba Noodles | 580 kcal | 26 g | 82 g | 16 g |
+| Cajun Prawn & Dirty Rice | 600 kcal | 38 g | 66 g | 20 g |
+
+## Allergens and ingredient information
+Every recipe lists its ingredients and major allergens (such as nuts, dairy, gluten, soy and shellfish) on the recipe card and on the meal's page in your account. FreshCrate prepares ingredients in facilities that handle common allergens, so we can't guarantee a recipe is fully free of cross-contact. If you have a severe allergy, check the recipe card for that week's meal before you order, and contact us if anything is unclear.
+
+## Vegan, keto and other diets
+We do not offer a vegan track, and we do not certify any meal as vegan. The closest options are the **Vegetarian** and **Dairy-Free** menus - some of those meals contain no animal products at all, but others use eggs, dairy or honey, so check the recipe card's ingredient list before ordering. We also **do not offer keto, paleo or low-carb tracks**, and we can't build a bespoke menu for a diet we don't list. Our four tracks are Standard, Gluten-Free, Vegetarian and Dairy-Free; if none of them works for you, ask and we'll put you in touch with someone who can help.
 
 ## Choosing your weekly recipes
 Even with a track set, you can hand-pick each week's recipes from that track's menu before the Wednesday cutoff. If you don't choose, we auto-select recipes from your track. There's no extra charge for any track.

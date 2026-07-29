@@ -123,7 +123,14 @@ export interface DietChangeProposal {
   meals_preview: string[];
 }
 
-export type ProposalState = "pending" | "approved" | "declined" | "error";
+/**
+ * `submitting` — confirm was clicked and the write is in flight (buttons
+ * disabled, "Processing…"). `locked` — the customer sent a new message while
+ * this prompt was still unanswered, so it is disabled (they moved on). Both keep
+ * the card in its actionable layout but with the buttons disabled; the other
+ * four are terminal.
+ */
+export type ProposalState = "pending" | "submitting" | "locked" | "approved" | "declined" | "error";
 
 /** The proposal kinds, each with the payload its SSE event carries. */
 export interface ProposalPayloads {

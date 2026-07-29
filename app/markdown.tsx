@@ -73,6 +73,38 @@ export function Markdown({
                 ))}
               </ol>
             );
+          case "table":
+            // Wrapped in an overflow container so a wide table scrolls inside the
+            // bubble rather than stretching it.
+            return (
+              <div key={i} className={`${spacing}overflow-x-auto`}>
+                <table className="w-full border-collapse text-left text-xs">
+                  <thead>
+                    <tr>
+                      {block.header.map((cell, j) => (
+                        <th
+                          key={j}
+                          className="border-b border-slate-300 px-2 py-1 font-semibold text-slate-900"
+                        >
+                          <Spans spans={cell} />
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {block.rows.map((row, r) => (
+                      <tr key={r}>
+                        {row.map((cell, c) => (
+                          <td key={c} className="border-b border-slate-100 px-2 py-1 align-top">
+                            <Spans spans={cell} />
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            );
           default:
             return (
               <p key={i} className={`${spacing}whitespace-pre-wrap`}>

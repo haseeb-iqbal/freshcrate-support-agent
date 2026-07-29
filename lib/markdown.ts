@@ -21,7 +21,8 @@ export type Block =
   | { type: "paragraph"; spans: Span[] }
   | { type: "heading"; spans: Span[] }
   | { type: "bullets"; items: Span[][] }
-  | { type: "ordered"; items: Span[][] };
+  | { type: "ordered"; items: Span[][] }
+  | { type: "table"; header: Span[][]; rows: Span[][][] };
 
 export interface ParseOptions {
   /** Mid-stream: hide a marker whose closing half has not arrived yet. */
@@ -43,6 +44,30 @@ const CITATION = /\s*\[[a-z0-9-]+\s*[›>]\s*[^\]\n]+\]/gi;
 const HEADING = /^#{1,3}\s+(.*)$/;
 const BULLET = /^[-*]\s+(.*)$/;
 const ORDERED = /^\d+[.)]\s+(.*)$/;
+
+/** A GitHub-style table delimiter cell: dashes with optional alignment colons. */
+const TABLE_DELIM_CELL = /^:?-{1,}:?$/;
+
+/**
+ * Split one table row into its trimmed cell strings. A leading and trailing pipe
+ * are optional (`| a | b |` and `a | b` both parse), matching what the model
+ * emits either way.
+ */
+function splitTableRow(line: string): string[] {
+  let s = line.trim();
+  if (s.startsWith("|")) s = s.slice(1);
+  if (s.endsWith("|")) s = s.slice(0, -1);
+  return s.split("|").map((c) => c.trim());
+}
+
+/** The `|---|:--:|` line under a header. Every cell must be all dashes/colons —
+ *  that is what separates a real table from a paragraph that happens to contain
+ *  a pipe. */
+function isDelimiterRow(line: string): boolean {
+  if (!line.includes("-")) return false;
+  const cells = splitTableRow(line);
+  return cells.length > 0 && cells.every((c) => TABLE_DELIM_CELL.test(c));
+}
 
 /** Split a run of text into bold / italic / plain spans. */
 export function parseInline(text: string): Span[] {
@@ -113,10 +138,36 @@ export function parseBlocks(text: string, opts: ParseOptions = {}): Block[] {
     else blocks.push({ type, items: [parseInline(content)] });
   };
 
-  for (const line of source.split("\n")) {
+  const lines = source.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     const trimmed = line.trim();
     if (trimmed === "") {
       flush();
+      continue;
+    }
+
+    // A table is a header row with a pipe, immediately followed by a delimiter
+    // row. Data rows run until a blank line or a line with no pipe. Detected
+    // before the other block rules because a header row is otherwise
+    // indistinguishable from a paragraph. Mid-stream the delimiter may not have
+    // arrived yet, so the header falls through as a paragraph until it does.
+    if (trimmed.includes("|") && i + 1 < lines.length && isDelimiterRow(lines[i + 1])) {
+      flush();
+      const header = splitTableRow(trimmed).map(parseInline);
+      const rows: Span[][][] = [];
+      let j = i + 2;
+      for (; j < lines.length; j++) {
+        const rowText = lines[j].trim();
+        if (rowText === "" || !rowText.includes("|")) break;
+        const cells = splitTableRow(rowText);
+        // Normalise to the header's column count so a ragged row can't render
+        // a lopsided table: pad short rows, drop overflow cells.
+        while (cells.length < header.length) cells.push("");
+        rows.push(cells.slice(0, header.length).map(parseInline));
+      }
+      blocks.push({ type: "table", header, rows });
+      i = j - 1;
       continue;
     }
 

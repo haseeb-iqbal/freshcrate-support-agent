@@ -33,7 +33,7 @@ export interface Decision {
 }
 
 /** Mirrors app/chat.tsx's ProposalState. lib/ must not import from app/. */
-export type ProposalState = "pending" | "approved" | "declined" | "error";
+export type ProposalState = "pending" | "submitting" | "locked" | "approved" | "declined" | "error";
 
 /** Structural view of a chat message - only the fields decisions care about. */
 export interface DecisionSource {
@@ -57,6 +57,12 @@ const OUTCOME_OF: Record<ProposalState, DecisionOutcome> = {
   approved: "confirmed",
   declined: "declined",
   pending: "awaiting_response",
+  // A write is in flight — from the model's point of view still unanswered.
+  submitting: "awaiting_response",
+  // The customer moved on to a new message without answering; treat as passed
+  // over, so the model responds to the new message instead of pointing them back
+  // at a prompt whose buttons are now disabled.
+  locked: "declined",
   error: "failed",
 };
 

@@ -64,7 +64,7 @@ Browser (`app/chat.tsx`, SSE) → `POST /api/chat` (`app/api/chat/route.ts`, bui
 - Order history → `list_orders`; reply is a one-line lead-in only (the model doesn't receive the order details).
 - Sources shown only if genuinely relevant (score within 0.12 of top, ≥0.32). Sources are shown only as links beneath the reply - the model never cites them inline, and any label that slips through is stripped client-side.
 - Cards/sources render **after** the text completes.
-- Dates display long-form in prose (`8th January 2026 (08-01-2026)`) and **DD-MM-YYYY** in dense list rows. Off-topic questions are refused. KB/tool content treated as untrusted data (injection resistance).
+- Dates display long-form in prose (`8th January 2026`) and **DD-MM-YYYY** in dense list rows. Off-topic questions are refused. KB/tool content treated as untrusted data (injection resistance).
 - Confirmation-prompt outcomes (confirmed / declined / still unanswered / failed) are sent back with each turn as an enum-only payload and rendered into a system note, so the model knows what the customer did.
 
 ## 9. Run & verify

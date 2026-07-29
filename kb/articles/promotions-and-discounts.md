@@ -1,13 +1,13 @@
 # Promotions & Discounts
 
-## Applying a promo code
-Enter a promo code at sign-up, or later under **Account → Billing → Promo Code**. A valid code is applied to your next eligible weekly charge. Only one promo code can be active at a time, and codes can't be combined with each other.
+## Do you offer discounts or promo codes?
+No. FreshCrate does not offer discounts or promo codes, and there is no field to enter one at sign-up or in your account. Our pricing is a single, straightforward weekly price for every customer - what you see on the plans page is what you pay.
 
-## How intro offers work
-New-customer intro offers spread a discount across your first several boxes rather than all at once. The discount is applied automatically each week until the offer is used up, then your plan continues at the standard weekly price.
+## Are any promotions running right now?
+No. There are no promotions, sales, or intro offers currently running. If that ever changes, we'll announce it directly - so if you're asked to enter a "FreshCrate promo code" from somewhere else, treat it as not genuine.
 
-## Promo codes vs. referral credits
-Referral credits and promo codes are tracked separately. If you have both, referral credits are applied first, then any active promo discount. You can see what's applied to an upcoming charge under **Account → Billing → History**.
+## Why our pricing works this way
+Rather than run temporary promo pricing that later jumps to a higher rate, we keep one honest price. Your plan meals are already free as part of your subscription, so a plan costs less than buying the same meals à la carte - see the pricing article for the exact per-week savings on each plan size.
 
-## Expired or invalid codes
-If a code is expired, already used, or restricted to new customers, you'll see an error when you try to apply it. Promotions can't be applied retroactively to boxes that have already shipped.
+## Earning account credit
+The one way to earn credit toward your boxes is our **referral program**: when a friend signs up through your link and gets their first box, you both receive an account credit. That's a referral reward, not a discount code or promotion - see the referral program article for how it works.

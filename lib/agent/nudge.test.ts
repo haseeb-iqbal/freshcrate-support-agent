@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { shouldNudge } from "./nudge";
 
 const nudge = (assistantText: string, over: Partial<Parameters<typeof shouldNudge>[0]> = {}) =>
-  shouldNudge({ assistantText, toolCallCount: 0, alreadyNudged: false, ...over });
+  shouldNudge({ assistantText, actionToolCallCount: 0, alreadyNudged: false, ...over });
 
 describe("shouldNudge", () => {
   it("nudges when the model claims a completed action", () => {
@@ -57,8 +57,15 @@ describe("shouldNudge", () => {
     expect(nudge("I can only help with FreshCrate orders and subscriptions.")).toBe(false);
   });
 
-  it("does not nudge when a tool was already called", () => {
-    expect(nudge("I've paused your subscription.", { toolCallCount: 1 })).toBe(false);
+  it("does not nudge when an action tool was already called", () => {
+    expect(nudge("I've paused your subscription.", { actionToolCallCount: 1 })).toBe(false);
+  });
+
+  it("still nudges a refund described after a read-only lookup (no action tool called)", () => {
+    // The screenshot bug: the model called lookup_order (a read tool, so
+    // actionToolCallCount stays 0) then described a refund in prose without
+    // calling issue_refund. It must still be nudged, or no refund card appears.
+    expect(nudge("I can propose a refund for your last shipped order for $17.50. Please confirm to proceed.")).toBe(true);
   });
 
   it("never nudges twice", () => {

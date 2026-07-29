@@ -6,7 +6,13 @@ import { collectDecisions } from "@/lib/decisions";
 import { MessageBubble } from "./chat/message-bubble";
 import { AccountPanel, Welcome } from "./chat/panels";
 import { toDecisionSources } from "./chat/decisions";
-import { PROPOSALS, appendProposal, proposalKindForEvent, setProposalEntryState } from "./chat/proposals";
+import {
+  PROPOSALS,
+  appendProposal,
+  lockPendingProposals,
+  proposalKindForEvent,
+  setProposalEntryState,
+} from "./chat/proposals";
 import type {
   AccountData,
   AnyProposal,
@@ -131,13 +137,16 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
 
   // Apply a proposal: the write happens here (server endpoint), never in the
   // agent loop. Guarded so a double-click can't post the write twice, and only a
-  // still-pending prompt acts - a resolved card is inert.
+  // still-pending prompt acts - a resolved card is inert. The card flips to
+  // `submitting` for the duration (buttons disable, confirm reads "Processing…")
+  // so the customer can't fire it twice and can see it is working.
   async function confirmProposal(index: number, kind: ProposalKind, entryIndex: number) {
     const key = `${index}:${kind}:${entryIndex}`;
     if (confirming.current.has(key)) return;
     const entry = messages[index]?.proposals?.[kind]?.[entryIndex];
     if (!entry || entry.state !== "pending") return;
     confirming.current.add(key);
+    setProposalState(index, kind, entryIndex, "submitting");
     try {
       const { endpoint, body, refreshesCustomers } = PROPOSALS[kind];
       const ok = await postAction(endpoint, { customerId, ...body(entry.data) });
@@ -164,7 +173,12 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
     setInput("");
     setShowAccount(false);
 
-    const history: Message[] = [...messages, { role: "user", content: question }];
+    // Sending a message answers no prompt: lock any still-pending one so its
+    // buttons disable (the customer has moved on). Decisions are read from the
+    // locked view so the model is told these were passed over, not left waiting
+    // on a prompt whose buttons no longer work.
+    const lockedMessages = messages.map(lockPending);
+    const history: Message[] = [...lockedMessages, { role: "user", content: question }];
     setMessages([...history, { role: "assistant", content: "", sources: [], steps: [] }]);
     setBusy(true);
 
@@ -175,7 +189,7 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
         body: JSON.stringify({
           customerId,
           messages: history.map(({ role, content }) => ({ role, content })),
-          decisions: collectDecisions(messages.flatMap(toDecisionSources)),
+          decisions: collectDecisions(lockedMessages.flatMap(toDecisionSources)),
         }),
       });
 
@@ -428,5 +442,12 @@ function updateLast(prev: Message[], fn: (m: Message) => Message): Message[] {
   const last = next[next.length - 1];
   if (last?.role === "assistant") next[next.length - 1] = fn(last);
   return next;
+}
+
+/** Disable any still-pending prompt on a message; unchanged messages keep their
+ *  reference so React skips re-rendering them. */
+function lockPending(m: Message): Message {
+  const proposals = lockPendingProposals(m.proposals);
+  return proposals === m.proposals ? m : { ...m, proposals };
 }
 

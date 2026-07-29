@@ -119,6 +119,69 @@ describe("parseBlocks", () => {
     expect(out.map((b) => b.type)).toEqual(["bullets", "paragraph"]);
   });
 
+  it("parses a pipe table into a table block", () => {
+    const out = parseBlocks("| Plan | Price |\n| --- | --- |\n| 2 meals | $30 |\n| 3 meals | $42 |");
+    expect(out).toEqual([
+      {
+        type: "table",
+        header: [[{ text: "Plan" }], [{ text: "Price" }]],
+        rows: [
+          [[{ text: "2 meals" }], [{ text: "$30" }]],
+          [[{ text: "3 meals" }], [{ text: "$42" }]],
+        ],
+      },
+    ]);
+  });
+
+  it("parses a table whose rows omit the outer pipes", () => {
+    const out = parseBlocks("Plan | Price\n--- | ---\n2 meals | $30");
+    expect(out).toEqual([
+      {
+        type: "table",
+        header: [[{ text: "Plan" }], [{ text: "Price" }]],
+        rows: [[[{ text: "2 meals" }], [{ text: "$30" }]]],
+      },
+    ]);
+  });
+
+  it("parses emphasis inside table cells", () => {
+    const out = parseBlocks("| Plan |\n| --- |\n| **2 meals** |");
+    expect(out).toEqual([
+      { type: "table", header: [[{ text: "Plan" }]], rows: [[[{ text: "2 meals", bold: true }]]] },
+    ]);
+  });
+
+  it("normalises a ragged row to the header's column count", () => {
+    const out = parseBlocks("| A | B |\n| --- | --- |\n| only-one |");
+    expect(out).toEqual([
+      { type: "table", header: [[{ text: "A" }], [{ text: "B" }]], rows: [[[{ text: "only-one" }], []]] },
+    ]);
+  });
+
+  it("supports alignment colons in the delimiter row", () => {
+    const out = parseBlocks("| A | B |\n| :--- | ---: |\n| x | y |");
+    expect(out).toEqual([
+      { type: "table", header: [[{ text: "A" }], [{ text: "B" }]], rows: [[[{ text: "x" }], [{ text: "y" }]]] },
+    ]);
+  });
+
+  it("does not treat a paragraph containing a pipe as a table", () => {
+    const out = parseBlocks("choose 2 | 3 | 4 meals a week");
+    expect(out).toEqual([{ type: "paragraph", spans: [{ text: "choose 2 | 3 | 4 meals a week" }] }]);
+  });
+
+  it("separates a paragraph that follows a table", () => {
+    const out = parseBlocks("| A |\n| --- |\n| x |\nthen this");
+    expect(out.map((b) => b.type)).toEqual(["table", "paragraph"]);
+  });
+
+  it("leaves a header row as a paragraph until its delimiter streams in", () => {
+    // Mid-stream the delimiter may not have arrived; the header should not yet
+    // render as a broken one-row table.
+    const out = parseBlocks("| Plan | Price |", { streaming: true });
+    expect(out).toEqual([{ type: "paragraph", spans: [{ text: "| Plan | Price |" }] }]);
+  });
+
   it("returns nothing for empty input", () => {
     expect(parseBlocks("")).toEqual([]);
   });

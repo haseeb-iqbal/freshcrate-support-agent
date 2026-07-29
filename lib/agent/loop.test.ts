@@ -76,6 +76,30 @@ describe("runAgent", () => {
     expect(events.some((e) => e.event === "pause_proposal")).toBe(true);
   });
 
+  it("nudges a refund described after a read-only lookup, so the card still appears", async () => {
+    // The screenshot bug: lookup_order (read-only) then a prose refund proposal
+    // with no issue_refund call. The read tool must NOT suppress the nudge.
+    const events: { event: string; data: unknown }[] = [];
+    const registry: Record<string, Tool> = {
+      ...okTool("lookup_order", { order: { order_number: "FC1001" } }),
+      ...okTool("issue_refund", { status: "needs_confirmation", proposal: { order_number: "FC1001", amount_cents: 1750 } }),
+    };
+    const deps: AgentDeps = {
+      provider: fakeProvider([
+        toolTurn("lookup_order"),
+        textTurn("I can propose a refund of $17.50 for FC1001. Please confirm to proceed."),
+        toolTurn("issue_refund"),
+        textTurn("Please confirm the refund below."),
+      ]),
+      toolByName: registry,
+      toolDefinitions: [],
+    };
+    await runAgent({ customerId: "x", history: [{ role: "user", content: "refund my last shipped order" }], emit: (e, d) => events.push({ event: e, data: d }) }, deps);
+
+    expect(events.some((e) => e.event === "reset")).toBe(true);
+    expect(events.some((e) => e.event === "refund_proposal")).toBe(true);
+  });
+
   it("does not nudge when the tool already ran and the final text describes it", async () => {
     const events: { event: string; data: unknown }[] = [];
     const deps: AgentDeps = {

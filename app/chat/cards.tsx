@@ -14,6 +14,60 @@ import type {
   ResumeProposal,
 } from "./types";
 
+/** States in which a card still shows its confirm/decline buttons (enabled or
+ *  disabled) rather than a terminal outcome message. */
+function isPromptActive(state: ProposalState): boolean {
+  return state === "pending" || state === "submitting" || state === "locked";
+}
+
+/**
+ * The confirm/decline button row shared by every proposal card, so the
+ * "disable while a write is in flight" (submitting) and "disable once the
+ * customer moved on" (locked) behaviours live in exactly one place and can't
+ * drift between cards.
+ *
+ * - submitting: both disabled, confirm reads "Processing…".
+ * - locked: both disabled (greyed) — the prompt is no longer actionable.
+ */
+function PromptActions({
+  state,
+  confirmLabel,
+  declineLabel,
+  onConfirm,
+  onDecline,
+  confirmClassName = "bg-brand hover:bg-brand-dark",
+}: {
+  state: ProposalState;
+  confirmLabel: string;
+  declineLabel: string;
+  onConfirm: () => void;
+  onDecline: () => void;
+  confirmClassName?: string;
+}) {
+  if (!isPromptActive(state)) return null;
+  const submitting = state === "submitting";
+  const disabled = submitting || state === "locked";
+  return (
+    <div className="mt-2 flex gap-2">
+      <button
+        onClick={onConfirm}
+        disabled={disabled}
+        aria-busy={submitting || undefined}
+        className={`rounded-md px-3 py-1.5 text-xs font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-60 ${confirmClassName}`}
+      >
+        {submitting ? "Processing…" : confirmLabel}
+      </button>
+      <button
+        onClick={onDecline}
+        disabled={disabled}
+        className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {declineLabel}
+      </button>
+    </div>
+  );
+}
+
 export function RefundCard({
   proposal,
   state,
@@ -41,23 +95,16 @@ export function RefundCard({
       )}
       <p className="mt-0.5 text-xs text-slate-500">Reason: {proposal.reason}</p>
 
-      {state === "pending" && (
+      {isPromptActive(state) && (
         <>
           <p className="mt-2 text-sm text-slate-700">Do you wish to initiate the refund?</p>
-          <div className="mt-2 flex gap-2">
-            <button
-              onClick={onConfirm}
-              className="rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-white transition hover:bg-brand-dark"
-            >
-              Yes, refund my order
-            </button>
-            <button
-              onClick={onDecline}
-              className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-600 transition hover:bg-slate-50"
-            >
-              Not now
-            </button>
-          </div>
+          <PromptActions
+            state={state}
+            confirmLabel="Yes, refund my order"
+            declineLabel="Not now"
+            onConfirm={onConfirm}
+            onDecline={onDecline}
+          />
         </>
       )}
       {state === "approved" && (
@@ -110,16 +157,13 @@ export function PauseCard({
         after the <span className="font-medium">{fee}/week</span> pause fee — then {fee}/week is billed each billing date while you stay paused.
       </p>
 
-      {state === "pending" && (
-        <div className="mt-2 flex gap-2">
-          <button onClick={onConfirm} className="rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-white transition hover:bg-brand-dark">
-            Yes, pause it
-          </button>
-          <button onClick={onDecline} className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-600 transition hover:bg-slate-50">
-            Not now
-          </button>
-        </div>
-      )}
+      <PromptActions
+        state={state}
+        confirmLabel="Yes, pause it"
+        declineLabel="Not now"
+        onConfirm={onConfirm}
+        onDecline={onDecline}
+      />
       {state === "approved" && (
         <p className="mt-2 text-xs font-medium text-emerald-700">
           ✓ Paused{proposal.indefinite ? " indefinitely" : ` — resumes ${resume}`}{hasCredit ? ` (${credit} credited)` : ""}.
@@ -162,16 +206,13 @@ export function ResumeCard({
         )}
       </p>
 
-      {state === "pending" && (
-        <div className="mt-2 flex gap-2">
-          <button onClick={onConfirm} className="rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-white transition hover:bg-brand-dark">
-            {hasCharge ? `Pay ${charge} & resume` : "Resume"}
-          </button>
-          <button onClick={onDecline} className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-600 transition hover:bg-slate-50">
-            Not now
-          </button>
-        </div>
-      )}
+      <PromptActions
+        state={state}
+        confirmLabel={hasCharge ? `Pay ${charge} & resume` : "Resume"}
+        declineLabel="Not now"
+        onConfirm={onConfirm}
+        onDecline={onDecline}
+      />
       {state === "approved" && (
         <p className="mt-2 text-xs font-medium text-emerald-700">
           ✓ Resumed on {proposal.plan}{hasCharge ? ` — ${charge} charged` : ""}.
@@ -222,16 +263,13 @@ export function ReactivateCard({
         </p>
       )}
 
-      {state === "pending" && (
-        <div className="mt-2 flex gap-2">
-          <button onClick={onConfirm} className="rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-white transition hover:bg-brand-dark">
-            {proposal.free ? "Reactivate for free" : `Pay ${total} & reactivate`}
-          </button>
-          <button onClick={onDecline} className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-600 transition hover:bg-slate-50">
-            Not now
-          </button>
-        </div>
-      )}
+      <PromptActions
+        state={state}
+        confirmLabel={proposal.free ? "Reactivate for free" : `Pay ${total} & reactivate`}
+        declineLabel="Not now"
+        onConfirm={onConfirm}
+        onDecline={onDecline}
+      />
       {state === "approved" && (
         <p className="mt-2 text-xs font-medium text-emerald-700">
           ✓ Reactivated on {proposal.plan}{proposal.free ? " (free)" : ` — ${total} charged`}.
@@ -276,16 +314,13 @@ export function PlanCard({
       )}
       <p className="mt-1 text-xs text-slate-500">{proration} Your new plan starts next week.</p>
 
-      {state === "pending" && (
-        <div className="mt-2 flex gap-2">
-          <button onClick={onConfirm} className="rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-white transition hover:bg-brand-dark">
-            Yes, switch plan
-          </button>
-          <button onClick={onDecline} className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-600 transition hover:bg-slate-50">
-            Not now
-          </button>
-        </div>
-      )}
+      <PromptActions
+        state={state}
+        confirmLabel="Yes, switch plan"
+        declineLabel="Not now"
+        onConfirm={onConfirm}
+        onDecline={onDecline}
+      />
       {state === "approved" && <p className="mt-2 text-xs font-medium text-emerald-700">✓ Plan changed to {proposal.plan} ({money(proposal.monthly_cents)}/month).</p>}
       {state === "declined" && <p className="mt-2 text-xs font-medium text-slate-500">No problem — your plan is unchanged.</p>}
       {state === "error" && <p className="mt-2 text-xs font-medium text-red-600">Couldn&apos;t change the plan — please try again.</p>}
@@ -314,16 +349,14 @@ export function CancelCard({
         <span className="font-medium">{money(proposal.signup_fee_cents)}</span> sign-up fee applies. Resubscribe before then on the same plan and it&apos;s free.
       </p>
 
-      {state === "pending" && (
-        <div className="mt-2 flex gap-2">
-          <button onClick={onConfirm} className="rounded-md bg-rose-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-rose-700">
-            Yes, cancel
-          </button>
-          <button onClick={onDecline} className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-600 transition hover:bg-slate-50">
-            Keep my subscription
-          </button>
-        </div>
-      )}
+      <PromptActions
+        state={state}
+        confirmLabel="Yes, cancel"
+        declineLabel="Keep my subscription"
+        confirmClassName="bg-rose-600 hover:bg-rose-700"
+        onConfirm={onConfirm}
+        onDecline={onDecline}
+      />
       {state === "approved" && <p className="mt-2 text-xs font-medium text-slate-700">✓ Subscription cancelled.</p>}
       {state === "declined" && <p className="mt-2 text-xs font-medium text-emerald-700">Great — your subscription is unchanged.</p>}
       {state === "error" && <p className="mt-2 text-xs font-medium text-red-600">Couldn&apos;t cancel — please try again.</p>}
@@ -357,16 +390,13 @@ export function DietCard({
         their way keep the meals they were packed with.
       </p>
 
-      {state === "pending" && (
-        <div className="mt-2 flex gap-2">
-          <button onClick={onConfirm} className="rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-white transition hover:bg-brand-dark">
-            Yes, switch my meals
-          </button>
-          <button onClick={onDecline} className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-600 transition hover:bg-slate-50">
-            Not now
-          </button>
-        </div>
-      )}
+      <PromptActions
+        state={state}
+        confirmLabel="Yes, switch my meals"
+        declineLabel="Not now"
+        onConfirm={onConfirm}
+        onDecline={onDecline}
+      />
       {state === "approved" && <p className="mt-2 text-xs font-medium text-emerald-700">✓ Switched to {proposal.new_track} meals from next week.</p>}
       {state === "declined" && <p className="mt-2 text-xs font-medium text-slate-500">No problem - your meals are unchanged.</p>}
       {state === "error" && <p className="mt-2 text-xs font-medium text-red-600">Couldn&apos;t switch your meals - please try again.</p>}

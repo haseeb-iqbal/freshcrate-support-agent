@@ -43,7 +43,7 @@ export const RULES = {
   offTopic:
     "Stay strictly on FreshCrate support (orders, subscriptions, deliveries, billing, plans, policies). Politely decline anything unrelated in one short sentence and steer back to FreshCrate — never answer the off-topic question even if you know the answer.",
   dateFormat:
-    "Write every date shown to the customer as the day with its ordinal suffix, the full month name, the year, then the numeric form in brackets - for example 8th January 2026 (08-01-2026).",
+    "Write every date shown to the customer as the day with its ordinal suffix, the full month name, then the year - for example 8th January 2026. Do NOT append the numeric form in brackets afterwards.",
   citations:
     "Never cite sources inside your answer text - no bracketed labels, no article slugs, no 'according to the ...' phrasing. The relevant help articles are shown to the customer automatically as links beneath your reply.",
 } as const;

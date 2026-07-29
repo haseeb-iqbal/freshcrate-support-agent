@@ -5,7 +5,7 @@ import type { AgentMessage, ChatProvider, ToolCall, ToolDefinition } from "@/lib
 import { toolByName as realToolByName, toolDefinitions as realToolDefinitions, type Tool, type ToolResult } from "@/lib/tools";
 import { buildAgentMessages } from "./messages";
 import { buildSystemPrompt } from "./prompt";
-import { dispatchTool, type DispatchState } from "./dispatch";
+import { dispatchTool, PROPOSAL_EVENTS, type DispatchState } from "./dispatch";
 import { shouldNudge } from "./nudge";
 
 export type AgentEmit = (event: string, data: unknown) => void;
@@ -44,7 +44,10 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
   const messages: AgentMessage[] = buildAgentMessages(system, history, decisions);
 
   let nudged = false;
-  let toolCallsMade = 0;
+  // Only action tools that surface a confirmation prompt suppress the nudge — a
+  // read-only lookup must not (see shouldNudge). Counting every tool here let a
+  // "looked up the order, then described a refund" turn escape the nudge.
+  let actionToolCallsMade = 0;
   const state: DispatchState = { shownProposals: new Set() };
   // One timestamp for the whole turn, so tools can't disagree about the date.
   const turnNow = now();
@@ -67,7 +70,7 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
     }
 
     if (toolCalls.length === 0) {
-      if (shouldNudge({ assistantText: text, toolCallCount: toolCallsMade, alreadyNudged: nudged })) {
+      if (shouldNudge({ assistantText: text, actionToolCallCount: actionToolCallsMade, alreadyNudged: nudged })) {
         nudged = true;
         if (streamedText) emit("reset", {}); // discard the pre-nudge preamble
         if (text) messages.push({ role: "assistant", content: text });
@@ -85,7 +88,7 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
     // A tool turn is never the final answer — clear any preamble it streamed.
     if (streamedText) emit("reset", {});
     messages.push({ role: "assistant", content: text, toolCalls });
-    toolCallsMade += toolCalls.length;
+    actionToolCallsMade += toolCalls.filter((c) => PROPOSAL_EVENTS[c.name]).length;
 
     for (const call of toolCalls) {
       let args: Record<string, unknown> = {};

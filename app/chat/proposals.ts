@@ -118,6 +118,25 @@ export function appendProposal<K extends ProposalKind>(
   return { ...proposals, [kind]: [...existing, entry] } as MessageProposals;
 }
 
+/**
+ * Lock every still-pending prompt in a message: the customer sent a new message
+ * without answering, so those prompts are no longer actionable (their buttons
+ * disable). Returns the same reference when nothing was pending, so callers can
+ * skip a needless re-render. Only `pending` is affected — a `submitting` write
+ * in flight or an already-resolved prompt is left as-is.
+ */
+export function lockPendingProposals(proposals: MessageProposals | undefined): MessageProposals | undefined {
+  if (!proposals) return proposals;
+  let next = proposals;
+  for (const kind of PROPOSAL_KINDS) {
+    const entries = proposals[kind];
+    if (!entries?.some((e) => e.state === "pending")) continue;
+    const locked = entries.map((e) => (e.state === "pending" ? { ...e, state: "locked" as const } : e));
+    next = { ...next, [kind]: locked } as MessageProposals;
+  }
+  return next;
+}
+
 /** Replace the state of one entry, identified by kind and position in its list. */
 export function setProposalEntryState(
   proposals: MessageProposals | undefined,

@@ -51,11 +51,12 @@ function ordinalSuffix(day: number): string {
 }
 
 /**
- * Long-form display date: "8th January 2026 (08-01-2026)".
+ * Long-form display date: "8th January 2026".
  *
  * Used in prose - proposal card sentences, the account panel, and the agent's
  * own answers - where a bare DD-MM-YYYY reads as a code rather than a day.
- * Dense list rows keep the compact form.
+ * Dense list rows keep the compact form. The numeric form is deliberately NOT
+ * appended in brackets: repeating the same date twice reads as clutter.
  *
  * Parses the ISO string textually rather than via `new Date(iso)`, which would
  * treat a date-only string as UTC midnight and shift the day at a negative
@@ -69,5 +70,5 @@ export function formatLongDate(iso?: string | null): string {
   const monthName = MONTHS[Number(month) - 1];
   if (!monthName) return iso;
   const dayNum = Number(day);
-  return `${dayNum}${ordinalSuffix(dayNum)} ${monthName} ${year} (${day}-${month}-${year})`;
+  return `${dayNum}${ordinalSuffix(dayNum)} ${monthName} ${year}`;
 }

@@ -120,16 +120,21 @@ describe("FreshCrate agent (mock LLM)", () => {
     cy.get('[data-testid="assistant-text"]').should("not.contain.text", "›");
   });
 
-  it("tells the server a confirmation prompt is still unanswered", () => {
+  it("locks an unanswered prompt and reports it as passed over when the customer sends another message", () => {
     signInAs("Ava Chen");
     ask("pause my subscription for 2 weeks");
     cy.get('[data-testid="pause-card"]').should("have.length", 1);
 
     cy.intercept("POST", "/api/chat").as("chat");
     ask("resume my subscription");
+    // The server is told they passed the pause prompt over, not that it is still
+    // waiting on screen — its buttons no longer work, so re-pointing them at it
+    // would lie.
     cy.wait("@chat")
       .its("request.body.decisions")
-      .should("deep.equal", [{ kind: "pause", outcome: "awaiting_response" }]);
+      .should("deep.equal", [{ kind: "pause", outcome: "declined" }]);
+    // And the unanswered pause prompt is now disabled (the customer moved on).
+    cy.get('[data-testid="pause-card"]').contains("button", "Yes, pause it").should("be.disabled");
   });
 
   it("tells the server the customer declined a confirmation prompt", () => {

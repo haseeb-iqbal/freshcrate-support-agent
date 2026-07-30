@@ -91,4 +91,26 @@ describe("buildSystemPrompt", () => {
   it("introduces itself as Cratelyn", () => {
     expect(prompt).toContain("You are Cratelyn");
   });
+
+  it("routes subscription/plan pricing to the knowledge base, not get_subscription", () => {
+    // The bug: "what are the subscription costs?" got treated as an account
+    // question, routed to get_subscription (which has no pricing), and refused.
+    const knowledge = prompt.slice(prompt.indexOf("# Knowledge answers"), prompt.indexOf("# Orders"));
+    expect(knowledge.toLowerCase()).toContain("cost");
+    expect(knowledge.toLowerCase()).toContain("pricing");
+  });
+
+  it("tells the model never to repeat a prior refusal without searching", () => {
+    // The bug: after refusing once, the model anchored on its own refusal and
+    // repeated it on later turns without ever calling search_knowledge_base again.
+    expect(prompt).toContain("search_knowledge_base");
+    expect(prompt.toLowerCase()).toContain("even if an earlier");
+  });
+
+  it("does not let a pending confirmation prompt block an unrelated question", () => {
+    // The bug: an unanswered confirmation prompt made the model refuse to
+    // answer an unrelated pricing/order/policy question asked in the same turn.
+    const outcomes = prompt.slice(prompt.indexOf("# Confirmation outcomes"), prompt.indexOf("# Refunds"));
+    expect(outcomes.toLowerCase()).toContain("never blocks other questions");
+  });
 });

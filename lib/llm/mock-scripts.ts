@@ -88,6 +88,26 @@ export const MOCK_SCRIPTS: Record<string, Script> = {
     pre_tool: [t("You have two open orders, FC1004 and FC1005 — which one would you like to cancel?")],
     post_tool: [],
   },
+  "show me my last order": {
+    pre_tool: [call("lookup_order", { position: 1 })],
+    post_tool: [t("Here's your most recent order:")],
+  },
+  "what are the subscription costs?": {
+    // The sticky-refusal spec asserts this ANSWERS. Text-only fixture with the prices,
+    // since a search_knowledge_base call is banned in E2E.
+    pre_tool: [t("Our plans are 2 meals/week at $30, 3 at $42, and 4 at $52 per week.")],
+    post_tool: [],
+  },
+  // Marcus's FC1005 (shipped) has deliveryDate = daysFromNow(1) in db/seed.ts,
+  // i.e. tomorrow relative to seed time. Written against 2026-07-30 (seed's
+  // "now" at authoring time) -> 2026-07-31. This is a literal snapshot, not a
+  // recomputed value: seed dates are relative to seeding time, so re-seeding on
+  // a different calendar day will point this literal date at a day with no
+  // matching order and the spec will need its literal date refreshed then.
+  "show me my order due 31st july": {
+    pre_tool: [call("lookup_order", { date: "2026-07-31" })],
+    post_tool: [t("Here's that order:")],
+  },
   "how do i change or cancel my subscription?": {
     // Text-only on purpose: a search_knowledge_base call would need live
     // embeddings and an ingested KB, which breaks the no-OpenAI E2E property.

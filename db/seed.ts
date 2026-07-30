@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { db, client } from "./index";
 import { customers, escalations, orders, plans, subscriptionEvents, transactions } from "./schema";
-import { MEAL_LIST_PRICE_CENTS } from "../lib/billing/pricing";
+import { MEAL_LIST_PRICE_CENTS, weeklyValueCents, weeksUntilDate } from "../lib/billing/pricing";
 import { addDaysIso } from "../lib/date";
 import { ADDON_CATALOGUE, mealsForTrack, type DietaryTrack } from "../lib/domain/menu";
 
@@ -223,6 +223,8 @@ async function main() {
   await db.delete(customers);
   await db.delete(plans);
 
+  const weekly = (plan: string) => planRows.find((p) => p.plan === plan)!.weeklyCents;
+
   // Set each customer's next billing date relative to seed time (see
   // BILLING_OFFSET_DAYS) so the weeks-to-billing money demos stay correct. State
   // is current as of seed time, so the reconciler won't retroactively charge.
@@ -231,6 +233,14 @@ async function main() {
     c.billingDate = daysFromNow(BILLING_OFFSET_DAYS[c.id!]);
     c.lastReconciledAt = seededAt;
     c.dietaryTrack = TRACK_BY_CUSTOMER[c.id!];
+    if (c.subscriptionStatus === "paused") {
+      // Deferred model: the pause credit is the whole remaining cycle at the
+      // full weekly rate (lib/billing/pricing.ts's weeklyValueCents/quotePause),
+      // stored as a one-time adjustment applied to the NEXT monthly bill - not
+      // written up front as its own transaction row.
+      const weeksToBilling = weeksUntilDate(c.billingDate, seededAt);
+      c.billingAdjustmentCents = -weeklyValueCents(weekly(c.plan), weeksToBilling);
+    }
   }
   // Diego is a FINITE pause (auto-resumes ~3 weeks out — skip-forward demo);
   // Sara stays indefinite (accrues the $8/week fee monthly while paused).
@@ -260,19 +270,15 @@ async function main() {
   });
   await db.insert(orders).values(pricedOrders);
 
-  // Unified money ledger: monthly billing + pause credits. (Refunds, sign-up
-  // fees, resume charges, and prorations from chat actions are written at runtime.)
+  // Unified money ledger: monthly billing. (The deferred pause credit / resume
+  // charge live on customers.billingAdjustmentCents, set above, and apply at the
+  // next monthly bill; refunds, sign-up fees, resume charges, and prorations
+  // from chat actions are written at runtime.)
   const monthly = (plan: string) => planRows.find((p) => p.plan === plan)!.monthlyCents;
-  const weekly = (plan: string) => planRows.find((p) => p.plan === plan)!.weeklyCents;
   const txnRows: (typeof transactions.$inferInsert)[] = [];
   for (const c of customerRows) {
     if (c.subscriptionStatus !== "cancelled") {
       txnRows.push({ customerId: c.id!, type: "monthly_billing", amountCents: monthly(c.plan), description: `Monthly billing — ${c.plan}`, createdAt: ts("2026-06-15T09:00:00Z") });
-    }
-    if (c.subscriptionStatus === "paused") {
-      // Pause credit at pause time: 2 weeks' plan value net of the $8/week fee.
-      const credit = 2 * (weekly(c.plan) - 800);
-      txnRows.push({ customerId: c.id!, type: "pause_credit", amountCents: -credit, description: "Pause credit (2 weeks)", createdAt: ts("2026-06-16T09:00:00Z") });
     }
   }
   // Tom's recent refund (drives the 14-day cooldown demo) — mirrors the

@@ -45,18 +45,25 @@ mirror is `lib/domain/terms.ts`; pricing lives in `lib/billing/pricing.ts` + the
 
 ## Subscription lifecycle (3 states: active, paused, cancelled)
 - **Pause** (propose→confirm): 1–52 weeks, a date within a year, or indefinite.
-  Takes effect next week. Credits `min(pauseWeeks, weeksToBilling)` (indefinite →
-  weeksToBilling) × (weekly − $8 pause fee) up front, for the already-paid weeks of
-  the current period. Thereafter the $8/week fee is billed at each billing date for
-  as long as the pause runs (finite and indefinite alike). A cancelled sub can't be
-  paused. A pause can be resumed early, before its resume date.
-- **Resume** (propose→confirm): charges `weeksToBilling × (weekly − $8)`, at the NEW
-  plan's rate if switching plan at the same time. Takes effect next week.
+  Takes effect next week. The pause credit is DEFERRED to the next monthly bill,
+  at the FULL weekly rate for `weeksToBilling` (no fee netting) - stored as a
+  one-time `billingAdjustmentCents` adjustment rather than written up front. A
+  cancelled sub can't be paused. A pause can be resumed early, before its resume
+  date.
+- **Resume** (propose→confirm): DEFERS a charge of `weeksToBilling × weekly` to
+  the next monthly bill (same `billingAdjustmentCents` field), at the NEW plan's
+  rate if switching plan at the same time. Takes effect next week. An immediate
+  pause+resume round-trips the deferred adjustment back to zero.
 - **Change plan**: active only, prorated. On a **paused** sub → resume with new_plan;
   on a **cancelled** sub → reactivate with new_plan.
 - **Cancel**: active or paused. **Reactivate** (cancelled → active): free within
   billing on same plan, else plan price + $40 sign-up.
-- Ledger: pauses write `pause_credit` (−), resumes write `resume_charge` (+).
+- The **$8/week pause fee** is separate from the deferred credit/charge - it still
+  applies, billed only for weeks actually paused across a billing date (see Lazy
+  reconciliation below). Ledger: the deferred pause credit / resume charge live on
+  `customers.billingAdjustmentCents`, folded into the `monthly_billing` transaction
+  when that billing date is next crossed; only the pause fee and monthly billing
+  write their own transaction rows.
 
 ## Lazy reconciliation (`lib/billing/reconcile.ts`)
 - Subscription state is brought current **on read**: `reconcile(customerId, now)`

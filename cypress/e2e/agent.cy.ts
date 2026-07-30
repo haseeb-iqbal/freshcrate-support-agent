@@ -110,6 +110,25 @@ describe("FreshCrate agent (mock LLM)", () => {
     cy.get('[data-testid="assistant-text"]').should("not.contain.text", "**");
   });
 
+  it("shows a single-order card for a positional lookup", () => {
+    signInAs("Marcus Bell");
+    ask("show me my last order");
+    cy.get('[data-testid="order-card"]').should("have.length", 1);
+    cy.get('[data-testid="assistant-text"]').should("not.contain.text", "FC1004"); // details are in the card, not the text
+  });
+
+  it("answers subscription costs and does not stick on a refusal", () => {
+    signInAs("Ava Chen");
+    ask("what are the subscription costs?");
+    cy.get('[data-testid="assistant-text"]').should("contain.text", "$30");
+  });
+
+  it("shows a single-order card for a date-based lookup", () => {
+    signInAs("Marcus Bell");
+    ask("show me my order due 31st july");
+    cy.get('[data-testid="order-card"]').should("have.length", 1);
+  });
+
   it("never shows an inline source label in the answer text", () => {
     signInAs("Ava Chen");
     ask("how do i change or cancel my subscription?");

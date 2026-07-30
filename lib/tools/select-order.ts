@@ -13,8 +13,9 @@ export interface SelectableOrder {
  * Resolve a selector to exactly ONE order (or null), deterministically:
  *   1. order_number wins if given (exact match or null).
  *   2. filter by kind and/or status when present.
- *   3. sort by placedAt descending (most recent first).
- *   4. pick 1-based `position` (default 1); null if out of range.
+ *   3. filter by date when present (deliveryDate match OR placedAt's local calendar day).
+ *   4. sort by placedAt descending (most recent first).
+ *   5. pick 1-based `position` (default 1); null if out of range.
  */
 export function selectOrder<T extends SelectableOrder>(orders: T[], sel: OrderSelector): T | null {
   if (sel.orderNumber) {

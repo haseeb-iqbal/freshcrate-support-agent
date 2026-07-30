@@ -49,13 +49,24 @@ describe("selectOrder", () => {
     expect(selectOrder([], { position: 1 })).toBeNull();
   });
 
+  // NB: the repo runs tests with TZ=UTC (see package.json), so a local calendar
+  // day and a UTC slice of the same Date are identical here - no test in this
+  // file can distinguish them. The local-day implementation is correct by
+  // construction (same getFullYear/getMonth/getDate approach as lib/date.ts).
+
   it("matches an order by its delivery date", () => {
-    const withDelivery = [mk("FC1010", "2026-07-01T00:00:00Z", { deliveryDate: "2026-07-25" }), A, B];
-    expect(selectOrder(withDelivery, { date: "2026-07-25" })?.orderNumber).toBe("FC1010");
+    // The matching order is the OLDER of the two by placedAt, so this only
+    // passes if the deliveryDate filter actually ran - the position-1
+    // default would otherwise pick the newer, non-matching order.
+    const newer = mk("FC1099", "2026-07-20T00:00:00Z");
+    const older = mk("FC1010", "2026-07-01T00:00:00Z", { deliveryDate: "2026-07-25" });
+    expect(selectOrder([newer, older], { date: "2026-07-25" })?.orderNumber).toBe("FC1010");
   });
 
   it("matches an order by the calendar day it was placed", () => {
-    expect(selectOrder(orders, { date: "2026-06-23" })?.orderNumber).toBe("FC1004");
+    // B (21st) is NOT position 1 in `orders` (A, the 23rd, is), so this only
+    // passes if the placed-day filter actually ran.
+    expect(selectOrder(orders, { date: "2026-06-21" })?.orderNumber).toBe("FC1005");
   });
 
   it("returns null when no order is on that date", () => {

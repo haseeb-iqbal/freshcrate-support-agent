@@ -88,6 +88,11 @@ export function dispatchTool(call: ToolCall, result: ToolResult, state: Dispatch
     events.push({ event: "history", data });
   }
 
+  // A single-order lookup drives the single-order card.
+  if (call.name === "lookup_order" && result.ok && data?.order) {
+    events.push({ event: "order", data: data.order });
+  }
+
   events.push({ event: "tool_result", data: { name: call.name, ok: result.ok, summary: result.summary } });
 
   let modelContent: string;
@@ -99,6 +104,11 @@ export function dispatchTool(call: ToolCall, result: ToolResult, state: Dispatch
     modelContent = JSON.stringify({
       shown: true,
       note: "The order history has been shown to the customer in a card. Reply with only a short lead-in like 'Here's your order history:' and do NOT list the orders in text.",
+    });
+  } else if (call.name === "lookup_order" && result.ok && data?.order) {
+    modelContent = JSON.stringify({
+      order: data.order,
+      note: "This order is shown to the customer in a card. Give a short natural lead-in and do NOT restate its number, status, price, items, or dates. You may still answer a specific question about it in a sentence.",
     });
   } else {
     modelContent = JSON.stringify(result.data ?? { ok: result.ok, summary: result.summary });

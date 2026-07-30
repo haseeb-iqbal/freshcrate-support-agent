@@ -2,7 +2,7 @@
 
 import { Markdown } from "../markdown";
 import { stripCitations } from "@/lib/markdown";
-import { HistoryCard } from "./order-views";
+import { HistoryCard, OrderCard } from "./order-views";
 import { Thinking, ToolSteps } from "./panels";
 import { PROPOSAL_KINDS, PROPOSALS } from "./proposals";
 import type { Message, ProposalKind } from "./types";
@@ -31,6 +31,7 @@ export function MessageBubble({
     !message.content &&
     (message.steps?.length ?? 0) === 0 &&
     !message.history &&
+    !message.order &&
     !PROPOSAL_KINDS.some((kind) => message.proposals?.[kind]?.length);
 
   return (
@@ -62,6 +63,8 @@ export function MessageBubble({
         {!isUser && showResults && message.history && (
           <HistoryCard history={message.history} />
         )}
+
+        {!isUser && showResults && message.order && <OrderCard order={message.order} />}
 
         {!isUser &&
           showResults &&

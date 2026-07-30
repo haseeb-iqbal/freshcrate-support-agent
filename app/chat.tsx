@@ -19,6 +19,7 @@ import type {
   CustomerOption,
   HistoryData,
   Message,
+  OrderView,
   ProposalKind,
   ProposalState,
   Source,
@@ -242,6 +243,8 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
       patchLast({ sources: data as Source[] });
     } else if (event === "history") {
       patchLast({ history: data as HistoryData });
+    } else if (event === "order") {
+      patchLast({ order: data as OrderView });
     } else if (event === "tool_call") {
       const { name } = data as { name: string };
       setMessages((prev) => updateLast(prev, (m) => ({ ...m, steps: [...(m.steps ?? []), { name, status: "running" }] })));

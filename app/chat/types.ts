@@ -168,6 +168,7 @@ export interface Message {
   sources?: Source[];
   steps?: Step[];
   history?: HistoryData;
+  order?: OrderView;
   proposals?: MessageProposals;
 }
 

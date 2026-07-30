@@ -79,6 +79,15 @@ export function TxnRow({ t }: { t: TransactionView }) {
   );
 }
 
+export function OrderCard({ order }: { order: OrderView }) {
+  return (
+    <div data-testid="order-card" className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+      <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Order</p>
+      <OrderRow o={order} />
+    </div>
+  );
+}
+
 export function HistoryCard({ history }: { history: HistoryData }) {
   return (
     <div data-testid="history-card" className="mt-3 space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">

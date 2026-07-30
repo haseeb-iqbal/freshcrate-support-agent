@@ -73,4 +73,13 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("# Confirmation outcomes");
     expect(prompt).toContain("already confirmed");
   });
+
+  it("permits re-proposing an action the customer previously declined", () => {
+    // The bug: after a customer declined (or moved past) a dietary-track switch,
+    // the model invented a "declined means can't request again" rule and refused
+    // to propose a different track. Declining is "not now", not "never".
+    const outcomes = prompt.slice(prompt.indexOf("# Confirmation outcomes"), prompt.indexOf("# Refunds"));
+    expect(outcomes.toLowerCase()).toContain("declined");
+    expect(outcomes.toLowerCase()).toContain("propose it again");
+  });
 });

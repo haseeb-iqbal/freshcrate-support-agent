@@ -39,7 +39,9 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
   const registry = deps.toolByName ?? realToolByName;
   const definitions = deps.toolDefinitions ?? realToolDefinitions;
 
-  const base = buildSystemPrompt();
+  // One timestamp for the whole turn, so tools can't disagree about the date.
+  const turnNow = now();
+  const base = buildSystemPrompt(turnNow);
   const system = customerLabel ? `${base}\n\nSigned-in customer: ${customerLabel}.` : base;
   const messages: AgentMessage[] = buildAgentMessages(system, history, decisions);
 
@@ -49,8 +51,6 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
   // "looked up the order, then described a refund" turn escape the nudge.
   let actionToolCallsMade = 0;
   const state: DispatchState = { shownProposals: new Set() };
-  // One timestamp for the whole turn, so tools can't disagree about the date.
-  const turnNow = now();
 
   for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
     let text = "";

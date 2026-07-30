@@ -3,7 +3,12 @@ import { buildSystemPrompt } from "./prompt";
 import { RULES } from "@/lib/domain/terms";
 
 describe("buildSystemPrompt", () => {
-  const prompt = buildSystemPrompt();
+  const prompt = buildSystemPrompt(new Date("2026-07-25T00:00:00"));
+
+  it("tells the model today's date so it can resolve relative dates", () => {
+    expect(prompt).toContain("# Today");
+    expect(prompt).toContain("25th July 2026");
+  });
 
   it("embeds the canonical scoping, refund-ceiling, and injection rules verbatim", () => {
     expect(prompt).toContain(RULES.scope);

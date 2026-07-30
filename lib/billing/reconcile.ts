@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "../../db";
 import { customers, subscriptionEvents, transactions, plans } from "../../db/schema";
-import { PAUSE_FEE_CENTS, resumeChargeCents, weeksUntilDate } from "./pricing";
+import { PAUSE_FEE_CENTS, weeklyValueCents, weeksUntilDate } from "./pricing";
 
 /** A monthly billing cycle is treated as 4 weeks for pause-fee purposes. */
 const WEEKS_PER_PERIOD = 4;
@@ -17,6 +17,7 @@ export interface ReconInput {
   pauseResumeDate: string | null; // ISO; set iff finite-paused (null = indefinite/active/cancelled)
   weeklyCents: number;
   monthlyCents: number;
+  billingAdjustmentCents: number;
 }
 
 export interface ReconTxn {
@@ -37,6 +38,7 @@ export interface ReconResult {
   pauseResumeDate: string | null;
   transactions: ReconTxn[];
   events: ReconEvent[];
+  billingAdjustmentCents: number;
   changed: boolean;
 }
 
@@ -72,6 +74,7 @@ export function computeReconciliation(input: ReconInput, now: Date): ReconResult
   let status = input.status;
   let billingDate = input.billingDate;
   let pauseResumeDate = input.pauseResumeDate;
+  let billingAdjustment = input.billingAdjustmentCents;
   const transactions: ReconTxn[] = [];
   const events: ReconEvent[] = [];
   const nowMs = now.getTime();
@@ -95,16 +98,16 @@ export function computeReconciliation(input: ReconInput, now: Date): ReconResult
 
     if (ev === "resume") {
       const weeks = weeksUntilDate(billingDate, parse(pauseResumeDate!));
-      const charge = resumeChargeCents(input.weeklyCents, weeks);
-      if (charge > 0) {
-        transactions.push({ type: "resume_charge", amountCents: charge, description: "Auto-resume charge (pause ended)", date: pauseResumeDate! });
-      }
+      billingAdjustment += weeklyValueCents(input.weeklyCents, weeks);
       events.push({ eventType: "resumed", date: pauseResumeDate! });
       status = "active";
       pauseResumeDate = null;
     } else {
       if (status === "active") {
-        transactions.push({ type: "monthly_billing", amountCents: input.monthlyCents, description: "Monthly billing", date: billingDate });
+        const amount = Math.max(0, input.monthlyCents + billingAdjustment);
+        const note = billingAdjustment !== 0 ? ` (incl. ${billingAdjustment < 0 ? "-" : "+"}$${Math.abs(billingAdjustment) / 100} adjustment)` : "";
+        transactions.push({ type: "monthly_billing", amountCents: amount, description: `Monthly billing${note}`, date: billingDate });
+        billingAdjustment = 0;
       } else if (status === "paused") {
         // $8 for each week actually paused in this period — a full 4 weeks for an
         // indefinite pause, fewer when a finite pause ends part-way through.
@@ -124,8 +127,14 @@ export function computeReconciliation(input: ReconInput, now: Date): ReconResult
     }
   }
 
-  const changed = transactions.length > 0 || events.length > 0 || billingDate !== input.billingDate || status !== input.status || pauseResumeDate !== input.pauseResumeDate;
-  return { status, billingDate, pauseResumeDate, transactions, events, changed };
+  const changed =
+    transactions.length > 0 ||
+    events.length > 0 ||
+    billingDate !== input.billingDate ||
+    status !== input.status ||
+    pauseResumeDate !== input.pauseResumeDate ||
+    billingAdjustment !== input.billingAdjustmentCents;
+  return { status, billingDate, pauseResumeDate, transactions, events, billingAdjustmentCents: billingAdjustment, changed };
 }
 
 /**
@@ -149,6 +158,7 @@ export async function reconcile(customerId: string, now: Date): Promise<void> {
         pauseResumeDate: c.pauseResumeDate,
         weeklyCents: plan.weeklyCents,
         monthlyCents: plan.monthlyCents,
+        billingAdjustmentCents: c.billingAdjustmentCents,
       },
       now,
     );
@@ -164,7 +174,13 @@ export async function reconcile(customerId: string, now: Date): Promise<void> {
     }
     await tx
       .update(customers)
-      .set({ subscriptionStatus: result.status, billingDate: result.billingDate, pauseResumeDate: result.pauseResumeDate, lastReconciledAt: now })
+      .set({
+        subscriptionStatus: result.status,
+        billingDate: result.billingDate,
+        pauseResumeDate: result.pauseResumeDate,
+        billingAdjustmentCents: result.billingAdjustmentCents,
+        lastReconciledAt: now,
+      })
       .where(eq(customers.id, customerId));
   });
 }

@@ -25,6 +25,7 @@ export const customers = pgTable("customers", {
   billingDate: date("billing_date"), // next monthly billing date
   pauseResumeDate: date("pause_resume_date"), // set iff FINITE-paused; drives auto-resume (null = indefinite/active/cancelled)
   lastReconciledAt: timestamp("last_reconciled_at", { withTimezone: true }), // watermark: state is current as of this instant
+  billingAdjustmentCents: integer("billing_adjustment_cents").notNull().default(0), // one-time +/- applied to the next monthly bill (deferred pause credit / resume charge)
 });
 
 // --- orders ------------------------------------------------------------------

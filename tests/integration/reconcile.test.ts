@@ -45,13 +45,18 @@ describe("reconcile (integration, seeded DB)", () => {
     expect((await txnTypes(ACTIVE)).length).toBe(before);
   });
 
-  it("auto-resumes a finite pause and records the resume charge", async () => {
+  it("auto-resumes a finite pause by deferring the charge onto the next monthly bill", async () => {
     await reconcile(PAUSED, new Date("2026-03-01T00:00:00"));
     const [c] = await db.select().from(customers).where(eq(customers.id, PAUSED));
     expect(c.subscriptionStatus).toBe("active");
     expect(c.pauseResumeDate).toBeNull();
-    const rows = await db.select().from(transactions).where(and(eq(transactions.customerId, PAUSED), eq(transactions.type, "resume_charge")));
-    expect(rows).toHaveLength(1);
-    expect(rows[0].amountCents).toBe(4400); // 2 weeks to billing × ($30 − $8)
+    // No resume_charge row - the resume adds to billing_adjustment_cents instead.
+    const resumeRows = await db.select().from(transactions).where(and(eq(transactions.customerId, PAUSED), eq(transactions.type, "resume_charge")));
+    expect(resumeRows).toHaveLength(0);
+    // 2 weeks to billing x $30 = $60, added to the 2026-02-20 monthly bill: 12000 + 6000 = 18000.
+    const billRows = await db.select().from(transactions).where(and(eq(transactions.customerId, PAUSED), eq(transactions.type, "monthly_billing")));
+    expect(billRows).toHaveLength(1);
+    expect(billRows[0].amountCents).toBe(18000);
+    expect(c.billingAdjustmentCents).toBe(0);
   });
 });

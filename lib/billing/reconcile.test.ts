@@ -7,6 +7,7 @@ const base: ReconInput = {
   pauseResumeDate: null,
   weeklyCents: 3000,
   monthlyCents: 12000,
+  billingAdjustmentCents: 0,
 };
 const at = (iso: string) => new Date(`${iso}T00:00:00`);
 const typesOf = (r: { transactions: { type: string }[] }) => r.transactions.map((t) => t.type);
@@ -33,17 +34,52 @@ describe("computeReconciliation", () => {
     expect(r.billingDate).toBe("2026-09-10");
   });
 
-  it("auto-resumes a finite pause once its resume date passes, charging the resume fee", () => {
+  it("auto-resumes a finite pause by crediting the adjustment, not posting a charge", () => {
+    // now is after the billing date, so both the auto-resume and the following
+    // monthly billing come due in this one catch-up pass.
     const r = computeReconciliation(
       { ...base, status: "paused", pauseResumeDate: "2026-08-25", billingDate: "2026-09-20" },
-      at("2026-09-01"),
+      at("2026-09-21"),
     );
     expect(r.status).toBe("active");
     expect(r.pauseResumeDate).toBeNull();
-    expect(typesOf(r)).toEqual(["resume_charge"]);
-    // weeks to billing on 2026-08-25 from 2026-09-20 = 3 → 3 × ($30 − $8) = $66.
-    expect(r.transactions[0].amountCents).toBe(6600);
+    // No resume_charge transaction; the resume adds weeks-to-billing x weekly to the adjustment.
+    expect(typesOf(r)).not.toContain("resume_charge");
+    // weeks to billing on 2026-08-25 from 2026-09-20 = 3 -> 3 x $30 = $90.
+    // Then billing 2026-09-20 <= now: monthly + adjustment = 12000 + 9000 = 21000, adjustment cleared.
+    expect(typesOf(r)).toEqual(["monthly_billing"]);
+    expect(r.transactions[0].amountCents).toBe(21000);
+    expect(r.billingAdjustmentCents).toBe(0);
     expect(r.events.map((e) => e.eventType)).toContain("resumed");
+  });
+
+  it("applies a stored credit to the next monthly bill and clears it", () => {
+    const r = computeReconciliation(
+      { ...base, billingDate: "2026-08-20", billingAdjustmentCents: -6000 },
+      at("2026-09-01"),
+    );
+    expect(typesOf(r)).toEqual(["monthly_billing"]);
+    expect(r.transactions[0].amountCents).toBe(6000); // 12000 - 6000
+    expect(r.billingAdjustmentCents).toBe(0);
+  });
+
+  it("clamps a bill to zero when the credit exceeds one month, carrying no residual", () => {
+    const r = computeReconciliation(
+      { ...base, billingDate: "2026-08-20", billingAdjustmentCents: -20000 },
+      at("2026-09-01"),
+    );
+    expect(r.transactions[0].amountCents).toBe(0);
+    expect(r.billingAdjustmentCents).toBe(0);
+  });
+
+  it("applies the adjustment only to the first billing when several are due", () => {
+    const r = computeReconciliation(
+      { ...base, billingDate: "2026-07-15", billingAdjustmentCents: -3000 },
+      at("2026-09-16"),
+    );
+    // Three crossings: first is 12000-3000=9000, the rest full 12000.
+    expect(r.transactions.map((t) => t.amountCents)).toEqual([9000, 12000, 12000]);
+    expect(r.billingAdjustmentCents).toBe(0);
   });
 
   it("charges the monthly pause fee for an indefinite pause and stays paused", () => {
@@ -90,10 +126,12 @@ describe("computeReconciliation", () => {
       at("2026-09-25"),
     );
     expect(r.status).toBe("active");
-    // resume on 08-10 (1 week to 08-20 billing → $22), then two monthly bills (08-20, 09-20).
-    expect(typesOf(r)).toEqual(["resume_charge", "monthly_billing", "monthly_billing"]);
-    expect(r.transactions[0].amountCents).toBe(2200);
+    // resume on 08-10 (1 week to 08-20 billing -> $30 added to the adjustment),
+    // then two monthly bills: 08-20 (12000 + 3000 adjustment = 15000), 09-20 (12000).
+    expect(typesOf(r)).toEqual(["monthly_billing", "monthly_billing"]);
+    expect(r.transactions.map((t) => t.amountCents)).toEqual([15000, 12000]);
     expect(r.billingDate).toBe("2026-10-20");
+    expect(r.billingAdjustmentCents).toBe(0);
   });
 
   it("is idempotent: re-running on its own result changes nothing", () => {

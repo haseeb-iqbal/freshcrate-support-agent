@@ -70,7 +70,8 @@ export interface PauseProposal {
   indefinite: boolean;
   weeks: number | null;
   resume_date: string | null;
-  reimbursement_cents: number;
+  adjustment_cents: number;
+  net_credit_cents: number;
   weekly_fee_cents: number;
   weeks_to_billing: number;
   /** Already paused, so the up-front credit was spent on this billing period. */
@@ -82,8 +83,9 @@ export interface ResumeProposal {
   previous_plan?: string | null;
   plan_changed: boolean;
   weekly_cents: number;
-  weekly_fee_cents: number;
+  monthly_cents: number;
   charge_cents: number;
+  next_bill_cents: number;
   weeks_to_billing: number;
   billing_date?: string | null;
 }

@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { customers, subscriptionEvents, transactions } from "@/db/schema";
+import { customers, subscriptionEvents } from "@/db/schema";
 import { getPlan } from "@/lib/billing/plans";
 import { quotePause } from "@/lib/billing/quotes";
 import type { SubStatus } from "@/lib/billing/reconcile";
@@ -15,10 +15,10 @@ interface PauseBody extends ActionBody {
   indefinite?: boolean;
 }
 
-/** Applies a subscription pause — called by the pause confirmation prompt's
- *  Confirm button, never the model. Re-quotes the reimbursement server-side and
- *  logs the status change + the pause credit. A cancelled subscription can't be
- *  paused. */
+/** Applies a subscription pause - called by the pause confirmation prompt's
+ *  Confirm button, never the model. Re-quotes the adjustment server-side and
+ *  logs the status change + the deferred credit. A cancelled subscription can't
+ *  be paused. */
 export const POST = actionRoute<PauseBody>(async ({ body, customer, now }) => {
   const indefinite = body.indefinite === true;
   const weeks = indefinite ? null : Math.floor(Number(body.weeks));
@@ -30,7 +30,7 @@ export const POST = actionRoute<PauseBody>(async ({ body, customer, now }) => {
   }
 
   // The same quote the pause card was built from, recomputed here rather than
-  // trusted from the client. `reimbursement_cents` is already zero when the
+  // trusted from the client. `adjustment_cents` is already zero when the
   // subscription was paused before this call.
   const quote = quotePause({
     status: customer.subscriptionStatus as SubStatus,
@@ -41,26 +41,29 @@ export const POST = actionRoute<PauseBody>(async ({ body, customer, now }) => {
     resumeDate: body.resumeDate?.match(/^\d{4}-\d{2}-\d{2}$/) ? body.resumeDate : null,
     now,
   });
-  const credit = quote.reimbursement_cents;
+  const adjustment = quote.adjustment_cents; // full remaining cycle; 0 if already paused
 
   await db
     .update(customers)
-    .set({ subscriptionStatus: "paused", pauseResumeDate: quote.resume_date, lastReconciledAt: now })
+    .set({
+      subscriptionStatus: "paused",
+      pauseResumeDate: quote.resume_date,
+      billingAdjustmentCents: customer.billingAdjustmentCents - adjustment,
+      lastReconciledAt: now,
+    })
     .where(eq(customers.id, customer.id));
   await db.insert(subscriptionEvents).values({
     customerId: customer.id,
     eventType: "paused",
-    metadata: { weeks, resumeDate: quote.resume_date, indefinite, reimbursementCents: credit },
+    metadata: { weeks, resumeDate: quote.resume_date, indefinite, adjustmentCents: adjustment },
   });
-  // Credit the reimbursement (negative amount = money back to the customer).
-  if (credit > 0) {
-    await db.insert(transactions).values({
-      customerId: customer.id,
-      type: "pause_credit",
-      amountCents: -credit,
-      description: indefinite ? "Pause credit (indefinite)" : `Pause credit (${weeks} week${weeks === 1 ? "" : "s"})`,
-    });
-  }
 
-  return Response.json({ ok: true, weeks, indefinite, resume_date: quote.resume_date, reimbursement_cents: credit });
+  return Response.json({
+    ok: true,
+    weeks,
+    indefinite,
+    resume_date: quote.resume_date,
+    net_credit_cents: quote.net_credit_cents,
+    adjustment_cents: adjustment,
+  });
 });

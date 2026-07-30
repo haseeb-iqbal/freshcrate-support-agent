@@ -9,37 +9,39 @@ const PLAN_2: PlanRate = { plan: "2 meals/week", mealsPerWeek: 2, weeklyCents: 3
 const PLAN_3: PlanRate = { plan: "3 meals/week", mealsPerWeek: 3, weeklyCents: 4200, monthlyCents: 16800 };
 const PLAN_4: PlanRate = { plan: "4 meals/week", mealsPerWeek: 4, weeklyCents: 5200, monthlyCents: 20800 };
 
-describe("quotePause", () => {
+describe("quotePause (deferred)", () => {
   const base = { billingDate: BILLING, plan: PLAN_2, now: TODAY } as const;
 
-  it("credits the weeks it actually covers before billing, net of the fee", () => {
-    // min(2 pause weeks, 4 weeks to billing) x ($30 - $8) = $44.
-    const q = quotePause({ ...base, status: "active", indefinite: false, weeks: 2 });
-    expect(q.reimbursement_cents).toBe(4400);
+  it("credits the whole remaining cycle to the next bill", () => {
+    const q = quotePause({ ...base, status: "active", indefinite: true, weeks: null });
+    expect(q.adjustment_cents).toBe(12000); // 4 weeks x $30
+    expect(q.net_credit_cents).toBe(12000); // indefinite: whole cycle
     expect(q.weeks_to_billing).toBe(4);
     expect(q.weekly_fee_cents).toBe(800);
-  });
-
-  it("credits every week to billing for an indefinite pause and stores no resume date", () => {
-    // 4 weeks to billing x $22 = $88.
-    const q = quotePause({ ...base, status: "active", indefinite: true, weeks: null });
-    expect(q.reimbursement_cents).toBe(8800);
     expect(q.resume_date).toBeNull();
     expect(q.weeks).toBeNull();
   });
 
-  it("caps the credit at the weeks left to billing, not the pause length", () => {
-    // Pause 10 weeks but only 4 until billing → min(10, 4) x $22 = $88.
-    const q = quotePause({ ...base, status: "active", indefinite: false, weeks: 10 });
-    expect(q.reimbursement_cents).toBe(8800);
+  it("shows a finite pause's net as the weeks actually skipped", () => {
+    const q = quotePause({ ...base, status: "active", indefinite: false, weeks: 2 });
+    expect(q.adjustment_cents).toBe(12000); // still the whole cycle (round-trip)
+    expect(q.net_credit_cents).toBe(6000); // min(2, 4) x $30
   });
 
-  it("credits nothing when the subscription is ALREADY paused", () => {
-    // The up-front credit pays back the current billing period's paid weeks.
+  it("caps the net credit at the weeks left to billing, not the pause length", () => {
+    // Pause 10 weeks but only 4 until billing -> min(10, 4) x $30 = $120.
+    const q = quotePause({ ...base, status: "active", indefinite: false, weeks: 10 });
+    expect(q.adjustment_cents).toBe(12000);
+    expect(q.net_credit_cents).toBe(12000);
+  });
+
+  it("credits nothing when the subscription was already paused", () => {
+    // The stored adjustment pays back the current billing period's paid weeks.
     // Extending or replaying a pause must not buy those weeks back again - the
     // write endpoint has always enforced this, and the proposal now agrees.
-    const q = quotePause({ ...base, status: "paused", indefinite: false, weeks: 2 });
-    expect(q.reimbursement_cents).toBe(0);
+    const q = quotePause({ ...base, status: "paused", indefinite: true, weeks: null });
+    expect(q.adjustment_cents).toBe(0);
+    expect(q.net_credit_cents).toBe(0);
     expect(q.already_paused).toBe(true);
   });
 
@@ -55,25 +57,28 @@ describe("quotePause", () => {
 
   it("credits nothing when the plan rate is unknown", () => {
     const q = quotePause({ ...base, plan: null, status: "active", indefinite: false, weeks: 2 });
-    expect(q.reimbursement_cents).toBe(0);
+    expect(q.adjustment_cents).toBe(0);
+    expect(q.net_credit_cents).toBe(0);
   });
 });
 
-describe("quoteResume", () => {
+describe("quoteResume (deferred)", () => {
   const base = { currentPlan: "2 meals/week", billingDate: BILLING, now: TODAY } as const;
 
-  it("charges the weeks left to billing net of the pause fee", () => {
-    // 4 weeks x ($30 - $8) = $88.
+  it("charges the remaining weeks to billing at the full weekly rate, onto the next bill", () => {
     const q = quoteResume({ ...base, plan: PLAN_2 });
-    expect(q.charge_cents).toBe(8800);
+    expect(q.charge_cents).toBe(12000); // 4 x $30
+    expect(q.monthly_cents).toBe(12000);
+    expect(q.next_bill_cents).toBe(24000); // monthly + charge
     expect(q.plan_changed).toBe(false);
   });
 
-  it("charges the NEW plan's weekly rate when switching while resuming", () => {
-    // 4 weeks x ($42 - $8) = $136.
+  it("charges at the new plan's weekly rate when switching on resume", () => {
+    // 4 weeks x $42 = $168.
     const q = quoteResume({ ...base, plan: PLAN_3, requestedPlan: "3 meals/week" });
-    expect(q.charge_cents).toBe(13600);
     expect(q.plan_changed).toBe(true);
+    expect(q.charge_cents).toBe(16800);
+    expect(q.next_bill_cents).toBe(33600);
     expect(q.previous_plan).toBe("2 meals/week");
   });
 
@@ -85,10 +90,6 @@ describe("quoteResume", () => {
   it("charges nothing when billing is due within the week", () => {
     const q = quoteResume({ ...base, billingDate: "2026-07-24", plan: PLAN_2 });
     expect(q.charge_cents).toBe(0);
-  });
-
-  it("carries the pause fee so the card need not hard-code it", () => {
-    expect(quoteResume({ ...base, plan: PLAN_2 }).weekly_fee_cents).toBe(800);
   });
 });
 

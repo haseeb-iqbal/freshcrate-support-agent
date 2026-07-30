@@ -130,9 +130,9 @@ export function PauseCard({
   onDecline: () => void;
 }) {
   const resume = formatLongDate(proposal.resume_date);
-  const credit = money(proposal.reimbursement_cents);
+  const credit = money(proposal.net_credit_cents);
   const fee = money(proposal.weekly_fee_cents);
-  const hasCredit = proposal.reimbursement_cents > 0;
+  const hasCredit = proposal.net_credit_cents > 0;
   return (
     <div data-testid="pause-card" className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-3">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-700">Pause request</p>
@@ -148,13 +148,11 @@ export function PauseCard({
       )}
       <p className="mt-1 text-xs text-slate-500">
         {hasCredit ? (
-          <>You&apos;ll be credited <span className="font-medium text-emerald-600">{credit}</span> now for the weeks skipped before billing, </>
-        ) : proposal.already_paused ? (
-          <>Your subscription is already paused, so this cycle&apos;s credit has been paid, </>
+          <>Your <span className="font-medium">next bill drops by about {credit}</span> for the weeks you skip. </>
         ) : (
-          <>No credit is due this cycle (billing is due within the week), </>
+          <>No credit is due this cycle (billing is within the week). </>
         )}
-        after the <span className="font-medium">{fee}/week</span> pause fee — then {fee}/week is billed each billing date while you stay paused.
+        If you stay paused past a billing date, {fee}/week applies while paused.
       </p>
 
       <PromptActions
@@ -166,7 +164,7 @@ export function PauseCard({
       />
       {state === "approved" && (
         <p className="mt-2 text-xs font-medium text-emerald-700">
-          ✓ Paused{proposal.indefinite ? " indefinitely" : ` — resumes ${resume}`}{hasCredit ? ` (${credit} credited)` : ""}.
+          ✓ Paused{proposal.indefinite ? " indefinitely" : ` — resumes ${resume}`}{hasCredit ? ` (next bill drops ~${credit})` : ""}.
         </p>
       )}
       {state === "declined" && <p className="mt-2 text-xs font-medium text-slate-500">No problem — your subscription is unchanged.</p>}
@@ -189,8 +187,8 @@ export function ResumeCard({
   onDecline: () => void;
 }) {
   const charge = money(proposal.charge_cents);
+  const nextBill = money(proposal.next_bill_cents);
   const hasCharge = proposal.charge_cents > 0;
-  const fee = money(proposal.weekly_fee_cents);
   return (
     <div data-testid="resume-card" className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-3">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-700">Resume request</p>
@@ -200,22 +198,22 @@ export function ResumeCard({
       <p className="mt-1 text-sm text-slate-800">
         Resume your <span className="font-semibold">{proposal.plan}</span> plan? It restarts from next week
         {hasCharge ? (
-          <> — you&apos;ll be charged <span className="font-semibold">{charge}</span> for the weeks left until billing (net of the {fee}/week pause fee).</>
+          <> — the weeks left until billing (<span className="font-semibold">{charge}</span>) are added to your next bill, making it about <span className="font-semibold">{nextBill}</span>.</>
         ) : (
-          <> at no charge this cycle (billing is due within the week).</>
+          <> at no extra charge this cycle (billing is due within the week).</>
         )}
       </p>
 
       <PromptActions
         state={state}
-        confirmLabel={hasCharge ? `Pay ${charge} & resume` : "Resume"}
+        confirmLabel="Resume"
         declineLabel="Not now"
         onConfirm={onConfirm}
         onDecline={onDecline}
       />
       {state === "approved" && (
         <p className="mt-2 text-xs font-medium text-emerald-700">
-          ✓ Resumed on {proposal.plan}{hasCharge ? ` — ${charge} charged` : ""}.
+          ✓ Resumed on {proposal.plan}{hasCharge ? ` — next bill ~${nextBill}` : ""}.
         </p>
       )}
       {state === "declined" && <p className="mt-2 text-xs font-medium text-slate-500">No problem — your subscription stays paused.</p>}

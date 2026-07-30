@@ -25,40 +25,43 @@ describe("POST /api/actions/pause", () => {
     expect((await postJson(POST, { customerId: ID, weeks: 0 })).status).toBe(400);
     expect((await postJson(POST, { customerId: ID, weeks: 53 })).status).toBe(400);
     expect(await txnsOf(ID)).toEqual([]);
+    expect((await customerOf(ID)).billingAdjustmentCents).toBe(0); // nothing deferred on a rejected call
   });
 
-  it("pauses for a finite term, credits the skipped weeks net of the fee, and sets the resume date", async () => {
+  it("pauses for a finite term, defers the credit to the next bill, and sets the resume date", async () => {
     await createTestCustomer({ id: ID, billingDate: BILLING });
     const res = await postJson(POST, { customerId: ID, weeks: 2 });
 
     expect(res.status).toBe(200);
-    // min(2 pause weeks, 4 weeks to billing) x ($30 - $8) = $44.
-    expect(await res.json()).toMatchObject({ ok: true, weeks: 2, reimbursement_cents: 4400, resume_date: "2026-08-03" });
+    // stored adjustment = whole cycle (4 x $30 = $120); display net = 2 skipped weeks x $30 = $60.
+    expect(await res.json()).toMatchObject({ ok: true, weeks: 2, adjustment_cents: 12000, net_credit_cents: 6000, resume_date: "2026-08-03" });
 
     const c = await customerOf(ID);
     expect(c.subscriptionStatus).toBe("paused");
     expect(c.pauseResumeDate).toBe("2026-08-03");
-    expect(await txnsOf(ID)).toEqual([{ type: "pause_credit", amountCents: -4400 }]);
+    expect(c.billingAdjustmentCents).toBe(-12000);
+    expect(await txnsOf(ID)).toEqual([]); // deferred, not an immediate transaction
     expect(await eventsOf(ID)).toEqual(["paused"]);
   });
 
-  it("credits every week to billing for an indefinite pause and stores no resume date", async () => {
+  it("defers the whole cycle for an indefinite pause and stores no resume date", async () => {
     await createTestCustomer({ id: ID, billingDate: BILLING });
     const res = await postJson(POST, { customerId: ID, indefinite: true });
 
-    // 4 weeks to billing x ($30 - $8) = $88.
-    expect(await res.json()).toMatchObject({ indefinite: true, reimbursement_cents: 8800, resume_date: null });
-    expect((await customerOf(ID)).pauseResumeDate).toBeNull();
-    expect(await txnsOf(ID)).toEqual([{ type: "pause_credit", amountCents: -8800 }]);
+    expect(await res.json()).toMatchObject({ indefinite: true, adjustment_cents: 12000, net_credit_cents: 12000, resume_date: null });
+    const c = await customerOf(ID);
+    expect(c.pauseResumeDate).toBeNull();
+    expect(c.billingAdjustmentCents).toBe(-12000);
+    expect(await txnsOf(ID)).toEqual([]);
   });
 
-  it("credits at most once: a replayed confirmation does not double-credit", async () => {
+  it("credits at most once: a replayed confirmation does not double-defer", async () => {
     await createTestCustomer({ id: ID, billingDate: BILLING });
     await postJson(POST, { customerId: ID, weeks: 2 });
     const second = await postJson(POST, { customerId: ID, weeks: 2 });
 
     expect(second.status).toBe(200);
-    expect(await txnsOf(ID)).toEqual([{ type: "pause_credit", amountCents: -4400 }]);
+    expect((await customerOf(ID)).billingAdjustmentCents).toBe(-12000); // not doubled
   });
 
   it("lets an already-paused customer extend the pause without a second credit", async () => {
@@ -68,8 +71,7 @@ describe("POST /api/actions/pause", () => {
 
     expect(extend.status).toBe(200);
     expect((await customerOf(ID)).pauseResumeDate).toBe("2026-08-17");
-    expect(await txnsOf(ID)).toHaveLength(1);
-    // The extension is still a real customer action, so it is still audited.
+    expect((await customerOf(ID)).billingAdjustmentCents).toBe(-12000); // unchanged by the extension
     expect(await eventsOf(ID)).toEqual(["paused", "paused"]);
   });
 

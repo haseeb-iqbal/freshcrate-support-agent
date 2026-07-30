@@ -108,18 +108,18 @@ export const pauseSubscription: Tool = {
       resumeDate,
       now: ctx.now,
     });
-    const credit = money(proposal.reimbursement_cents);
+    const credit = money(proposal.net_credit_cents);
 
     return {
       ok: true,
       summary: indefinite
-        ? `Proposed indefinite pause (${credit} credit now, then ${PAUSE_FEE_PER_WEEK} billed monthly)`
-        : `Proposed ${weeks}-week pause (resumes ${proposal.resume_date}, ${credit} credit now, then ${PAUSE_FEE_PER_WEEK} billed monthly)`,
+        ? `Proposed indefinite pause (next bill drops ~${credit}, then ${PAUSE_FEE_PER_WEEK} billed monthly)`
+        : `Proposed ${weeks}-week pause (resumes ${proposal.resume_date}, next bill drops ~${credit})`,
       data: {
         status: "needs_confirmation",
         proposal,
         message:
-          `A confirmation prompt is shown with the credit the customer receives now and the ${PAUSE_FEE_PER_WEEK} pause fee, which is billed at each billing date for as long as the pause runs (finite or indefinite); the plan pauses from next week (this week's box still ships), and they can resume early at any time. Briefly relay it and ask them to confirm. Do NOT say it's paused until they confirm.${proposal.already_paused ? " NOTE: this subscription is already paused, so no new credit is due — do not tell them they will be credited." : ""}`,
+          `A confirmation prompt is shown. Nothing is charged or credited now: the customer's NEXT monthly bill is reduced by about ${credit} for the weeks they skip, and while they stay paused past a billing date the ${PAUSE_FEE_PER_WEEK} pause fee applies. The plan pauses from next week (this week's box still ships) and they can resume early. Briefly relay it and ask them to confirm. Do NOT say it's paused until they confirm.${proposal.already_paused ? " NOTE: already paused, so no new credit is due - do not promise one." : ""}`,
       },
     };
   },
@@ -167,17 +167,18 @@ export const resumeSubscription: Tool = {
       now: ctx.now,
     });
     const charge = money(proposal.charge_cents);
+    const nextBill = money(proposal.next_bill_cents);
 
     return {
       ok: true,
       summary: proposal.plan_changed
-        ? `Proposed resume on ${proposal.plan} — charge ${charge}`
-        : `Proposed resume — charge ${charge}`,
+        ? `Proposed resume on ${proposal.plan} - next bill ${nextBill}`
+        : `Proposed resume - next bill ${nextBill}`,
       data: {
         status: "needs_confirmation",
         proposal,
         message:
-          `A confirmation prompt shows the resume charge (weeks left to billing at the plan's weekly rate, net of the ${PAUSE_FEE_PER_WEEK} pause fee) and any plan switch; the plan resumes from next week. Ask them to confirm; do NOT say it's resumed until they confirm.`,
+          `A confirmation prompt shows the resume. Nothing is charged now: the weeks left until billing (${charge} at the plan's weekly rate) are ADDED to the customer's next monthly bill, making it about ${nextBill}. The plan resumes from next week. Ask them to confirm; do NOT say it's resumed until they confirm.`,
       },
     };
   },

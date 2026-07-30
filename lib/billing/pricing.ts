@@ -20,24 +20,14 @@ export function weeklySavingsCents(mealsPerWeek: number, planWeeklyCents: number
 }
 
 /**
- * Credit given when a subscription is paused: for each week skipped before the
- * next billing date, the customer gets their plan's weekly value back minus the
- * $8/week pause fee. A finite pause only counts the weeks it actually covers
- * before billing (`min(pauseWeeks, weeksToBilling)`); an indefinite pause
- * (`pauseWeeks === null`) counts every week to billing.
+ * Plan value of a run of weeks at the given weekly rate - the basis of the
+ * deferred pause credit and resume charge. Full weekly rate, NO fee netting:
+ * the $8/week pause fee is applied separately, only while actually paused across
+ * a billing date (see reconcile). Pass the resulting plan's weekly rate when the
+ * customer switches plan while resuming.
  */
-export function pauseReimbursementCents(weeklyCents: number, pauseWeeks: number | null, weeksToBilling: number): number {
-  const weeks = pauseWeeks === null ? weeksToBilling : Math.min(pauseWeeks, weeksToBilling);
-  return Math.max(0, weeks) * (weeklyCents - PAUSE_FEE_CENTS);
-}
-
-/**
- * Charge applied when a paused subscription resumes: the weeks remaining until
- * billing at the given weekly rate, net of the $8/week pause fee. Pass the NEW
- * plan's weekly rate when the customer switches plan while resuming.
- */
-export function resumeChargeCents(weeklyCents: number, weeksToBilling: number): number {
-  return Math.max(0, weeksToBilling) * (weeklyCents - PAUSE_FEE_CENTS);
+export function weeklyValueCents(weeklyCents: number, weeks: number): number {
+  return Math.max(0, weeks) * weeklyCents;
 }
 
 /** Local midnight of the given instant. */

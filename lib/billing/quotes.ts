@@ -1,9 +1,8 @@
 import {
   PAUSE_FEE_CENTS,
   SIGNUP_FEE_CENTS,
-  pauseReimbursementCents,
   prorationCents,
-  resumeChargeCents,
+  weeklyValueCents,
   weeklySavingsCents,
   weeksUntilDate,
   withinBillingPeriod,
@@ -42,7 +41,13 @@ export interface PauseQuote {
   indefinite: boolean;
   weeks: number | null;
   resume_date: string | null;
-  reimbursement_cents: number;
+  /** Applied to billing_adjustment_cents now: the whole remaining cycle at the
+   *  weekly rate. Zero when the subscription was already paused. Keeping this the
+   *  full cycle (not the pause length) is what makes pause+resume net to zero. */
+  adjustment_cents: number;
+  /** What the customer nets on their next bill once this pause runs as scheduled
+   *  (finite: weeks actually skipped; indefinite: whole cycle). Display only. */
+  net_credit_cents: number;
   weekly_fee_cents: number;
   weeks_to_billing: number;
   /**
@@ -67,14 +72,20 @@ export function quotePause(input: {
   const { status, billingDate, plan, indefinite, weeks, now } = input;
   const weeksToBilling = weeksUntilDate(billingDate, now);
   const alreadyPaused = status === "paused";
+  const weekly = plan?.weeklyCents ?? 0;
 
-  const earned = plan ? pauseReimbursementCents(plan.weeklyCents, indefinite ? null : weeks, weeksToBilling) : 0;
+  // Stored adjustment = the whole remaining cycle. Display net = the weeks the
+  // customer actually skips (finite pauses auto-resume and claw the rest back).
+  const adjustment = alreadyPaused ? 0 : weeklyValueCents(weekly, weeksToBilling);
+  const skipped = indefinite ? weeksToBilling : Math.min(weeks ?? 0, weeksToBilling);
+  const netCredit = alreadyPaused ? 0 : weeklyValueCents(weekly, skipped);
 
   return {
     indefinite,
     weeks: indefinite ? null : weeks,
     resume_date: indefinite ? null : (input.resumeDate ?? addWeeksIso(weeks ?? 0, now)),
-    reimbursement_cents: alreadyPaused ? 0 : earned,
+    adjustment_cents: adjustment,
+    net_credit_cents: netCredit,
     weekly_fee_cents: PAUSE_FEE_CENTS,
     weeks_to_billing: weeksToBilling,
     already_paused: alreadyPaused,
@@ -88,8 +99,12 @@ export interface ResumeQuote {
   previous_plan: string;
   plan_changed: boolean;
   weekly_cents: number;
-  weekly_fee_cents: number;
+  monthly_cents: number;
+  /** Added to billing_adjustment_cents now: the weeks left to billing at the
+   *  resulting plan's full weekly rate. */
   charge_cents: number;
+  /** monthly + charge, for the resume card. */
+  next_bill_cents: number;
   weeks_to_billing: number;
   billing_date: string | null;
 }
@@ -105,14 +120,16 @@ export function quoteResume(input: {
 }): ResumeQuote {
   const { currentPlan, billingDate, plan, requestedPlan, now } = input;
   const weeksToBilling = weeksUntilDate(billingDate, now);
+  const charge = weeklyValueCents(plan.weeklyCents, weeksToBilling);
 
   return {
     plan: plan.plan,
     previous_plan: currentPlan,
     plan_changed: !!requestedPlan && requestedPlan !== currentPlan,
     weekly_cents: plan.weeklyCents,
-    weekly_fee_cents: PAUSE_FEE_CENTS,
-    charge_cents: resumeChargeCents(plan.weeklyCents, weeksToBilling),
+    monthly_cents: plan.monthlyCents,
+    charge_cents: charge,
+    next_bill_cents: plan.monthlyCents + charge,
     weeks_to_billing: weeksToBilling,
     billing_date: billingDate,
   };

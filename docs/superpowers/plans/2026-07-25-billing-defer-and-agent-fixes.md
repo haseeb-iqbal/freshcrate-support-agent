@@ -1193,8 +1193,11 @@ In `lib/agent/nudge.test.ts`, add (follow the file's existing `shouldNudge` call
     expect(shouldNudge({ assistantText: text, actionToolCallCount: 0, alreadyNudged: false })).toBe(true);
   });
 
-  it("nudges 'let me go ahead and initiate that change' in a dietary context", () => {
-    const text = "Sure - switching you to the vegetarian menu. Let me go ahead and initiate that change.";
+  it("nudges 'let me go ahead and initiate that switch to the vegetarian menu'", () => {
+    // Marker and target in ONE sentence - claimsStateChange is per-sentence by
+    // design (avoids false positives from a marker and a target that merely
+    // co-occur in unrelated sentences).
+    const text = "Let me go ahead and initiate that switch to the vegetarian menu.";
     expect(shouldNudge({ assistantText: text, actionToolCallCount: 0, alreadyNudged: false })).toBe(true);
   });
 
@@ -1217,10 +1220,15 @@ Expected: FAIL on the first two.
 In `lib/agent/nudge.ts`, extend `CLAIM_MARKER` and `PROPOSE_MARKER`, and make `DIETARY_TRACK` order-independent. Replace those three constants:
 
 ```ts
+// New markers are FIRST-PERSON only. Bare second-person forms ("go ahead and",
+// "proceed to", "apply that") would fire on legitimate self-service guidance
+// ("you can go ahead and cancel from settings"), which must NOT nudge - that is
+// the "targeted, not blanket" constraint.
 const CLAIM_MARKER =
-  /\b(?:i've|i have|i'll|i will|i'm going to|i am going to|i can proceed|let me|let me go ahead|go ahead and|gone ahead|gone ahead and|i'll initiate|i will initiate|initiate that|process that|set that up|apply that|has been|have been|is now|are now|you're now|you are now)\b/i;
+  /\b(?:i've|i have|i'll|i will|i'm going to|i am going to|i can proceed|i'll initiate|i will initiate|let me|gone ahead|gone ahead and|has been|have been|is now|are now|you're now|you are now)\b/i;
 
-const PROPOSE_MARKER = /\b(?:propose|please confirm|proceed with|proceed to|go ahead with)\b/i;
+// Unchanged from the original - do NOT add "proceed to" (fires on "proceed to cancel your sub yourself").
+const PROPOSE_MARKER = /\b(?:propose|please confirm|proceed with|go ahead with)\b/i;
 
 /** Dietary-track switch: a track word and a diet noun in either order in one sentence. */
 const DIETARY_TRACK =

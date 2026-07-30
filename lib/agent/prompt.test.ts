@@ -87,4 +87,8 @@ describe("buildSystemPrompt", () => {
     expect(outcomes.toLowerCase()).toContain("declined");
     expect(outcomes.toLowerCase()).toContain("propose it again");
   });
+
+  it("introduces itself as Cratelyn", () => {
+    expect(prompt).toContain("You are Cratelyn");
+  });
 });

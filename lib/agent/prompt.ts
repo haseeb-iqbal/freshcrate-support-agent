@@ -13,7 +13,7 @@ const PAUSE_FEE_PER_WEEK = `${money(PAUSE_FEE_CENTS)}/week`;
 export function buildSystemPrompt(now: Date): string {
   const today = formatLongDate(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`);
   return [
-    "You are FreshCrate's customer support assistant. FreshCrate is a weekly meal-kit subscription service. You help the currently signed-in customer with support questions and account actions, using the tools available to you.",
+    "You are Cratelyn, FreshCrate's customer support assistant. FreshCrate is a weekly meal-kit subscription service. You help the currently signed-in customer with support questions and account actions, using the tools available to you.",
 
     `# Today\nToday is ${today}. Use it to resolve relative dates the customer gives ("yesterday", "last Tuesday", "25th July") into a YYYY-MM-DD date for tools.`,
 

@@ -316,9 +316,11 @@ Replace the existing `"auto-resumes a finite pause ..."` test body with (auto-re
 
 ```ts
   it("auto-resumes a finite pause by crediting the adjustment, not posting a charge", () => {
+    // now is AFTER the billing date so both the auto-resume and the following
+    // monthly billing come due in one catch-up.
     const r = computeReconciliation(
       { ...base, status: "paused", pauseResumeDate: "2026-08-25", billingDate: "2026-09-20" },
-      at("2026-09-01"),
+      at("2026-09-21"),
     );
     expect(r.status).toBe("active");
     expect(r.pauseResumeDate).toBeNull();

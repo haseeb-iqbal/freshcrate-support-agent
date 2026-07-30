@@ -95,4 +95,20 @@ describe("shouldNudge", () => {
     const text = "I've set that up - please confirm below to apply it.";
     expect(nudge(text, { actionToolCallCount: 1 })).toBe(false);
   });
+
+  it("nudges a reversed-order track claim (track word before the diet word)", () => {
+    // "track ... gluten-free" - the OLD regex only matched "gluten-free ... track".
+    const text = "I'll switch your track to gluten-free today.";
+    expect(nudge(text)).toBe(true);
+  });
+
+  it("does NOT nudge second-person self-service guidance with an action verb", () => {
+    for (const text of [
+      "If you'd like, go ahead and cancel your subscription anytime from your account settings.",
+      "Feel free to proceed to cancel your subscription whenever you like.",
+      "You can apply that change to switch to the vegetarian menu whenever you like.",
+    ]) {
+      expect(nudge(text)).toBe(false);
+    }
+  });
 });

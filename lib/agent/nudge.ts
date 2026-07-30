@@ -8,7 +8,7 @@
 
 /** First-person commitment, or passive "it's done" framing. */
 const CLAIM_MARKER =
-  /\b(?:i've|i have|i'll|i will|i'm going to|i am going to|i can proceed|let me|let me go ahead|go ahead and|gone ahead|gone ahead and|i'll initiate|i will initiate|initiate that|process that|set that up|apply that|has been|have been|is now|are now|you're now|you are now)\b/i;
+  /\b(?:i've|i have|i'll|i will|i'm going to|i am going to|i can proceed|i'll initiate|i will initiate|let me|gone ahead|gone ahead and|has been|have been|is now|are now|you're now|you are now)\b/i;
 
 /**
  * Proposal framing: the model asserts a concrete action is on the table and
@@ -20,7 +20,7 @@ const CLAIM_MARKER =
  * only follows a real tool call, and shouldNudge's actionToolCallCount guard
  * keeps that case from firing.
  */
-const PROPOSE_MARKER = /\b(?:propose|please confirm|proceed with|proceed to|go ahead with)\b/i;
+const PROPOSE_MARKER = /\b(?:propose|please confirm|proceed with|go ahead with)\b/i;
 
 /** State-changing actions the model may only ever propose via a tool. */
 const ACTION_TARGET = /\b(?:paus|resum|re-?activat|cancell?|refund)\w*/i;

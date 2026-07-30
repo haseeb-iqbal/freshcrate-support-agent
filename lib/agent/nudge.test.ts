@@ -71,4 +71,28 @@ describe("shouldNudge", () => {
   it("never nudges twice", () => {
     expect(nudge("I've paused your subscription.", { alreadyNudged: true })).toBe(false);
   });
+
+  it("nudges the reproduced 'I can proceed to change ... let me go ahead and initiate' phrasing", () => {
+    const text =
+      "I can proceed to change your dietary track to gluten-free, and it will take effect from next week's menu. Let me go ahead and initiate that change for you.";
+    expect(nudge(text)).toBe(true);
+  });
+
+  it("nudges 'let me go ahead and initiate that switch to the vegetarian menu'", () => {
+    // Marker and target in ONE sentence - claimsStateChange is per-sentence by
+    // design (avoids false positives from a marker and a target that merely
+    // co-occur in unrelated sentences).
+    const text = "Let me go ahead and initiate that switch to the vegetarian menu.";
+    expect(nudge(text)).toBe(true);
+  });
+
+  it("does NOT nudge a plain menu question", () => {
+    const text = "What's on the gluten-free menu this week? Here are a few options.";
+    expect(nudge(text)).toBe(false);
+  });
+
+  it("does NOT nudge a real post-tool confirmation ask", () => {
+    const text = "I've set that up - please confirm below to apply it.";
+    expect(nudge(text, { actionToolCallCount: 1 })).toBe(false);
+  });
 });

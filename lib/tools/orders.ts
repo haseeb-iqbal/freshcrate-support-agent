@@ -31,7 +31,7 @@ export const lookupOrder: Tool = {
   definition: {
     name: "lookup_order",
     description:
-      "Look up ONE order for the current customer. Use order_number for a specific order (e.g. FC1002); use position for a relative one (1 = most recent, 2 = 2nd most recent, …); narrow with kind (subscription|extra) and/or status. Omit everything for the most recent order. Use this — NOT list_orders — whenever the customer means a single order, including 'my last order', 'my 2nd last order', or 'my most recent extra meal'. list_orders is only for showing the full history.",
+      "Look up ONE order for the current customer. Use order_number for a specific order (e.g. FC1002); use position for a relative one (1 = most recent, 2 = 2nd most recent, …); narrow with kind (subscription|extra) and/or status. Omit everything for the most recent order. Use this — NOT list_orders — whenever the customer means a single order, including 'my last order', 'my 2nd last order', 'my order on 25th July', or 'my most recent extra meal'. list_orders is only for showing the full history.",
     parameters: {
       type: "object",
       properties: {
@@ -39,6 +39,7 @@ export const lookupOrder: Tool = {
         position: { type: "integer", minimum: 1, description: "1 = most recent, 2 = 2nd most recent, …" },
         kind: { type: "string", enum: [...ORDER_KINDS], description: "subscription (plan meal) or extra." },
         status: { type: "string", enum: [...ORDER_STATUSES], description: "Filter to this status." },
+        date: { type: "string", description: "A day the customer named, as YYYY-MM-DD - matches an order delivered or placed that day. Use the # Today date to resolve phrases like 'yesterday' or '25th July'." },
       },
       additionalProperties: false,
     },
@@ -56,6 +57,7 @@ export const lookupOrder: Tool = {
       position: posRaw === undefined || posRaw === null ? undefined : Number(posRaw),
       kind: (ORDER_KINDS as readonly string[]).includes(String(args.kind)) ? (args.kind as OrderKind) : undefined,
       status: (ORDER_STATUSES as readonly string[]).includes(String(args.status)) ? (args.status as OrderStatus) : undefined,
+      date: typeof args.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(args.date) ? args.date : undefined,
     };
 
     const focus = selectOrder(all as unknown as SelectableOrder[], sel) as OrderRow | null;

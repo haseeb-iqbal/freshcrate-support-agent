@@ -6,6 +6,7 @@ export interface SelectableOrder {
   kind: OrderKind;
   status: OrderStatus;
   placedAt: Date;
+  deliveryDate?: string | null;
 }
 
 /**
@@ -22,6 +23,11 @@ export function selectOrder<T extends SelectableOrder>(orders: T[], sel: OrderSe
   let pool = orders;
   if (sel.kind) pool = pool.filter((o) => o.kind === sel.kind);
   if (sel.status) pool = pool.filter((o) => o.status === sel.status);
+  if (sel.date) {
+    const placedDay = (o: T) =>
+      `${o.placedAt.getFullYear()}-${String(o.placedAt.getMonth() + 1).padStart(2, "0")}-${String(o.placedAt.getDate()).padStart(2, "0")}`;
+    pool = pool.filter((o) => o.deliveryDate === sel.date || placedDay(o) === sel.date);
+  }
   const sorted = [...pool].sort((a, b) => b.placedAt.getTime() - a.placedAt.getTime());
   const pos = sel.position ?? 1;
   if (pos < 1 || pos > sorted.length) return null;

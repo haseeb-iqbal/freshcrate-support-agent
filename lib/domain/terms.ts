@@ -19,6 +19,8 @@ export interface OrderSelector {
   position?: number;
   kind?: OrderKind;
   status?: OrderStatus;
+  /** ISO YYYY-MM-DD; matches an order delivered or placed on that day. */
+  date?: string;
 }
 
 /** Canonical rule sentences reused verbatim by the system prompt, so wording

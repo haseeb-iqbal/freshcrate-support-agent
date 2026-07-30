@@ -6,6 +6,7 @@ const mk = (orderNumber: string, iso: string, over: Partial<SelectableOrder> = {
   kind: "subscription",
   status: "delivered",
   placedAt: new Date(iso),
+  deliveryDate: null,
   ...over,
 });
 
@@ -46,5 +47,22 @@ describe("selectOrder", () => {
 
   it("returns null on an empty list", () => {
     expect(selectOrder([], { position: 1 })).toBeNull();
+  });
+
+  it("matches an order by its delivery date", () => {
+    const withDelivery = [mk("FC1010", "2026-07-01T00:00:00Z", { deliveryDate: "2026-07-25" }), A, B];
+    expect(selectOrder(withDelivery, { date: "2026-07-25" })?.orderNumber).toBe("FC1010");
+  });
+
+  it("matches an order by the calendar day it was placed", () => {
+    expect(selectOrder(orders, { date: "2026-06-23" })?.orderNumber).toBe("FC1004");
+  });
+
+  it("returns null when no order is on that date", () => {
+    expect(selectOrder(orders, { date: "2020-01-01" })).toBeNull();
+  });
+
+  it("prefers order_number over date", () => {
+    expect(selectOrder(orders, { orderNumber: "FC1006", date: "2026-06-23" })?.orderNumber).toBe("FC1006");
   });
 });

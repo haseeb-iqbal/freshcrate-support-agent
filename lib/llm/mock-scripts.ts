@@ -1,4 +1,5 @@
 import type { AgentStreamEvent } from "./types";
+import { addDaysIso } from "../date";
 
 interface Script {
   pre_tool: AgentStreamEvent[]; // model's first turn (before any tool result)
@@ -98,14 +99,15 @@ export const MOCK_SCRIPTS: Record<string, Script> = {
     pre_tool: [t("Our plans are 2 meals/week at $30, 3 at $42, and 4 at $52 per week.")],
     post_tool: [],
   },
-  // Marcus's FC1005 (shipped) has deliveryDate = daysFromNow(1) in db/seed.ts,
-  // i.e. tomorrow relative to seed time. Written against 2026-07-30 (seed's
-  // "now" at authoring time) -> 2026-07-31. This is a literal snapshot, not a
-  // recomputed value: seed dates are relative to seeding time, so re-seeding on
-  // a different calendar day will point this literal date at a day with no
-  // matching order and the spec will need its literal date refreshed then.
+  // Marcus's FC1005 (shipped) has deliveryDate = daysFromNow(1) in db/seed.ts -
+  // tomorrow's local calendar date relative to seed time. Computed here with
+  // the SAME expression (addDaysIso(1, new Date())) rather than a hardcoded
+  // literal, so it always lands on whatever day the seed actually used: this
+  // module loads when dev:mock starts, seconds after test:e2e's db:reset, so
+  // both `new Date()` calls fall on the same real day. The ask() string/script
+  // key stays a fixed, cosmetic phrase - only this tool-call date is dynamic.
   "show me my order due 31st july": {
-    pre_tool: [call("lookup_order", { date: "2026-07-31" })],
+    pre_tool: [call("lookup_order", { date: addDaysIso(1, new Date()) })],
     post_tool: [t("Here's that order:")],
   },
   "how do i change or cancel my subscription?": {

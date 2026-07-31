@@ -51,15 +51,17 @@ export const getSubscription: Tool = {
 
 /**
  * Pause is propose-only. Accepts weeks (1-52), a target until_date (within a
- * year), or indefinite=true. The plan pauses from next week; the customer is
- * reimbursed each skipped week's plan value net of the $8/week pause fee. Shows
- * a confirmation prompt; applied via /api/actions/pause on confirm.
+ * year), or indefinite=true. The plan pauses from next week; a credit for each
+ * skipped week's full plan value is deferred to the customer's next monthly
+ * bill (the $8/week pause fee is separate, and only applies while the customer
+ * stays paused across a billing date). Shows a confirmation prompt; applied via
+ * /api/actions/pause on confirm.
  */
 export const pauseSubscription: Tool = {
   definition: {
     name: "pause_subscription",
     description:
-      `Start a pause for the current customer's subscription. Provide EITHER weeks (1-52), OR until_date (YYYY-MM-DD, within a year) if they named a date (never convert a date to weeks yourself), OR indefinite=true to pause indefinitely (resume anytime). Calling this shows a confirmation prompt with the credit they get now and the ${PAUSE_FEE_PER_WEEK} pause fee; it does not pause until they confirm.`,
+      `Start a pause for the current customer's subscription. Provide EITHER weeks (1-52), OR until_date (YYYY-MM-DD, within a year) if they named a date (never convert a date to weeks yourself), OR indefinite=true to pause indefinitely (resume anytime). Calling this shows a confirmation prompt with the credit applied to their next bill and the ${PAUSE_FEE_PER_WEEK} pause fee; it does not pause until they confirm.`,
     parameters: {
       type: "object",
       properties: {
@@ -127,9 +129,9 @@ export const pauseSubscription: Tool = {
 
 /**
  * Resume is propose-only. Optionally switch plan at the same time (new_plan).
- * Resuming charges the weeks remaining to billing at the plan's weekly rate net
- * of the $8/week pause fee; the plan resumes from next week. Applied via
- * /api/actions/resume on confirm.
+ * A charge for the weeks remaining to billing, at the plan's full weekly rate,
+ * is deferred to the customer's next monthly bill; the plan resumes from next
+ * week. Applied via /api/actions/resume on confirm.
  */
 export const resumeSubscription: Tool = {
   definition: {

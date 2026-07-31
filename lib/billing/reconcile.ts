@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../../db";
 import { customers, subscriptionEvents, transactions, plans } from "../../db/schema";
 import { PAUSE_FEE_CENTS, weeklyValueCents, weeksUntilDate } from "./pricing";
+import { money } from "../money";
 
 /** A monthly billing cycle is treated as 4 weeks for pause-fee purposes. */
 const WEEKS_PER_PERIOD = 4;
@@ -62,10 +63,11 @@ function addMonth(isoDate: string): string {
  *
  * Rules per billing-date crossing: an ACTIVE sub is charged its monthly plan
  * price; an INDEFINITE pause (no resume date) is charged the $8/week fee for the
- * month; a FINITE pause rolls its billing date with no charge (it was credited
- * up front); a CANCELLED sub is never billed. A finite pause auto-resumes the
- * moment its resume date passes, charging the resume fee for the weeks then left
- * to billing — after which normal billing resumes.
+ * month; a FINITE pause rolls its billing date with no charge (its credit was
+ * already deferred to the next bill); a CANCELLED sub is never billed. A finite
+ * pause auto-resumes the moment its resume date passes, adding the weeks then
+ * left to billing (at the plan's full weekly rate) to billingAdjustmentCents for
+ * the next bill - after which normal billing resumes.
  *
  * Self-cursoring: billing dates advance past `now` and the resume date clears, so
  * re-running on the result is a no-op. Loop is capped as a runaway backstop.
@@ -105,7 +107,7 @@ export function computeReconciliation(input: ReconInput, now: Date): ReconResult
     } else {
       if (status === "active") {
         const amount = Math.max(0, input.monthlyCents + billingAdjustment);
-        const note = billingAdjustment !== 0 ? ` (incl. ${billingAdjustment < 0 ? "-" : "+"}$${Math.abs(billingAdjustment) / 100} adjustment)` : "";
+        const note = billingAdjustment !== 0 ? ` (incl. ${billingAdjustment < 0 ? "-" : "+"}${money(Math.abs(billingAdjustment))} adjustment)` : "";
         transactions.push({ type: "monthly_billing", amountCents: amount, description: `Monthly billing${note}`, date: billingDate });
         billingAdjustment = 0;
       } else if (status === "paused") {

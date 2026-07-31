@@ -32,6 +32,15 @@ describe("buildSystemPrompt", () => {
     expect(knowledge.toLowerCase()).toContain("meals");
   });
 
+  it("tells the model to present, not refuse, a broad 'show me all the meals' request", () => {
+    // The bug: the model called search (retrieval returned menus) but still led
+    // with "I can't provide the meals" and gave a partial list, or refused.
+    const diet = prompt.slice(prompt.indexOf("# Dietary tracks"), prompt.indexOf("# Actions need a tool call"));
+    expect(diet.toLowerCase()).toContain("whole menu");
+    expect(diet).toContain("offer to show any one track's full menu");
+    expect(diet).toContain(`Never open with "I can't provide"`);
+  });
+
   it("distinguishes a plan (meals per week) from a track (the diet)", () => {
     // Customers say "the standard plan" when they mean the standard TRACK; the
     // word "plan" otherwise routes the model to get_subscription, which knows
@@ -105,6 +114,16 @@ describe("buildSystemPrompt", () => {
     // repeated it on later turns without ever calling search_knowledge_base again.
     expect(prompt).toContain("search_knowledge_base");
     expect(prompt.toLowerCase()).toContain("even if an earlier");
+  });
+
+  it("routes a next-bill-amount question to get_subscription's exact figure", () => {
+    // The bug: asked "what will my next bill be", the model had no figure (the
+    // tool didn't return one) so it waffled, or re-fired pause_subscription.
+    const sub = prompt.slice(prompt.indexOf("# Subscription"), prompt.indexOf("# Dietary tracks"));
+    expect(sub).toContain("next_bill_cents");
+    expect(sub.toLowerCase()).toContain("next bill");
+    // Must not answer a billing-amount question by re-proposing the pause/resume.
+    expect(sub).toContain("never re-call pause_subscription or resume_subscription");
   });
 
   it("does not let a pending confirmation prompt block an unrelated question", () => {

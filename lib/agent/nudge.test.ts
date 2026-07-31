@@ -111,4 +111,44 @@ describe("shouldNudge", () => {
       expect(nudge(text)).toBe(false);
     }
   });
+
+  // Bug: after a customer declined a dietary switch and asked to see it again,
+  // the model re-proposed in PROSE with no tool call, so no card appeared. These
+  // are the exact phrasings the real model and the screenshot produced. The
+  // commitment/confirm cue and the diet target land in DIFFERENT sentences, which
+  // the per-sentence rule alone missed.
+  it("nudges 'Would you like to change ... to gluten-free again? Please confirm to proceed!'", () => {
+    const text =
+      "It looks like you previously declined the dietary track switch. Would you like to change your dietary track to gluten-free again? Please confirm to proceed!";
+    expect(nudge(text)).toBe(true);
+  });
+
+  it("nudges 'Please confirm the change to gluten-free to proceed!'", () => {
+    const text = "It seems the dietary track switch prompt is still on screen. Please confirm the change to gluten-free to proceed!";
+    expect(nudge(text)).toBe(true);
+  });
+
+  it("nudges 'I will initiate the change to gluten-free again. Please confirm to proceed!'", () => {
+    const text =
+      "Since you previously declined the dietary track switch, I will initiate the change to gluten-free again. Please confirm to proceed!";
+    expect(nudge(text)).toBe(true);
+  });
+
+  it("nudges when the model claims it will show a confirmation prompt it never created", () => {
+    const text =
+      "It looks like you previously declined the dietary track switch. Would you like to switch to the gluten-free track again? I'll show you the confirmation prompt now.";
+    expect(nudge(text)).toBe(true);
+  });
+
+  it("does NOT nudge merely noting a past declined switch (no re-proposal)", () => {
+    // "I've noted ... the gluten-free switch" is a mention, not an action claim -
+    // the diet word sits next to the NOUN "switch", with no change verb governing
+    // it and no confirm cue. Must stay quiet.
+    for (const text of [
+      "I've noted that you declined the gluten-free switch earlier - anything else I can help with?",
+      "You previously declined the gluten-free switch, so no change was made to your meals.",
+    ]) {
+      expect(nudge(text)).toBe(false);
+    }
+  });
 });

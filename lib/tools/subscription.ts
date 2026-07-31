@@ -16,12 +16,13 @@ const PAUSE_FEE_PER_WEEK = `${money(PAUSE_FEE_CENTS)}/week`;
 
 /** Read-only live subscription details. The model must call this for status /
  *  plan / billing / pause-length questions instead of trusting earlier messages
- *  (fixes stale-status answers). */
+ *  (fixes stale-status answers). Also carries the actual money on the next bill,
+ *  so the model can answer "what will my next bill be" with a real figure. */
 export const getSubscription: Tool = {
   definition: {
     name: "get_subscription",
     description:
-      "Get the current customer's LIVE subscription details: status (active/paused/cancelled), plan, next billing date, and — if paused — how long / when it resumes. ALWAYS call this to answer any question about the customer's current status, plan, dietary track, billing date, or pause length; never answer those from earlier conversation.",
+      "Get the current customer's LIVE subscription details: status (active/paused/cancelled), plan, dietary track, next billing date, how long/when it resumes if paused, and the money on their next monthly bill (plan_monthly_cents, any deferred billing_adjustment_cents, and the resulting next_bill_cents). ALWAYS call this to answer any question about the customer's current status, plan, dietary track, billing date, pause length, or how much their next bill will be; never answer those from earlier conversation.",
     parameters: { type: "object", properties: {}, additionalProperties: false },
   },
   async handler(ctx) {
@@ -35,15 +36,27 @@ export const getSubscription: Tool = {
       pause = { indefinite: !customer.pauseResumeDate, resume_date: customer.pauseResumeDate ?? null };
     }
 
+    // The next monthly bill, exactly as reconcile computes it: the plan's monthly
+    // rate plus any deferred pause credit / resume charge, floored at zero. This
+    // is the current figure (any unconfirmed pause/resume on screen is not applied
+    // until the customer confirms it).
+    const plan = await getPlan(customer.plan);
+    const monthly = plan?.monthlyCents ?? null;
+    const adjustment = customer.billingAdjustmentCents;
+    const nextBill = monthly === null ? null : Math.max(0, monthly + adjustment);
+
     return {
       ok: true,
-      summary: `Status ${customer.subscriptionStatus}, ${customer.plan}`,
+      summary: `Status ${customer.subscriptionStatus}, ${customer.plan}${nextBill === null ? "" : `, next bill ${money(nextBill)}`}`,
       data: {
         status: customer.subscriptionStatus,
         plan: customer.plan,
         dietary_track: customer.dietaryTrack,
         billing_date: customer.billingDate,
         pause,
+        plan_monthly_cents: monthly,
+        billing_adjustment_cents: adjustment,
+        next_bill_cents: nextBill,
       },
     };
   },
@@ -115,13 +128,13 @@ export const pauseSubscription: Tool = {
     return {
       ok: true,
       summary: indefinite
-        ? `Proposed indefinite pause (next bill drops ~${credit}, then ${PAUSE_FEE_PER_WEEK} billed monthly)`
-        : `Proposed ${weeks}-week pause (resumes ${proposal.resume_date}, next bill drops ~${credit})`,
+        ? `Proposed indefinite pause (next bill drops ${credit}, then ${PAUSE_FEE_PER_WEEK} billed monthly)`
+        : `Proposed ${weeks}-week pause (resumes ${proposal.resume_date}, next bill drops ${credit})`,
       data: {
         status: "needs_confirmation",
         proposal,
         message:
-          `A confirmation prompt is shown. Nothing is charged or credited now: the customer's NEXT monthly bill is reduced by about ${credit} for the weeks they skip, and while they stay paused past a billing date the ${PAUSE_FEE_PER_WEEK} pause fee applies. The plan pauses from next week (this week's box still ships) and they can resume early. Briefly relay it and ask them to confirm. Do NOT say it's paused until they confirm.${proposal.already_paused ? " NOTE: already paused, so no new credit is due - do not promise one." : ""}`,
+          `A confirmation prompt is shown. Nothing is charged or credited now: the customer's NEXT monthly bill is reduced by exactly ${credit} for the weeks they skip, and while they stay paused past a billing date the ${PAUSE_FEE_PER_WEEK} pause fee applies. The plan pauses from next week (this week's box still ships) and they can resume early. The card shows the exact ${credit} figure - do NOT state a different amount in your reply; keep it to a short lead-in and ask them to confirm. Do NOT say it's paused until they confirm.${proposal.already_paused ? " NOTE: already paused, so no new credit is due - do not promise one." : ""}`,
       },
     };
   },
@@ -180,7 +193,7 @@ export const resumeSubscription: Tool = {
         status: "needs_confirmation",
         proposal,
         message:
-          `A confirmation prompt shows the resume. Nothing is charged now: the weeks left until billing (${charge} at the plan's weekly rate) are ADDED to the customer's next monthly bill, making it about ${nextBill}. The plan resumes from next week. Ask them to confirm; do NOT say it's resumed until they confirm.`,
+          `A confirmation prompt shows the resume. Nothing is charged now: the weeks left until billing (${charge} at the plan's weekly rate) are ADDED to the customer's next monthly bill, making it exactly ${nextBill}. The plan resumes from next week. The card shows the exact ${nextBill} figure - do NOT state a different amount in your reply; keep it to a short lead-in and ask them to confirm. Do NOT say it's resumed until they confirm.`,
       },
     };
   },

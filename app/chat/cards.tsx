@@ -148,7 +148,7 @@ export function PauseCard({
       )}
       <p className="mt-1 text-xs text-slate-500">
         {hasCredit ? (
-          <>Your <span className="font-medium">next bill drops by about {credit}</span> for the weeks you skip. </>
+          <>Your <span className="font-medium">next bill drops by {credit}</span> for the weeks you skip. </>
         ) : (
           <>No credit is due this cycle (billing is within the week). </>
         )}
@@ -164,7 +164,7 @@ export function PauseCard({
       />
       {state === "approved" && (
         <p className="mt-2 text-xs font-medium text-emerald-700">
-          ✓ Paused{proposal.indefinite ? " indefinitely" : ` — resumes ${resume}`}{hasCredit ? ` (next bill drops ~${credit})` : ""}.
+          ✓ Paused{proposal.indefinite ? " indefinitely" : ` — resumes ${resume}`}{hasCredit ? ` (next bill drops ${credit})` : ""}.
         </p>
       )}
       {state === "declined" && <p className="mt-2 text-xs font-medium text-slate-500">No problem — your subscription is unchanged.</p>}
@@ -198,7 +198,7 @@ export function ResumeCard({
       <p className="mt-1 text-sm text-slate-800">
         Resume your <span className="font-semibold">{proposal.plan}</span> plan? It restarts from next week
         {hasCharge ? (
-          <> — the weeks left until billing (<span className="font-semibold">{charge}</span>) are added to your next bill, making it about <span className="font-semibold">{nextBill}</span>.</>
+          <> — the weeks left until billing (<span className="font-semibold">{charge}</span>) are added to your next bill, making it <span className="font-semibold">{nextBill}</span>.</>
         ) : (
           <> at no extra charge this cycle (billing is due within the week).</>
         )}
@@ -213,7 +213,7 @@ export function ResumeCard({
       />
       {state === "approved" && (
         <p className="mt-2 text-xs font-medium text-emerald-700">
-          ✓ Resumed on {proposal.plan}{hasCharge ? ` — next bill ~${nextBill}` : ""}.
+          ✓ Resumed on {proposal.plan}{hasCharge ? ` — next bill ${nextBill}` : ""}.
         </p>
       )}
       {state === "declined" && <p className="mt-2 text-xs font-medium text-slate-500">No problem — your subscription stays paused.</p>}

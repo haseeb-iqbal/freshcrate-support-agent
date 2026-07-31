@@ -22,6 +22,18 @@ const CLAIM_MARKER =
  */
 const PROPOSE_MARKER = /\b(?:propose|please confirm|proceed with|go ahead with)\b/i;
 
+/**
+ * A "confirm the prompt" cue strong enough to check across the WHOLE reply, not
+ * just per-sentence. The model often splits the offer from the confirm ("Would
+ * you like to change to gluten-free again? Please confirm to proceed!"), so the
+ * cue and the action target land in different sentences. These phrasings only
+ * make sense when a real confirmation prompt exists; if the reply names an action
+ * anywhere and no tool was called, the prompt it points at is imaginary. Excludes
+ * a bare "propose" (which also appears in refusals like "I can't propose a refund
+ * above the ceiling") - that stays a per-sentence signal.
+ */
+const CONFIRM_CUE = /\b(?:please confirm|proceed with|go ahead with)\b/i;
+
 /** State-changing actions the model may only ever propose via a tool. */
 const ACTION_TARGET = /\b(?:paus|resum|re-?activat|cancell?|refund)\w*/i;
 
@@ -32,12 +44,45 @@ const PLAN_CHANGE = /\b(?:chang|switch|upgrad|downgrad|mov)\w*\b[^.!?]{0,40}\bpl
 const DIETARY_TRACK =
   /\b(?:vegetarian|gluten-free|dairy-free|standard)\b[^.!?]{0,30}\b(?:menu|track|meals?|diet)\b|\b(?:menu|track|meals?|diet)\b[^.!?]{0,30}\b(?:vegetarian|gluten-free|dairy-free|standard)\b/i;
 
+/**
+ * A change VERB governing a diet word ("change/switch/move to gluten-free",
+ * "initiate the change to the vegetarian menu"). The verb must PRECEDE the diet
+ * word, so the noun phrase "the gluten-free switch" (a mention of a past prompt,
+ * not a fresh action) does NOT match and "I've noted the gluten-free switch"
+ * stays quiet.
+ */
+const DIET_ACTION = /\b(?:switch|chang|mov|initiat|updat|put)\w*\b[^.!?]{0,25}\b(?:vegetarian|gluten-free|dairy-free|standard)\b/i;
+
+/**
+ * The model claims a confirmation prompt is being shown ("I'll show you the
+ * confirmation prompt now"). No tool call means no such prompt, so this is always
+ * an empty promise - a target in its own right, whatever action it is about.
+ */
+const SHOW_PROMPT = /\b(?:show|shown|showing|bring up|pull up|display|re-?show)\w*\b[^.!?]{0,30}\b(?:prompt|confirmation|card)\b/i;
+
+/** Does this fragment name an account action the model may only surface via a tool? */
+function namesAction(fragment: string): boolean {
+  return (
+    ACTION_TARGET.test(fragment) ||
+    PLAN_CHANGE.test(fragment) ||
+    DIETARY_TRACK.test(fragment) ||
+    DIET_ACTION.test(fragment) ||
+    SHOW_PROMPT.test(fragment)
+  );
+}
+
 /** True if a sentence commits to (or proposes) something and names an account action. */
 function claimsStateChange(text: string): boolean {
+  // Per-sentence for commitment/proposal markers: the marker and the action must
+  // co-occur in ONE sentence, so a first-person marker and an unrelated target in
+  // separate sentences don't false-fire.
   for (const sentence of text.split(/[.!?\n]+/)) {
     if (!CLAIM_MARKER.test(sentence) && !PROPOSE_MARKER.test(sentence)) continue;
-    if (ACTION_TARGET.test(sentence) || PLAN_CHANGE.test(sentence) || DIETARY_TRACK.test(sentence)) return true;
+    if (namesAction(sentence)) return true;
   }
+  // Message-level for a "please confirm …" cue split from its action, which only
+  // makes sense when a real prompt exists (see CONFIRM_CUE).
+  if (CONFIRM_CUE.test(text) && namesAction(text)) return true;
   return false;
 }
 

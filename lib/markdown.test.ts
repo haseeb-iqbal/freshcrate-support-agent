@@ -58,6 +58,30 @@ describe("parseInline", () => {
       { text: "soon", italic: true },
     ]);
   });
+
+  it("marks a backtick run as inline code", () => {
+    expect(parseInline("your order `FC1006` shipped")).toEqual([
+      { text: "your order " },
+      { text: "FC1006", code: true },
+      { text: " shipped" },
+    ]);
+  });
+
+  it("takes code contents verbatim - an asterisk inside is not emphasis", () => {
+    expect(parseInline("run `a * b` now")).toEqual([
+      { text: "run " },
+      { text: "a * b", code: true },
+      { text: " now" },
+    ]);
+  });
+
+  it("handles code and bold in the same line", () => {
+    expect(parseInline("`code` and **bold**")).toEqual([
+      { text: "code", code: true },
+      { text: " and " },
+      { text: "bold", bold: true },
+    ]);
+  });
 });
 
 describe("parseBlocks", () => {
@@ -111,6 +135,33 @@ describe("parseBlocks", () => {
   it("parses a hash heading", () => {
     expect(parseBlocks("## Refunds")).toEqual([
       { type: "heading", spans: [{ text: "Refunds" }] },
+    ]);
+  });
+
+  it("parses headings from level 1 through 6, not just 1-3", () => {
+    // The bug: a level-4 heading like "#### Standard Nutrition per Serving"
+    // reached the customer with its literal hashes because the regex stopped at 3.
+    for (const hashes of ["#", "##", "###", "####", "#####", "######"]) {
+      expect(parseBlocks(`${hashes} Standard Nutrition per Serving`)).toEqual([
+        { type: "heading", spans: [{ text: "Standard Nutrition per Serving" }] },
+      ]);
+    }
+  });
+
+  it("does not treat 7+ hashes as a heading", () => {
+    const out = parseBlocks("####### too deep");
+    expect(out[0].type).toBe("paragraph");
+  });
+
+  it("renders inline code inside a heading", () => {
+    expect(parseBlocks("#### The `FC1006` order")).toEqual([
+      { type: "heading", spans: [{ text: "The " }, { text: "FC1006", code: true }, { text: " order" }] },
+    ]);
+  });
+
+  it("hides an unterminated code marker while streaming", () => {
+    expect(parseBlocks("Order `FC10", { streaming: true })).toEqual([
+      { type: "paragraph", spans: [{ text: "Order" }] },
     ]);
   });
 

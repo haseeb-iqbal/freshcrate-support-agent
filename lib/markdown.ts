@@ -15,6 +15,7 @@ export interface Span {
   text: string;
   bold?: boolean;
   italic?: boolean;
+  code?: boolean;
 }
 
 export type Block =
@@ -29,19 +30,21 @@ export interface ParseOptions {
   streaming?: boolean;
 }
 
-/** `**bold**` or `*italic*`. Bold is tried first so `**x**` never reads as two
- *  empty italic runs. A run may not open or close on whitespace, which is what
- *  keeps a literal asterisk - the one in "2 * 3" - from pairing with another
- *  and silently deleting both. This is the same opener rule that
- *  hideUnterminatedMarker applies to the streaming path, so both agree. */
-const INLINE = /\*\*[^*\s](?:[^*]*[^*\s])?\*\*|\*[^*\s\n](?:[^*\n]*[^*\s\n])?\*/g;
+/** Inline `` `code` ``, `**bold**` or `*italic*`. Code is tried first so its
+ *  contents are taken verbatim (an asterisk inside a code span is not emphasis),
+ *  then bold before italic so `**x**` never reads as two empty italic runs. An
+ *  emphasis run may not open or close on whitespace, which keeps a literal
+ *  asterisk - the one in "2 * 3" - from pairing with another and silently
+ *  deleting both. This is the same opener rule that hideUnterminatedMarker
+ *  applies to the streaming path, so both agree. */
+const INLINE = /`[^`\n]+`|\*\*[^*\s](?:[^*]*[^*\s])?\*\*|\*[^*\s\n](?:[^*\n]*[^*\s\n])?\*/g;
 
 /** `[slug › heading]` or `[slug > heading]`, with any space that precedes it.
  *  The separator is what distinguishes a citation from ordinary bracketed text
  *  such as `[FC1006]` or a markdown link. */
 const CITATION = /\s*\[[a-z0-9-]+\s*[›>]\s*[^\]\n]+\]/gi;
 
-const HEADING = /^#{1,3}\s+(.*)$/;
+const HEADING = /^#{1,6}\s+(.*)$/;
 const BULLET = /^[-*]\s+(.*)$/;
 const ORDERED = /^\d+[.)]\s+(.*)$/;
 
@@ -77,7 +80,8 @@ export function parseInline(text: string): Span[] {
     const start = match.index ?? 0;
     if (start > last) spans.push({ text: text.slice(last, start) });
     const token = match[0];
-    if (token.startsWith("**")) spans.push({ text: token.slice(2, -2), bold: true });
+    if (token.startsWith("`")) spans.push({ text: token.slice(1, -1), code: true });
+    else if (token.startsWith("**")) spans.push({ text: token.slice(2, -2), bold: true });
     else spans.push({ text: token.slice(1, -1), italic: true });
     last = start + token.length;
   }
@@ -110,6 +114,11 @@ function hideUnterminatedMarker(text: string): string {
   const lone = out.replace(/\*\*/g, "").match(/\*/g)?.length ?? 0;
   if (lone % 2 === 1) {
     out = out.replace(/\*[^*\s\n][^*\n]*$|\*$/, "");
+  }
+  // A backtick whose partner has not streamed in yet: drop the open code run so
+  // the customer never sees a bare "`" mid-stream.
+  if ((out.match(/`/g)?.length ?? 0) % 2 === 1) {
+    out = out.replace(/`[^`\n]*$/, "");
   }
   return out;
 }

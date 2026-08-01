@@ -48,6 +48,16 @@ export interface PauseQuote {
   /** What the customer nets on their next bill once this pause runs as scheduled
    *  (finite: weeks actually skipped; indefinite: whole cycle). Display only. */
   net_credit_cents: number;
+  /**
+   * True when the pause runs PAST the next billing date (indefinite, or a finite
+   * pause whose resume date falls after billing). In that case the credit does
+   * NOT land on the next bill: that billing crossing is skipped / charged the
+   * pause fee and the credit is deferred to a later bill. Only when this is false
+   * (the pause resolves within the current period) does "next bill drops by
+   * net_credit" actually hold - so the card must not promise a next-bill drop
+   * when this is true.
+   */
+  crosses_billing: boolean;
   weekly_fee_cents: number;
   weeks_to_billing: number;
   /**
@@ -80,12 +90,19 @@ export function quotePause(input: {
   const skipped = indefinite ? weeksToBilling : Math.min(weeks ?? 0, weeksToBilling);
   const netCredit = alreadyPaused ? 0 : weeklyValueCents(weekly, skipped);
 
+  const resumeDate = indefinite ? null : (input.resumeDate ?? addWeeksIso(weeks ?? 0, now));
+  // The "next bill drops" claim only holds when the pause resolves on or before
+  // the next billing date. An indefinite pause always crosses it; a finite pause
+  // crosses when it resumes after billing.
+  const crossesBilling = indefinite || (!!billingDate && !!resumeDate && resumeDate > billingDate);
+
   return {
     indefinite,
     weeks: indefinite ? null : weeks,
-    resume_date: indefinite ? null : (input.resumeDate ?? addWeeksIso(weeks ?? 0, now)),
+    resume_date: resumeDate,
     adjustment_cents: adjustment,
     net_credit_cents: netCredit,
+    crosses_billing: crossesBilling,
     weekly_fee_cents: PAUSE_FEE_CENTS,
     weeks_to_billing: weeksToBilling,
     already_paused: alreadyPaused,

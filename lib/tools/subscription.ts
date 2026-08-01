@@ -124,17 +124,34 @@ export const pauseSubscription: Tool = {
       now: ctx.now,
     });
     const credit = money(proposal.net_credit_cents);
+    // "Next bill drops by $X" is only true when the pause resolves within the
+    // current billing period. When it crosses the billing date (indefinite, or
+    // resumes after billing) the credit is deferred, so neither the card nor the
+    // model may promise a next-bill drop.
+    const dropsNextBill = proposal.net_credit_cents > 0 && !proposal.crosses_billing;
+
+    const summary = dropsNextBill
+      ? `Proposed ${weeks}-week pause (resumes ${proposal.resume_date}, next bill drops ${credit})`
+      : indefinite
+        ? `Proposed indefinite pause (crosses billing: ${PAUSE_FEE_PER_WEEK} fee applies, credit deferred)`
+        : proposal.crosses_billing
+          ? `Proposed ${weeks}-week pause (resumes ${proposal.resume_date}; runs past billing, no next-bill drop)`
+          : `Proposed ${weeks}-week pause (resumes ${proposal.resume_date})`;
+
+    const creditSentence = dropsNextBill
+      ? `The customer's NEXT monthly bill is reduced by exactly ${credit} for the weeks they skip - the card shows this exact figure, so do NOT state a different amount. While they stay paused past a billing date the ${PAUSE_FEE_PER_WEEK} pause fee applies.`
+      : proposal.crosses_billing
+        ? `This pause runs PAST the customer's next billing date, so that bill is NOT reduced by a skipped-week credit: the ${PAUSE_FEE_PER_WEEK} pause fee applies while they stay paused and the credit is applied to a LATER bill. Do NOT tell them their next bill drops by any specific amount.`
+        : `No credit is due this cycle because billing is within the week; while they stay paused past a billing date the ${PAUSE_FEE_PER_WEEK} pause fee applies.`;
 
     return {
       ok: true,
-      summary: indefinite
-        ? `Proposed indefinite pause (next bill drops ${credit}, then ${PAUSE_FEE_PER_WEEK} billed monthly)`
-        : `Proposed ${weeks}-week pause (resumes ${proposal.resume_date}, next bill drops ${credit})`,
+      summary,
       data: {
         status: "needs_confirmation",
         proposal,
         message:
-          `A confirmation prompt is shown. Nothing is charged or credited now: the customer's NEXT monthly bill is reduced by exactly ${credit} for the weeks they skip, and while they stay paused past a billing date the ${PAUSE_FEE_PER_WEEK} pause fee applies. The plan pauses from next week (this week's box still ships) and they can resume early. The card shows the exact ${credit} figure - do NOT state a different amount in your reply; keep it to a short lead-in and ask them to confirm. Do NOT say it's paused until they confirm.${proposal.already_paused ? " NOTE: already paused, so no new credit is due - do not promise one." : ""}`,
+          `A confirmation prompt is shown. Nothing is charged or credited now. ${creditSentence} The plan pauses from next week (this week's box still ships) and they can resume early. Keep your reply to a short lead-in and ask them to confirm. Do NOT say it's paused until they confirm.${proposal.already_paused ? " NOTE: already paused, so no new credit is due - do not promise one." : ""}`,
       },
     };
   },

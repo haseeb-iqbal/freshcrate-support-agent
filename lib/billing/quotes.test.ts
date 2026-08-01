@@ -60,6 +60,32 @@ describe("quotePause (deferred)", () => {
     expect(q.adjustment_cents).toBe(0);
     expect(q.net_credit_cents).toBe(0);
   });
+
+  it("marks a pause that resolves within the period as NOT crossing billing", () => {
+    // Resume 2026-08-03, billing 2026-08-17 - the credit really does land on the
+    // next bill.
+    const q = quotePause({ ...base, status: "active", indefinite: false, weeks: 2 });
+    expect(q.resume_date).toBe("2026-08-03");
+    expect(q.crosses_billing).toBe(false);
+  });
+
+  it("marks a pause that resumes AFTER billing as crossing it (no next-bill drop)", () => {
+    // Resume 2026-08-24, after billing 2026-08-17: the next bill is not reduced.
+    const q = quotePause({ ...base, status: "active", indefinite: false, weeks: 5 });
+    expect(q.resume_date).toBe("2026-08-24");
+    expect(q.crosses_billing).toBe(true);
+  });
+
+  it("marks an indefinite pause as crossing billing", () => {
+    const q = quotePause({ ...base, status: "active", indefinite: true, weeks: null });
+    expect(q.crosses_billing).toBe(true);
+  });
+
+  it("does not cross when the resume date lands exactly on the billing date", () => {
+    const q = quotePause({ ...base, status: "active", indefinite: false, weeks: 4 });
+    expect(q.resume_date).toBe("2026-08-17");
+    expect(q.crosses_billing).toBe(false);
+  });
 });
 
 describe("quoteResume (deferred)", () => {

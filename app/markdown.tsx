@@ -11,7 +11,11 @@ function Spans({ spans }: { spans: Span[] }) {
   return (
     <>
       {spans.map((s, i) =>
-        s.bold ? (
+        s.code ? (
+          <code key={i} className="rounded bg-slate-100 px-1 py-0.5 font-mono text-[0.85em] text-slate-800">
+            {s.text}
+          </code>
+        ) : s.bold ? (
           <strong key={i} className="font-semibold text-slate-900">
             {s.text}
           </strong>

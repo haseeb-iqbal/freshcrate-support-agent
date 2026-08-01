@@ -186,13 +186,13 @@ These 10 meals are vegetarian, wherever they sit on the menu:
 | Teriyaki Tofu & Soba Noodles | Dairy-Free |
 
 ## Nutrition
-Every meal is nutritionally balanced and the figures below are **per serving**. Full
+Every meal is nutritionally balanced and the figures in the per-track tables below are **per serving**. Full
 per-recipe nutrition - calories plus protein, carbohydrate and fat - is printed on
 each meal's recipe card and shown on the meal's page in your account before you
 choose it. Add-ons are extra: sides are roughly 180-320 kcal, desserts 320-520 kcal,
 and drinks 90-180 kcal each; exact values are on each add-on's page.
 
-### Standard - nutrition per serving
+## Standard - nutrition per serving
 
 | Meal | Calories | Protein | Carbs | Fat |
 |---|---|---|---|---|
@@ -205,7 +205,7 @@ and drinks 90-180 kcal each; exact values are on each add-on's page.
 | Lamb Kofta & Couscous | 700 kcal | 40 g | 58 g | 34 g |
 | Turkey Meatball Marinara Sub | 730 kcal | 43 g | 68 g | 32 g |
 
-### Gluten-Free - nutrition per serving
+## Gluten-Free - nutrition per serving
 
 | Meal | Calories | Protein | Carbs | Fat |
 |---|---|---|---|---|
@@ -218,7 +218,7 @@ and drinks 90-180 kcal each; exact values are on each add-on's page.
 | Turkey & Vegetable Frittata | 520 kcal | 38 g | 22 g | 32 g |
 | Corn Tortilla Beef Tacos (3) | 690 kcal | 36 g | 66 g | 30 g |
 
-### Vegetarian - nutrition per serving
+## Vegetarian - nutrition per serving
 
 | Meal | Calories | Protein | Carbs | Fat |
 |---|---|---|---|---|
@@ -231,7 +231,7 @@ and drinks 90-180 kcal each; exact values are on each add-on's page.
 | Margherita Flatbread & Rocket | 700 kcal | 26 g | 78 g | 30 g |
 | Black Bean & Sweet Corn Burrito Bowl | 650 kcal | 22 g | 88 g | 22 g |
 
-### Dairy-Free - nutrition per serving
+## Dairy-Free - nutrition per serving
 
 | Meal | Calories | Protein | Carbs | Fat |
 |---|---|---|---|---|

@@ -30,6 +30,7 @@ export const POST = actionRoute<ResumeBody>(async ({ body, customer, now }) => {
     billingDate: customer.billingDate,
     plan,
     requestedPlan,
+    billingAdjustmentCents: customer.billingAdjustmentCents,
     now,
   });
   const { plan: effectivePlan, plan_changed: planChanged, charge_cents: charge } = quote;

@@ -198,7 +198,7 @@ export function ResumeCard({
       <p className="mt-1 text-sm text-slate-800">
         Resume your <span className="font-semibold">{proposal.plan}</span> plan? It restarts from next week
         {hasCharge ? (
-          <> — the weeks left until billing (<span className="font-semibold">{charge}</span>) are added to your next bill, making it <span className="font-semibold">{nextBill}</span>.</>
+          <> — resuming adds back <span className="font-semibold">{charge}</span> for the weeks up to billing you&apos;ll now receive, so your next bill will be <span className="font-semibold">{nextBill}</span>.</>
         ) : (
           <> at no extra charge this cycle (billing is due within the week).</>
         )}

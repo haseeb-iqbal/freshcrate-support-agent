@@ -41,6 +41,16 @@ describe("buildSystemPrompt", () => {
     expect(diet).toContain(`Never open with "I can't provide"`);
   });
 
+  it("tells the model to present nutrition figures as a table, not deflect", () => {
+    // The bug: asked for the gluten-free track "with the nutrition", the model
+    // showed meals then deflected ("check the recipe card in your account")
+    // instead of rendering the per-serving nutrition table the KB holds.
+    const diet = prompt.slice(prompt.indexOf("# Dietary tracks"), prompt.indexOf("# Actions need a tool call"));
+    expect(diet.toLowerCase()).toContain("nutrition");
+    expect(diet).toContain("Calories | Protein | Carbs | Fat");
+    expect(diet).toContain("Do NOT deflect");
+  });
+
   it("distinguishes a plan (meals per week) from a track (the diet)", () => {
     // Customers say "the standard plan" when they mean the standard TRACK; the
     // word "plan" otherwise routes the model to get_subscription, which knows

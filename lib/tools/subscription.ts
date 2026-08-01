@@ -179,6 +179,7 @@ export const resumeSubscription: Tool = {
       billingDate: customer.billingDate,
       plan,
       requestedPlan,
+      billingAdjustmentCents: customer.billingAdjustmentCents,
       now: ctx.now,
     });
     const charge = money(proposal.charge_cents);
@@ -193,7 +194,7 @@ export const resumeSubscription: Tool = {
         status: "needs_confirmation",
         proposal,
         message:
-          `A confirmation prompt shows the resume. Nothing is charged now: the weeks left until billing (${charge} at the plan's weekly rate) are ADDED to the customer's next monthly bill, making it exactly ${nextBill}. The plan resumes from next week. The card shows the exact ${nextBill} figure - do NOT state a different amount in your reply; keep it to a short lead-in and ask them to confirm. Do NOT say it's resumed until they confirm.`,
+          `A confirmation prompt shows the resume. Nothing is charged now: resuming adds back ${charge} (the weeks left until billing, at the plan's weekly rate) for the weeks the customer will now receive, so their next monthly bill will be exactly ${nextBill} - this already folds in any pause credit still on their account. The plan resumes from next week. The card shows the exact ${nextBill} figure - do NOT state a different amount in your reply; keep it to a short lead-in and ask them to confirm. Do NOT say it's resumed until they confirm.`,
       },
     };
   },

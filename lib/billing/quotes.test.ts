@@ -91,6 +91,21 @@ describe("quoteResume (deferred)", () => {
     const q = quoteResume({ ...base, billingDate: "2026-07-24", plan: PLAN_2 });
     expect(q.charge_cents).toBe(0);
   });
+
+  it("nets the existing pause credit into next_bill_cents (resume after a pause)", () => {
+    // The bug: a customer paused (a -$30 credit already deferred to the next bill)
+    // then resumes with 1 week to billing. The charge is +$30, but the next bill
+    // must be monthly + existingCredit + charge = $120 - $30 + $30 = $120, NOT
+    // monthly + charge = $150.
+    const q = quoteResume({ ...base, billingDate: "2026-07-27", plan: PLAN_2, billingAdjustmentCents: -3000 });
+    expect(q.charge_cents).toBe(3000); // 1 week x $30
+    expect(q.next_bill_cents).toBe(12000); // $120, not $150
+  });
+
+  it("floors next_bill_cents at zero when a large credit exceeds the bill", () => {
+    const q = quoteResume({ ...base, plan: PLAN_2, billingAdjustmentCents: -30000 });
+    expect(q.next_bill_cents).toBe(0);
+  });
 });
 
 describe("quoteReactivate", () => {

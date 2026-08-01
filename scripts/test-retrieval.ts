@@ -46,7 +46,7 @@ const CASES: Case[] = [
   // retrieved the wrong section until the per-diet sections were added.
   { q: "Is the Wild Mushroom Risotto gluten-free?", expect: "menu-and-dietary-tracks", heading: "Every gluten-free meal" },
   { q: "Is Paneer Butter Masala gluten-free?", expect: "menu-and-dietary-tracks", heading: "Every gluten-free meal" },
-  { q: "Do you have vegan options?", expect: "menu-and-dietary-tracks", heading: "Vegan and other diets" },
+  { q: "Do you have vegan options?", expect: "menu-and-dietary-tracks", heading: "Vegan, keto and other diets" },
   { q: "Are your meals halal?", expect: "menu-and-dietary-tracks", heading: "Halal and kosher" },
   { q: "Do you cater for nut allergies?", expect: "menu-and-dietary-tracks", heading: "Allergens and ingredient information" },
   { q: "Can I choose my own meals each week?", expect: "menu-and-dietary-tracks", heading: "Choosing your weekly recipes" },

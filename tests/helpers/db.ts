@@ -10,6 +10,7 @@ export interface TestCustomerInput {
   billingDate?: string;
   pauseResumeDate?: string | null;
   dietaryTrack?: string;
+  billingAdjustmentCents?: number;
 }
 
 export interface TestOrderInput {
@@ -50,6 +51,7 @@ export async function createTestCustomer(input: TestCustomerInput): Promise<void
     paymentMethod: "Visa ending 0000",
     billingDate: input.billingDate ?? "2026-08-17",
     pauseResumeDate: input.pauseResumeDate ?? null,
+    billingAdjustmentCents: input.billingAdjustmentCents ?? 0,
     lastReconciledAt: new Date(0),
   });
 }

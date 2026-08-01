@@ -103,7 +103,8 @@ export interface ResumeQuote {
   /** Added to billing_adjustment_cents now: the weeks left to billing at the
    *  resulting plan's full weekly rate. */
   charge_cents: number;
-  /** monthly + charge, for the resume card. */
+  /** max(0, monthly + existing adjustment + charge) - the exact next bill after
+   *  resuming, folding in any pause credit already on the account. */
   next_bill_cents: number;
   weeks_to_billing: number;
   billing_date: string | null;
@@ -116,11 +117,17 @@ export function quoteResume(input: {
   plan: PlanRate;
   /** Set only when the customer asked to switch plan while resuming. */
   requestedPlan?: string;
+  /** The customer's CURRENT deferred adjustment (the pause credit still on the
+   *  account). The resume charge is added on top of it, so the next bill must
+   *  fold it in - otherwise the card quotes monthly + charge and double-counts
+   *  the weeks the pause already credited. Defaults to 0 for a plain resume. */
+  billingAdjustmentCents?: number;
   now: Date;
 }): ResumeQuote {
   const { currentPlan, billingDate, plan, requestedPlan, now } = input;
   const weeksToBilling = weeksUntilDate(billingDate, now);
   const charge = weeklyValueCents(plan.weeklyCents, weeksToBilling);
+  const adjustment = input.billingAdjustmentCents ?? 0;
 
   return {
     plan: plan.plan,
@@ -129,7 +136,9 @@ export function quoteResume(input: {
     weekly_cents: plan.weeklyCents,
     monthly_cents: plan.monthlyCents,
     charge_cents: charge,
-    next_bill_cents: plan.monthlyCents + charge,
+    // The stored adjustment becomes `adjustment + charge`, and reconcile bills
+    // max(0, monthly + adjustment). Quote the same number the customer will pay.
+    next_bill_cents: Math.max(0, plan.monthlyCents + adjustment + charge),
     weeks_to_billing: weeksToBilling,
     billing_date: billingDate,
   };

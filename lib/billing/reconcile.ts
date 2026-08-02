@@ -1,14 +1,11 @@
 import { eq } from "drizzle-orm";
 import { db } from "../../db";
 import { customers, subscriptionEvents, transactions, plans } from "../../db/schema";
-import { PAUSE_FEE_CENTS, weeklyValueCents, weeksUntilDate } from "./pricing";
+import { pausedWeekReductionCents, weeksUntilDate } from "./pricing";
 import { money } from "../money";
 
-/** A monthly billing cycle is treated as 4 weeks for pause-fee purposes. */
+/** A monthly billing cycle is treated as 4 weeks for pause purposes. */
 const WEEKS_PER_PERIOD = 4;
-
-/** A full month of pause, billed at $8/week. */
-export const PAUSE_FEE_MONTHLY_CENTS = PAUSE_FEE_CENTS * WEEKS_PER_PERIOD; // $32/month
 
 export type SubStatus = "active" | "paused" | "cancelled";
 
@@ -61,13 +58,15 @@ function addMonth(isoDate: string): string {
  * chronological order, and return the resulting state plus the transactions and
  * status-change events to record. No DB, no clock — deterministic in `now`.
  *
- * Rules per billing-date crossing: an ACTIVE sub is charged its monthly plan
- * price; an INDEFINITE pause (no resume date) is charged the $8/week fee for the
- * month; a FINITE pause rolls its billing date with no charge (its credit was
- * already deferred to the next bill); a CANCELLED sub is never billed. A finite
- * pause auto-resumes the moment its resume date passes, adding the weeks then
- * left to billing (at the plan's full weekly rate) to billingAdjustmentCents for
- * the next bill - after which normal billing resumes.
+ * Rules per billing-date crossing: every non-cancelled sub is charged its
+ * monthly plan price plus any deferred adjustment, floored at zero. A paused
+ * week is billed at the $8 pause fee instead of the plan's weekly rate, which the
+ * adjustment carries as a (weekly − $8) reduction per paused week - so a
+ * fully-paused month bills 4 × $8. A sub still paused after a crossing pre-loads
+ * the next period's full-period reduction; a resume claws back the weeks that go
+ * active again. A finite pause auto-resumes the moment its resume date passes,
+ * adding (weekly − $8) × weeks-then-left-to-billing to billingAdjustmentCents. A
+ * CANCELLED sub is never billed.
  *
  * Self-cursoring: billing dates advance past `now` and the resume date clears, so
  * re-running on the result is a no-op. Loop is capped as a runaway backstop.
@@ -100,30 +99,23 @@ export function computeReconciliation(input: ReconInput, now: Date): ReconResult
 
     if (ev === "resume") {
       const weeks = weeksUntilDate(billingDate, parse(pauseResumeDate!));
-      billingAdjustment += weeklyValueCents(input.weeklyCents, weeks);
+      billingAdjustment += pausedWeekReductionCents(input.weeklyCents) * weeks;
       events.push({ eventType: "resumed", date: pauseResumeDate! });
       status = "active";
       pauseResumeDate = null;
     } else {
-      if (status === "active") {
-        const amount = Math.max(0, input.monthlyCents + billingAdjustment);
-        const note = billingAdjustment !== 0 ? ` (incl. ${billingAdjustment < 0 ? "-" : "+"}${money(Math.abs(billingAdjustment))} adjustment)` : "";
-        transactions.push({ type: "monthly_billing", amountCents: amount, description: `Monthly billing${note}`, date: billingDate });
-        billingAdjustment = 0;
-      } else if (status === "paused") {
-        // $8 for each week actually paused in this period — a full 4 weeks for an
-        // indefinite pause, fewer when a finite pause ends part-way through.
-        const pausedWeeks = pauseResumeDate
-          ? Math.min(WEEKS_PER_PERIOD, weeksUntilDate(pauseResumeDate, parse(billingDate)))
-          : WEEKS_PER_PERIOD;
-        if (pausedWeeks > 0) {
-          transactions.push({
-            type: "pause_fee",
-            amountCents: pausedWeeks * PAUSE_FEE_CENTS,
-            description: `Pause fee (${pausedWeeks} week${pausedWeeks === 1 ? "" : "s"} @ $8)`,
-            date: billingDate,
-          });
-        }
+      // Bill the period that just ended: monthly plus any deferred adjustment,
+      // floored at zero. The same for an active or a still-paused sub — the
+      // adjustment already carries this period's paused weeks as a (weekly − $8)
+      // reduction each, so a fully-paused month bills 4 × $8.
+      const amount = Math.max(0, input.monthlyCents + billingAdjustment);
+      const note = billingAdjustment !== 0 ? ` (incl. ${billingAdjustment < 0 ? "-" : "+"}${money(Math.abs(billingAdjustment))} adjustment)` : "";
+      transactions.push({ type: "monthly_billing", amountCents: amount, description: `Monthly billing${note}`, date: billingDate });
+      billingAdjustment = 0;
+      // Still paused into the next period → pre-load its full-period reduction; a
+      // later resume claws back the weeks that go active again.
+      if (status === "paused") {
+        billingAdjustment = -pausedWeekReductionCents(input.weeklyCents) * WEEKS_PER_PERIOD;
       }
       billingDate = addMonth(billingDate);
     }

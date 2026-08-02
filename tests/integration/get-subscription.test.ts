@@ -18,9 +18,8 @@ interface SubData {
   next_bill?: {
     amount_cents: number;
     monthly_cents: number;
-    pause_credit_cents: number;
-    deferred_charge_cents: number;
-    pause_fee_upcoming_cents: number;
+    pause_fee_per_week_cents: number;
+    paused_weeks_billed: number;
   };
 }
 
@@ -42,8 +41,8 @@ describe("get_subscription (integration, seeded DB)", () => {
     expect(d.next_bill_cents).toBeGreaterThan(0);
   });
 
-  it("folds a deferred pause credit into next_bill_cents, floored at zero", async () => {
-    // A paused customer with a -$30 credit already deferred: the next bill is
+  it("folds a deferred pause reduction into next_bill_cents, floored at zero", async () => {
+    // A paused customer with a -$30 reduction already deferred: the next bill is
     // monthly - 30, not the bare monthly.
     await createTestCustomer({ id: ID, plan: "2 meals/week", subscriptionStatus: "paused", billingAdjustmentCents: -3000 });
     const r = await getSubscription.handler({ customerId: ID, now: new Date() }, {});
@@ -53,45 +52,43 @@ describe("get_subscription (integration, seeded DB)", () => {
     expect(d.next_bill_cents).toBe(Math.max(0, plan!.monthlyCents - 3000));
   });
 
-  it("breaks the bill down and does NOT add a pause fee when the pause resolves by billing", async () => {
-    // The screenshot bug: bot invented an "$8/week fee reflected in the total".
-    // A 1-week pause resuming on/before billing pays NO pause fee, so the note
-    // must say the fee does not apply and the breakdown must expose the credit.
+  it("bills a one-week pause at $8, not a full-weekly credit ($98, not $90)", async () => {
+    // A 1-week pause resuming on the billing date: 3 weeks at $30 + 1 week at $8.
+    // The reduction is (weekly - $8) = $22, so the next bill is $98.
     await createTestCustomer({
       id: ID,
       plan: "2 meals/week",
       subscriptionStatus: "paused",
       billingDate: "2026-08-09",
-      pauseResumeDate: "2026-08-09", // resumes on the billing date -> not crossing
-      billingAdjustmentCents: -3000,
+      pauseResumeDate: "2026-08-09",
+      billingAdjustmentCents: -2200,
     });
     const r = await getSubscription.handler({ customerId: ID, now: new Date(2026, 7, 2) }, {});
     const d = r.data as SubData;
     expect(d.next_bill?.monthly_cents).toBe(12000);
-    expect(d.next_bill?.pause_credit_cents).toBe(3000);
-    expect(d.next_bill?.pause_fee_upcoming_cents).toBe(0);
-    expect(d.next_bill?.amount_cents).toBe(9000);
-    expect(d.next_bill_note).toMatch(/does not apply|no .*fee/i);
+    expect(d.next_bill?.amount_cents).toBe(9800); // $98
+    expect(d.next_bill?.paused_weeks_billed).toBe(1);
+    expect(d.next_bill?.pause_fee_per_week_cents).toBe(800);
+    expect(d.next_bill_note).toMatch(/\$8\/week/);
+    expect(d.next_bill_note).not.toMatch(/credit/i);
   });
 
-  it("flags an upcoming pause fee only when paused ACROSS the billing date", async () => {
-    // Indefinite pause (no resume date) -> stays paused across billing -> an $8/wk
-    // fee IS charged then, separately from the deferred monthly figure.
+  it("bills a fully-paused month at 4 x $8 = $32", async () => {
     await createTestCustomer({
       id: ID,
       plan: "2 meals/week",
       subscriptionStatus: "paused",
-      billingDate: "2026-08-09",
+      billingDate: "2026-08-30",
       pauseResumeDate: null,
-      billingAdjustmentCents: -3000,
+      billingAdjustmentCents: -8800,
     });
     const r = await getSubscription.handler({ customerId: ID, now: new Date(2026, 7, 2) }, {});
     const d = r.data as SubData;
-    expect(d.next_bill?.pause_fee_upcoming_cents).toBeGreaterThan(0);
-    expect(d.next_bill_note).toMatch(/pause fee/i);
+    expect(d.next_bill?.amount_cents).toBe(3200); // $32
+    expect(d.next_bill?.paused_weeks_billed).toBe(4);
   });
 
-  it("floors the next bill at zero when a credit exceeds the monthly", async () => {
+  it("floors the next bill at zero when a reduction exceeds the monthly", async () => {
     await createTestCustomer({ id: ID, plan: "2 meals/week", subscriptionStatus: "paused", billingAdjustmentCents: -50000 });
     const r = await getSubscription.handler({ customerId: ID, now: new Date() }, {});
     const d = r.data as SubData;

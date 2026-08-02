@@ -1,10 +1,10 @@
 import { eq } from "drizzle-orm";
 import { db } from "../../db";
 import { customers } from "../../db/schema";
-import { PAUSE_FEE_CENTS, SIGNUP_FEE_CENTS, weeksUntilDate } from "../billing/pricing";
+import { PAUSE_FEE_CENTS, SIGNUP_FEE_CENTS, pausedWeekReductionCents, weeksUntilDate } from "../billing/pricing";
 import { getPlan } from "../billing/plans";
 import { quotePause, quoteReactivate, quoteResume } from "../billing/quotes";
-import type { SubStatus } from "../billing/reconcile";
+import { computeReconciliation, type SubStatus } from "../billing/reconcile";
 import { money } from "../money";
 import type { Tool } from "./types";
 
@@ -36,29 +36,28 @@ export const getSubscription: Tool = {
       pause = { indefinite: !customer.pauseResumeDate, resume_date: customer.pauseResumeDate ?? null };
     }
 
-    // The next monthly bill, exactly as reconcile computes it: the plan's monthly
-    // rate plus any deferred pause credit / resume charge, floored at zero. This
-    // is the current figure (any unconfirmed pause/resume on screen is not applied
-    // until the customer confirms it).
+    // The real next bill. Run the biller forward to the next billing date so a
+    // finite pause's auto-resume claws back the weeks that go active again - the
+    // stored adjustment alone overstates the discount until then. A paused week
+    // is billed at the $8 fee, so e.g. a one-week pause bills monthly − (weekly − $8).
     const plan = await getPlan(customer.plan);
     const monthly = plan?.monthlyCents ?? null;
     const adjustment = customer.billingAdjustmentCents;
-    const nextBill = monthly === null ? null : Math.max(0, monthly + adjustment);
+    const nextBill = nextBillCents(customer, plan?.weeklyCents ?? null, monthly, adjustment);
 
-    // Break the bill down so the model can explain it from facts instead of
-    // inventing fee math. A negative adjustment is a deferred pause credit; a
-    // positive one is a deferred resume/weeks-added charge. The $8/week pause fee
-    // is charged SEPARATELY, and ONLY while the customer stays paused across a
-    // billing date - so compute whether one is actually upcoming.
-    const pauseCredit = adjustment < 0 ? -adjustment : 0;
-    const deferredCharge = adjustment > 0 ? adjustment : 0;
-    const pauseFeeUpcoming = pauseFeeUpcomingCents(customer.subscriptionStatus, customer.pauseResumeDate, customer.billingDate);
-
+    const weekly = plan?.weeklyCents ?? null;
+    // Paused weeks reflected in this bill = the reduction divided by the per-week
+    // reduction (weekly − $8). Lets the note say "N weeks at $8" without guessing.
+    const perWeek = weekly === null ? 0 : pausedWeekReductionCents(weekly);
+    const pausedWeeks =
+      customer.subscriptionStatus === "paused" && monthly !== null && nextBill !== null && perWeek > 0
+        ? Math.max(0, Math.round((monthly - nextBill) / perWeek))
+        : 0;
     const nextBill_ =
-      nextBill === null
+      nextBill === null || monthly === null
         ? null
-        : { amount_cents: nextBill, monthly_cents: monthly!, pause_credit_cents: pauseCredit, deferred_charge_cents: deferredCharge, pause_fee_upcoming_cents: pauseFeeUpcoming };
-    const note = nextBill === null ? undefined : nextBillNote(nextBill, monthly!, pauseCredit, deferredCharge, pauseFeeUpcoming);
+        : { amount_cents: nextBill, monthly_cents: monthly, pause_fee_per_week_cents: PAUSE_FEE_CENTS, paused_weeks_billed: pausedWeeks };
+    const note = nextBill === null || monthly === null ? undefined : nextBillNote(nextBill, monthly, weekly, pausedWeeks, adjustment);
 
     return {
       ok: true,
@@ -79,44 +78,55 @@ export const getSubscription: Tool = {
   },
 };
 
-/** The $8/week pause fee that will hit at the next billing date - non-zero ONLY
- *  when the subscription stays paused across it (indefinite, or a finite pause
- *  resuming after billing). Mirrors reconcile's pause-fee rule so the two agree. */
-function pauseFeeUpcomingCents(status: string, pauseResumeDate: string | null, billingDate: string | null): number {
-  if (status !== "paused" || !billingDate) return 0;
-  const crosses = !pauseResumeDate || pauseResumeDate > billingDate;
-  if (!crosses) return 0;
-  const weeksPaused = pauseResumeDate
-    ? Math.min(4, weeksUntilDate(pauseResumeDate, new Date(`${billingDate}T00:00:00`)))
-    : 4; // indefinite: a full 4-week period
-  return Math.max(0, weeksPaused) * PAUSE_FEE_CENTS;
+/** The actual next bill, from running the biller forward to the billing date so
+ *  a finite pause's auto-resume is folded in. Falls back to monthly + adjustment
+ *  when there is no plan rate or billing date to project from. */
+function nextBillCents(
+  customer: { subscriptionStatus: string; billingDate: string | null; pauseResumeDate: string | null },
+  weeklyCents: number | null,
+  monthlyCents: number | null,
+  adjustmentCents: number,
+): number | null {
+  if (monthlyCents === null) return null;
+  if (weeklyCents === null || !customer.billingDate) return Math.max(0, monthlyCents + adjustmentCents);
+  const r = computeReconciliation(
+    {
+      status: customer.subscriptionStatus as SubStatus,
+      billingDate: customer.billingDate,
+      pauseResumeDate: customer.pauseResumeDate,
+      weeklyCents,
+      monthlyCents,
+      billingAdjustmentCents: adjustmentCents,
+    },
+    new Date(`${customer.billingDate}T00:00:00`),
+  );
+  const line = r.transactions.find((t) => t.date === customer.billingDate && t.type === "monthly_billing");
+  return line ? line.amountCents : Math.max(0, monthlyCents + adjustmentCents);
 }
 
 /** A plain-language breakdown the model relays instead of guessing at the math. */
-function nextBillNote(nextBill: number, monthly: number, pauseCredit: number, deferredCharge: number, pauseFeeUpcoming: number): string {
-  const parts = [`Next bill is ${money(nextBill)}: plan monthly ${money(monthly)}`];
-  if (pauseCredit > 0) parts.push(`minus a ${money(pauseCredit)} pause credit`);
-  if (deferredCharge > 0) parts.push(`plus a ${money(deferredCharge)} deferred charge`);
-  const fee =
-    pauseFeeUpcoming > 0
-      ? ` Separately, staying paused across the billing date adds an ${PAUSE_FEE_PER_WEEK} pause fee (about ${money(pauseFeeUpcoming)}) charged at that date - it is NOT part of the ${money(nextBill)} figure.`
-      : ` The ${PAUSE_FEE_PER_WEEK} pause fee does not apply to this bill (it only applies while paused across a billing date).`;
-  return `${parts.join(" ")}.${fee} Explain the bill using ONLY these numbers; do not add or invent any fee.`;
+function nextBillNote(nextBill: number, monthly: number, weekly: number | null, pausedWeeks: number, adjustment: number): string {
+  if (pausedWeeks > 0) {
+    const rate = weekly === null ? "your usual weekly rate" : `${money(weekly)}/week`;
+    return `Next bill is ${money(nextBill)}: your ${money(monthly)} plan with ${pausedWeeks} paused week${pausedWeeks === 1 ? "" : "s"} billed at ${PAUSE_FEE_PER_WEEK} instead of ${rate}. That is the whole bill - nothing else is added or taken off. Explain it from these numbers.`;
+  }
+  if (adjustment > 0) {
+    return `Next bill is ${money(nextBill)}: your ${money(monthly)} plan plus ${money(adjustment)} for the weeks added back on resuming. Explain from these numbers; do not invent a fee.`;
+  }
+  return `Next bill is ${money(nextBill)} (your ${money(monthly)} plan). Explain from these numbers; do not invent a fee.`;
 }
 
 /**
  * Pause is propose-only. Accepts weeks (1-52), a target until_date (within a
- * year), or indefinite=true. The plan pauses from next week; a credit for each
- * skipped week's full plan value is deferred to the customer's next monthly
- * bill (the $8/week pause fee is separate, and only applies while the customer
- * stays paused across a billing date). Shows a confirmation prompt; applied via
- * /api/actions/pause on confirm.
+ * year), or indefinite=true. The plan pauses from next week; each paused week is
+ * billed at the $8 pause fee instead of the plan's weekly rate. Shows a
+ * confirmation prompt; applied via /api/actions/pause on confirm.
  */
 export const pauseSubscription: Tool = {
   definition: {
     name: "pause_subscription",
     description:
-      `Start a pause for the current customer's subscription. Provide EITHER weeks (1-52), OR until_date (YYYY-MM-DD, within a year) if they named a date (never convert a date to weeks yourself), OR indefinite=true to pause indefinitely (resume anytime). Calling this shows a confirmation prompt with the credit applied to their next bill and the ${PAUSE_FEE_PER_WEEK} pause fee; it does not pause until they confirm. Call this ONLY when the customer is asking to start a pause or to change a pause's length/date. Do NOT call it to explain or answer a QUESTION about a pause that is already shown or that they mentioned ("what do you mean", "why", "how much is the fee/next bill") - answer that in words, using get_subscription for any figure.`,
+      `Start a pause for the current customer's subscription. Provide EITHER weeks (1-52), OR until_date (YYYY-MM-DD, within a year) if they named a date (never convert a date to weeks yourself), OR indefinite=true to pause indefinitely (resume anytime). Each paused week is billed at the ${PAUSE_FEE_PER_WEEK} pause fee instead of the plan's weekly rate; calling this shows a confirmation prompt and does not pause until they confirm. Call this ONLY when the customer is asking to start a pause or to change a pause's length/date. Do NOT call it to explain or answer a QUESTION about a pause that is already shown or that they mentioned ("what do you mean", "why", "how much is the fee/next bill") - answer that in words, using get_subscription for any figure.`,
     parameters: {
       type: "object",
       properties: {
@@ -169,8 +179,8 @@ export const pauseSubscription: Tool = {
       };
     }
 
-    // The same quote /api/actions/pause applies on confirm, so the card cannot
-    // promise a credit the write path would then refuse to pay.
+    // The same quote /api/actions/pause applies on confirm, so the card and the
+    // write path can't disagree.
     const proposal = quotePause({
       status: customer.subscriptionStatus as SubStatus,
       billingDate: customer.billingDate,
@@ -180,26 +190,10 @@ export const pauseSubscription: Tool = {
       resumeDate,
       now: ctx.now,
     });
-    const credit = money(proposal.net_credit_cents);
-    // "Next bill drops by $X" is only true when the pause resolves within the
-    // current billing period. When it crosses the billing date (indefinite, or
-    // resumes after billing) the credit is deferred, so neither the card nor the
-    // model may promise a next-bill drop.
-    const dropsNextBill = proposal.net_credit_cents > 0 && !proposal.crosses_billing;
 
-    const summary = dropsNextBill
-      ? `Proposed ${weeks}-week pause (resumes ${proposal.resume_date}, next bill drops ${credit})`
-      : indefinite
-        ? `Proposed indefinite pause (crosses billing: ${PAUSE_FEE_PER_WEEK} fee applies, credit deferred)`
-        : proposal.crosses_billing
-          ? `Proposed ${weeks}-week pause (resumes ${proposal.resume_date}; runs past billing, no next-bill drop)`
-          : `Proposed ${weeks}-week pause (resumes ${proposal.resume_date})`;
-
-    const creditSentence = dropsNextBill
-      ? `The customer's NEXT monthly bill is reduced by exactly ${credit} for the weeks they skip - the card shows this exact figure, so do NOT state a different amount. While they stay paused past a billing date the ${PAUSE_FEE_PER_WEEK} pause fee applies.`
-      : proposal.crosses_billing
-        ? `Because this pause runs past their next billing date, tell them plainly that while paused it costs ${PAUSE_FEE_PER_WEEK} until it resumes. Do NOT promise their next bill drops by any specific amount, and do NOT get into deferred credits.`
-        : `No credit is due this cycle because billing is within the week; while they stay paused past a billing date the ${PAUSE_FEE_PER_WEEK} pause fee applies.`;
+    const summary = indefinite
+      ? `Proposed indefinite pause (${PAUSE_FEE_PER_WEEK} while paused)`
+      : `Proposed ${weeks}-week pause (resumes ${proposal.resume_date}, ${PAUSE_FEE_PER_WEEK} while paused)`;
 
     return {
       ok: true,
@@ -208,7 +202,7 @@ export const pauseSubscription: Tool = {
         status: "needs_confirmation",
         proposal,
         message:
-          `A confirmation prompt is shown. Nothing is charged or credited now. ${creditSentence} The plan pauses from next week (this week's box still ships) and they can resume early. Keep your reply to a short lead-in and ask them to confirm. Do NOT say it's paused until they confirm.`,
+          `A confirmation prompt is shown. Nothing is charged now. Tell the customer plainly that each paused week is billed at the ${PAUSE_FEE_PER_WEEK} pause fee instead of their usual weekly rate, until it resumes - there is NO separate credit. The plan pauses from next week (this week's box still ships) and they can resume early. Keep your reply to a short lead-in and ask them to confirm. Do NOT say it's paused until they confirm.`,
       },
     };
   },
@@ -216,9 +210,9 @@ export const pauseSubscription: Tool = {
 
 /**
  * Resume is propose-only. Optionally switch plan at the same time (new_plan).
- * A charge for the weeks remaining to billing, at the plan's full weekly rate,
- * is deferred to the customer's next monthly bill; the plan resumes from next
- * week. Applied via /api/actions/resume on confirm.
+ * Resuming returns the weeks left to billing to the plan's weekly rate (they no
+ * longer bill at the $8 pause fee), which is deferred to the next monthly bill;
+ * the plan resumes from next week. Applied via /api/actions/resume on confirm.
  */
 export const resumeSubscription: Tool = {
   definition: {
@@ -268,7 +262,7 @@ export const resumeSubscription: Tool = {
         status: "needs_confirmation",
         proposal,
         message:
-          `A confirmation prompt shows the resume. Nothing is charged now: resuming adds back ${charge} (the weeks left until billing, at the plan's weekly rate) for the weeks the customer will now receive, so their next monthly bill will be exactly ${nextBill} - this already folds in any pause credit still on their account. The plan resumes from next week. The card shows the exact ${nextBill} figure - do NOT state a different amount in your reply; keep it to a short lead-in and ask them to confirm. Do NOT say it's resumed until they confirm.`,
+          `A confirmation prompt shows the resume. Nothing is charged now: resuming returns the weeks left until billing to the normal weekly rate (they stop billing at the ${PAUSE_FEE_PER_WEEK} pause fee), which adds ${charge}, so their next monthly bill will be exactly ${nextBill}. The plan resumes from next week. The card shows the exact ${nextBill} figure - do NOT state a different amount in your reply; keep it to a short lead-in and ask them to confirm. Do NOT say it's resumed until they confirm.`,
       },
     };
   },

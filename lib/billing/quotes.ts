@@ -1,8 +1,8 @@
 import {
   PAUSE_FEE_CENTS,
   SIGNUP_FEE_CENTS,
+  pausedWeekReductionCents,
   prorationCents,
-  weeklyValueCents,
   weeklySavingsCents,
   weeksUntilDate,
   withinBillingPeriod,
@@ -41,29 +41,20 @@ export interface PauseQuote {
   indefinite: boolean;
   weeks: number | null;
   resume_date: string | null;
-  /** Applied to billing_adjustment_cents now: the whole remaining cycle at the
-   *  weekly rate. Zero when the subscription was already paused. Keeping this the
-   *  full cycle (not the pause length) is what makes pause+resume net to zero. */
-  adjustment_cents: number;
-  /** What the customer nets on their next bill once this pause runs as scheduled
-   *  (finite: weeks actually skipped; indefinite: whole cycle). Display only. */
-  net_credit_cents: number;
   /**
-   * True when the pause runs PAST the next billing date (indefinite, or a finite
-   * pause whose resume date falls after billing). In that case the credit does
-   * NOT land on the next bill: that billing crossing is skipped / charged the
-   * pause fee and the credit is deferred to a later bill. Only when this is false
-   * (the pause resolves within the current period) does "next bill drops by
-   * net_credit" actually hold - so the card must not promise a next-bill drop
-   * when this is true.
+   * Subtracted from billing_adjustment_cents now: the remaining cycle billed at
+   * the pause rate instead of the plan rate, i.e. (weekly − $8) per remaining
+   * week. Zero when the subscription was already paused. Assuming the whole
+   * remaining cycle here (not the pause length) is what lets resume claw the
+   * unpaused weeks back uniformly, whether the resume is manual or automatic.
    */
-  crosses_billing: boolean;
+  adjustment_cents: number;
+  /** The flat weekly fee a paused week is billed at ($8). */
   weekly_fee_cents: number;
   weeks_to_billing: number;
   /**
-   * True when the subscription was already paused. The up-front credit pays back
-   * the already-paid weeks of the CURRENT billing period, so extending or
-   * replaying a pause must not buy those weeks back a second time.
+   * True when the subscription was already paused, so there is nothing to pause
+   * and no adjustment is applied.
    */
   already_paused: boolean;
 }
@@ -84,25 +75,18 @@ export function quotePause(input: {
   const alreadyPaused = status === "paused";
   const weekly = plan?.weeklyCents ?? 0;
 
-  // Stored adjustment = the whole remaining cycle. Display net = the weeks the
-  // customer actually skips (finite pauses auto-resume and claw the rest back).
-  const adjustment = alreadyPaused ? 0 : weeklyValueCents(weekly, weeksToBilling);
-  const skipped = indefinite ? weeksToBilling : Math.min(weeks ?? 0, weeksToBilling);
-  const netCredit = alreadyPaused ? 0 : weeklyValueCents(weekly, skipped);
+  // A paused week is billed at the $8 fee instead of the weekly rate, so pausing
+  // takes (weekly − $8) off per remaining week. Stored against the whole
+  // remaining cycle; resume claws back the weeks that end up active again.
+  const adjustment = alreadyPaused ? 0 : pausedWeekReductionCents(weekly) * weeksToBilling;
 
   const resumeDate = indefinite ? null : (input.resumeDate ?? addWeeksIso(weeks ?? 0, now));
-  // The "next bill drops" claim only holds when the pause resolves on or before
-  // the next billing date. An indefinite pause always crosses it; a finite pause
-  // crosses when it resumes after billing.
-  const crossesBilling = indefinite || (!!billingDate && !!resumeDate && resumeDate > billingDate);
 
   return {
     indefinite,
     weeks: indefinite ? null : weeks,
     resume_date: resumeDate,
     adjustment_cents: adjustment,
-    net_credit_cents: netCredit,
-    crosses_billing: crossesBilling,
     weekly_fee_cents: PAUSE_FEE_CENTS,
     weeks_to_billing: weeksToBilling,
     already_paused: alreadyPaused,
@@ -117,8 +101,9 @@ export interface ResumeQuote {
   plan_changed: boolean;
   weekly_cents: number;
   monthly_cents: number;
-  /** Added to billing_adjustment_cents now: the weeks left to billing at the
-   *  resulting plan's full weekly rate. */
+  /** Added to billing_adjustment_cents now: the weeks left to billing that go
+   *  back to the plan rate. Each undoes a paused week's (weekly − $8) reduction,
+   *  so resuming R weeks early adds (weekly − $8) × R back to the bill. */
   charge_cents: number;
   /** max(0, monthly + existing adjustment + charge) - the exact next bill after
    *  resuming, folding in any pause credit already on the account. */
@@ -143,7 +128,7 @@ export function quoteResume(input: {
 }): ResumeQuote {
   const { currentPlan, billingDate, plan, requestedPlan, now } = input;
   const weeksToBilling = weeksUntilDate(billingDate, now);
-  const charge = weeklyValueCents(plan.weeklyCents, weeksToBilling);
+  const charge = pausedWeekReductionCents(plan.weeklyCents) * weeksToBilling;
   const adjustment = input.billingAdjustmentCents ?? 0;
 
   return {

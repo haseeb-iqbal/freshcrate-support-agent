@@ -17,30 +17,30 @@ describe("POST /api/actions/resume", () => {
   afterEach(() => setClock(null));
   afterAll(() => purgeCustomer(ID));
 
-  it("resumes on the same plan and defers the full weekly charge to the next bill", async () => {
+  it("resumes on the same plan and defers the (weekly − $8) charge to the next bill", async () => {
     await paused();
     const res = await postJson(POST, { customerId: ID });
 
-    // 4 weeks to billing x $30 = $120; monthly $120 + charge $120 = $240.
+    // 4 weeks to billing x (weekly − $8) = 4 x $22 = $88 added back; monthly $120 + $88 = $208.
     expect(res.status).toBe(200);
-    expect(await res.json()).toMatchObject({ ok: true, plan: "2 meals/week", plan_changed: false, charge_cents: 12000, next_bill_cents: 24000 });
+    expect(await res.json()).toMatchObject({ ok: true, plan: "2 meals/week", plan_changed: false, charge_cents: 8800, next_bill_cents: 20800 });
 
     const c = await customerOf(ID);
     expect(c.subscriptionStatus).toBe("active");
     expect(c.pauseResumeDate).toBeNull();
-    expect(c.billingAdjustmentCents).toBe(12000);
+    expect(c.billingAdjustmentCents).toBe(8800);
     expect(await txnsOf(ID)).toEqual([]); // deferred, not an immediate transaction
     expect(await eventsOf(ID)).toEqual(["resumed"]);
   });
 
-  it("charges the NEW plan's full weekly rate when resuming onto a different plan", async () => {
+  it("charges the NEW plan's (weekly − $8) rate when resuming onto a different plan", async () => {
     await paused();
     const res = await postJson(POST, { customerId: ID, newPlan: "3 meals/week" });
 
-    // 4 weeks x $42 = $168.
-    expect(await res.json()).toMatchObject({ plan: "3 meals/week", plan_changed: true, charge_cents: 16800 });
+    // 4 weeks x ($42 − $8) = 4 x $34 = $136.
+    expect(await res.json()).toMatchObject({ plan: "3 meals/week", plan_changed: true, charge_cents: 13600 });
     expect((await customerOf(ID)).plan).toBe("3 meals/week");
-    expect((await customerOf(ID)).billingAdjustmentCents).toBe(16800);
+    expect((await customerOf(ID)).billingAdjustmentCents).toBe(13600);
     expect(await txnsOf(ID)).toEqual([]);
     expect(await eventsOf(ID)).toEqual(["resumed", "plan_changed"]);
   });
@@ -63,7 +63,7 @@ describe("POST /api/actions/resume", () => {
     expect(first.status).toBe(200);
     expect(second.status).toBe(409);
     expect(await second.json()).toMatchObject({ error: "not_paused" });
-    expect((await customerOf(ID)).billingAdjustmentCents).toBe(12000); // not doubled by the replay
+    expect((await customerOf(ID)).billingAdjustmentCents).toBe(8800); // not doubled by the replay
   });
 
   it("refuses to resume an active subscription", async () => {

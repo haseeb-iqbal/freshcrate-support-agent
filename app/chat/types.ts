@@ -71,12 +71,9 @@ export interface PauseProposal {
   weeks: number | null;
   resume_date: string | null;
   adjustment_cents: number;
-  net_credit_cents: number;
-  /** The pause runs past the next billing date, so it is NOT a next-bill drop. */
-  crosses_billing: boolean;
+  /** The flat weekly fee a paused week is billed at ($8). */
   weekly_fee_cents: number;
   weeks_to_billing: number;
-  /** Already paused, so the up-front credit was spent on this billing period. */
   already_paused: boolean;
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PAUSE_FEE_MONTHLY_CENTS, computeReconciliation, type ReconInput } from "./reconcile";
+import { computeReconciliation, type ReconInput } from "./reconcile";
 
 const base: ReconInput = {
   status: "active",
@@ -34,21 +34,21 @@ describe("computeReconciliation", () => {
     expect(r.billingDate).toBe("2026-09-10");
   });
 
-  it("auto-resumes a finite pause by crediting the adjustment, not posting a charge", () => {
-    // now is after the billing date, so both the auto-resume and the following
-    // monthly billing come due in this one catch-up pass.
+  it("auto-resumes a finite pause, clawing (weekly − $8) per week back into the adjustment", () => {
+    // Paused with a full-cycle −$88 reduction on the account; now is after the
+    // billing date, so the auto-resume and the following monthly bill both come
+    // due in one catch-up pass.
     const r = computeReconciliation(
-      { ...base, status: "paused", pauseResumeDate: "2026-08-25", billingDate: "2026-09-20" },
+      { ...base, status: "paused", pauseResumeDate: "2026-08-25", billingDate: "2026-09-20", billingAdjustmentCents: -8800 },
       at("2026-09-21"),
     );
     expect(r.status).toBe("active");
     expect(r.pauseResumeDate).toBeNull();
-    // No resume_charge transaction; the resume adds weeks-to-billing x weekly to the adjustment.
-    expect(typesOf(r)).not.toContain("resume_charge");
-    // weeks to billing on 2026-08-25 from 2026-09-20 = 3 -> 3 x $30 = $90.
-    // Then billing 2026-09-20 <= now: monthly + adjustment = 12000 + 9000 = 21000, adjustment cleared.
+    expect(typesOf(r)).not.toContain("resume_charge"); // resume adjusts, never posts a charge
+    // weeks to billing on 2026-08-25 from 2026-09-20 = 3 -> claws back 3 x $22 = $66,
+    // leaving one paused week: 12000 − 8800 + 6600 = 9800 (= 3 x $30 + 1 x $8).
     expect(typesOf(r)).toEqual(["monthly_billing"]);
-    expect(r.transactions[0].amountCents).toBe(21000);
+    expect(r.transactions[0].amountCents).toBe(9800);
     expect(r.billingAdjustmentCents).toBe(0);
     expect(r.events.map((e) => e.eventType)).toContain("resumed");
   });
@@ -82,36 +82,40 @@ describe("computeReconciliation", () => {
     expect(r.billingAdjustmentCents).toBe(0);
   });
 
-  it("charges the monthly pause fee for an indefinite pause and stays paused", () => {
+  it("bills a fully-paused month at 4 × $8 and pre-loads the next period", () => {
+    // Paused indefinitely with the full-period −$88 reduction on the account.
     const r = computeReconciliation(
-      { ...base, status: "paused", pauseResumeDate: null, billingDate: "2026-08-15" },
+      { ...base, status: "paused", pauseResumeDate: null, billingDate: "2026-08-15", billingAdjustmentCents: -8800 },
       at("2026-09-01"),
     );
-    expect(typesOf(r)).toEqual(["pause_fee"]);
-    expect(r.transactions[0].amountCents).toBe(PAUSE_FEE_MONTHLY_CENTS);
+    expect(typesOf(r)).toEqual(["monthly_billing"]);
+    expect(r.transactions[0].amountCents).toBe(3200); // 12000 − 8800 = 4 × $8
     expect(r.status).toBe("paused");
     expect(r.billingDate).toBe("2026-09-15");
+    expect(r.billingAdjustmentCents).toBe(-8800); // next period pre-loaded
   });
 
-  it("charges the pause fee at every billing date a FINITE pause spans", () => {
+  it("bills $32 at every billing date an indefinite pause spans", () => {
     const r = computeReconciliation(
-      { ...base, status: "paused", pauseResumeDate: "2026-11-15", billingDate: "2026-08-20" },
+      { ...base, status: "paused", pauseResumeDate: null, billingDate: "2026-08-20", billingAdjustmentCents: -8800 },
       at("2026-10-01"),
     );
-    // Crossings 08-20 and 09-20 are both fully inside the pause → 4 × $8 each.
-    expect(typesOf(r)).toEqual(["pause_fee", "pause_fee"]);
+    // Crossings 08-20 and 09-20 are both fully paused → 4 × $8 each.
+    expect(typesOf(r)).toEqual(["monthly_billing", "monthly_billing"]);
     expect(r.transactions.map((t) => t.amountCents)).toEqual([3200, 3200]);
     expect(r.status).toBe("paused");
   });
 
-  it("charges only the weeks actually paused when a finite pause ends mid-period", () => {
+  it("bills only the weeks actually paused when a finite pause ends mid-period", () => {
+    // Paused with the full −$88 reduction, resuming 2026-09-05 (2 weeks into the
+    // 09-20 period), so that period has 2 paused + 2 active weeks.
     const r = computeReconciliation(
-      { ...base, status: "paused", pauseResumeDate: "2026-09-05", billingDate: "2026-08-20" },
-      at("2026-08-25"),
+      { ...base, status: "paused", pauseResumeDate: "2026-09-05", billingDate: "2026-09-20", billingAdjustmentCents: -8800 },
+      at("2026-09-25"),
     );
-    // 2026-08-20 → 2026-09-05 is 2 weeks of pause in that period → 2 × $8.
-    expect(typesOf(r)).toEqual(["pause_fee"]);
-    expect(r.transactions[0].amountCents).toBe(1600);
+    expect(typesOf(r)).toEqual(["monthly_billing"]);
+    expect(r.transactions[0].amountCents).toBe(7600); // 2 × $30 + 2 × $8
+    expect(r.status).toBe("active");
   });
 
   it("never bills or resumes a cancelled subscription", () => {
@@ -121,15 +125,17 @@ describe("computeReconciliation", () => {
   });
 
   it("resumes then bills when both events fall in the catch-up window", () => {
+    // Paused with the full −$88 reduction, resuming 08-10 with 1 week to the
+    // 08-20 billing, so 3 of that period's weeks were paused.
     const r = computeReconciliation(
-      { ...base, status: "paused", pauseResumeDate: "2026-08-10", billingDate: "2026-08-20" },
+      { ...base, status: "paused", pauseResumeDate: "2026-08-10", billingDate: "2026-08-20", billingAdjustmentCents: -8800 },
       at("2026-09-25"),
     );
     expect(r.status).toBe("active");
-    // resume on 08-10 (1 week to 08-20 billing -> $30 added to the adjustment),
-    // then two monthly bills: 08-20 (12000 + 3000 adjustment = 15000), 09-20 (12000).
+    // resume on 08-10 claws back 1 x $22, leaving −$66: 08-20 bills 12000 − 6600 =
+    // 5400 (3 x $8 + 1 x $30), then 09-20 bills the full 12000.
     expect(typesOf(r)).toEqual(["monthly_billing", "monthly_billing"]);
-    expect(r.transactions.map((t) => t.amountCents)).toEqual([15000, 12000]);
+    expect(r.transactions.map((t) => t.amountCents)).toEqual([5400, 12000]);
     expect(r.billingDate).toBe("2026-10-20");
     expect(r.billingAdjustmentCents).toBe(0);
   });

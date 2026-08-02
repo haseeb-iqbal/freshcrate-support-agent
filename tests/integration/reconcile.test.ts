@@ -53,10 +53,10 @@ describe("reconcile (integration, seeded DB)", () => {
     // No resume_charge row - the resume adds to billing_adjustment_cents instead.
     const resumeRows = await db.select().from(transactions).where(and(eq(transactions.customerId, PAUSED), eq(transactions.type, "resume_charge")));
     expect(resumeRows).toHaveLength(0);
-    // 2 weeks to billing x $30 = $60, added to the 2026-02-20 monthly bill: 12000 + 6000 = 18000.
+    // 2 weeks to billing x (weekly − $8) = $44, added to the 2026-02-20 monthly bill: 12000 + 4400 = 16400.
     const billRows = await db.select().from(transactions).where(and(eq(transactions.customerId, PAUSED), eq(transactions.type, "monthly_billing")));
     expect(billRows).toHaveLength(1);
-    expect(billRows[0].amountCents).toBe(18000);
+    expect(billRows[0].amountCents).toBe(16400);
     expect(c.billingAdjustmentCents).toBe(0);
   });
 });

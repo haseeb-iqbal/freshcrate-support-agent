@@ -28,18 +28,18 @@ describe("POST /api/actions/pause", () => {
     expect((await customerOf(ID)).billingAdjustmentCents).toBe(0); // nothing deferred on a rejected call
   });
 
-  it("pauses for a finite term, defers the credit to the next bill, and sets the resume date", async () => {
+  it("pauses for a finite term, defers the reduction to the next bill, and sets the resume date", async () => {
     await createTestCustomer({ id: ID, billingDate: BILLING });
     const res = await postJson(POST, { customerId: ID, weeks: 2 });
 
     expect(res.status).toBe(200);
-    // stored adjustment = whole cycle (4 x $30 = $120); display net = 2 skipped weeks x $30 = $60.
-    expect(await res.json()).toMatchObject({ ok: true, weeks: 2, adjustment_cents: 12000, net_credit_cents: 6000, resume_date: "2026-08-03" });
+    // stored adjustment = whole cycle at (weekly − $8): 4 x $22 = $88.
+    expect(await res.json()).toMatchObject({ ok: true, weeks: 2, adjustment_cents: 8800, weekly_fee_cents: 800, resume_date: "2026-08-03" });
 
     const c = await customerOf(ID);
     expect(c.subscriptionStatus).toBe("paused");
     expect(c.pauseResumeDate).toBe("2026-08-03");
-    expect(c.billingAdjustmentCents).toBe(-12000);
+    expect(c.billingAdjustmentCents).toBe(-8800);
     expect(await txnsOf(ID)).toEqual([]); // deferred, not an immediate transaction
     expect(await eventsOf(ID)).toEqual(["paused"]);
   });
@@ -48,30 +48,30 @@ describe("POST /api/actions/pause", () => {
     await createTestCustomer({ id: ID, billingDate: BILLING });
     const res = await postJson(POST, { customerId: ID, indefinite: true });
 
-    expect(await res.json()).toMatchObject({ indefinite: true, adjustment_cents: 12000, net_credit_cents: 12000, resume_date: null });
+    expect(await res.json()).toMatchObject({ indefinite: true, adjustment_cents: 8800, resume_date: null });
     const c = await customerOf(ID);
     expect(c.pauseResumeDate).toBeNull();
-    expect(c.billingAdjustmentCents).toBe(-12000);
+    expect(c.billingAdjustmentCents).toBe(-8800);
     expect(await txnsOf(ID)).toEqual([]);
   });
 
-  it("credits at most once: a replayed confirmation does not double-defer", async () => {
+  it("defers at most once: a replayed confirmation does not double-defer", async () => {
     await createTestCustomer({ id: ID, billingDate: BILLING });
     await postJson(POST, { customerId: ID, weeks: 2 });
     const second = await postJson(POST, { customerId: ID, weeks: 2 });
 
     expect(second.status).toBe(200);
-    expect((await customerOf(ID)).billingAdjustmentCents).toBe(-12000); // not doubled
+    expect((await customerOf(ID)).billingAdjustmentCents).toBe(-8800); // not doubled
   });
 
-  it("lets an already-paused customer extend the pause without a second credit", async () => {
+  it("lets an already-paused customer extend the pause without a second deferral", async () => {
     await createTestCustomer({ id: ID, billingDate: BILLING });
     await postJson(POST, { customerId: ID, weeks: 2 });
     const extend = await postJson(POST, { customerId: ID, weeks: 4 });
 
     expect(extend.status).toBe(200);
     expect((await customerOf(ID)).pauseResumeDate).toBe("2026-08-17");
-    expect((await customerOf(ID)).billingAdjustmentCents).toBe(-12000); // unchanged by the extension
+    expect((await customerOf(ID)).billingAdjustmentCents).toBe(-8800); // unchanged by the extension
     expect(await eventsOf(ID)).toEqual(["paused", "paused"]);
   });
 

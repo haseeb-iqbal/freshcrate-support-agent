@@ -11,8 +11,20 @@ export const SIGNUP_FEE_CENTS = Number(process.env.SIGNUP_FEE_CENTS ?? 4000); //
  *  an extra meal costs, and the basis of the "you save vs à la carte" figure. */
 export const MEAL_LIST_PRICE_CENTS = 1750; // $17.50
 
-/** Flat weekly fee to keep a plan reserved while paused. */
+/** Flat weekly fee to keep a plan reserved while paused. A paused week is billed
+ *  at THIS instead of the plan's weekly rate. */
 export const PAUSE_FEE_CENTS = 800; // $8/week
+
+/**
+ * How much pausing one week takes off the bill: the plan's weekly rate less the
+ * $8 pause fee, because that week is billed at the $8 fee instead of the rate.
+ * A month is 4 weeks (monthlyCents === 4 × weeklyCents), so a fully-paused month
+ * bills 4 × $8, and a one-week pause bills monthly − (weekly − $8). Never
+ * negative. This replaces the old "credit the whole weekly rate" rule.
+ */
+export function pausedWeekReductionCents(weeklyCents: number): number {
+  return Math.max(0, weeklyCents - PAUSE_FEE_CENTS);
+}
 
 /** Weekly saving of a plan vs buying the same number of meals à la carte. */
 export function weeklySavingsCents(mealsPerWeek: number, planWeeklyCents: number): number {

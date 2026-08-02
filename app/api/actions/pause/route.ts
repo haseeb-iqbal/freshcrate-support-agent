@@ -63,7 +63,7 @@ export const POST = actionRoute<PauseBody>(async ({ body, customer, now }) => {
     weeks,
     indefinite,
     resume_date: quote.resume_date,
-    net_credit_cents: quote.net_credit_cents,
+    weekly_fee_cents: quote.weekly_fee_cents,
     adjustment_cents: adjustment,
   });
 });

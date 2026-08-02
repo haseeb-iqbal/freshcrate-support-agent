@@ -15,18 +15,18 @@ describe("pause/resume round-trip", () => {
     expect(-pause.adjustment_cents + resume.charge_cents).toBe(0);
   });
 
-  it("nets a finite pause to the weeks actually skipped", () => {
+  it("nets a finite pause to the weeks actually skipped, billed at $8 each", () => {
     // Pause 1 week with 4 to billing, then resume 1 week later (3 to billing).
     const later = new Date("2026-07-27T00:00:00");
     const pause = quotePause({ status: "active", billingDate: billing, plan, indefinite: false, weeks: 1, now });
     const resume = quoteResume({ currentPlan: plan.plan, billingDate: billing, plan, now: later });
-    // net on the bill = -adjustment(at pause) + charge(at resume) = -(4x30) + (3x30) = -1x30.
-    expect(-pause.adjustment_cents + resume.charge_cents).toBe(-3000);
-    expect(pause.net_credit_cents).toBe(3000); // display: 1 week skipped x $30
+    // net on the bill = -adjustment(at pause) + charge(at resume) = -(4 x $22) + (3 x $22)
+    // = -1 x $22, i.e. the one paused week is billed $8 instead of $30.
+    expect(-pause.adjustment_cents + resume.charge_cents).toBe(-2200);
   });
 
   it("charges the new plan's rate when switching on resume", () => {
     const resume = quoteResume({ currentPlan: plan.plan, billingDate: billing, plan: three, requestedPlan: three.plan, now });
-    expect(resume.charge_cents).toBe(16800); // 4 x $42
+    expect(resume.charge_cents).toBe(13600); // 4 x ($42 − $8)
   });
 });

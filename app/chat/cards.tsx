@@ -130,12 +130,7 @@ export function PauseCard({
   onDecline: () => void;
 }) {
   const resume = formatLongDate(proposal.resume_date);
-  const credit = money(proposal.net_credit_cents);
   const fee = money(proposal.weekly_fee_cents);
-  // Only a pause that resolves within the current billing period actually
-  // reduces the NEXT bill. When it crosses the billing date the credit is
-  // deferred, so promising a next-bill drop would be false (see PauseQuote).
-  const dropsNextBill = proposal.net_credit_cents > 0 && !proposal.crosses_billing;
   return (
     <div data-testid="pause-card" className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-3">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-700">Pause request</p>
@@ -150,13 +145,7 @@ export function PauseCard({
         </p>
       )}
       <p className="mt-1 text-xs text-slate-500">
-        {dropsNextBill ? (
-          <>Your <span className="font-medium">next bill drops by {credit}</span> for the weeks you skip. If you stay paused past a billing date, {fee}/week applies while paused.</>
-        ) : proposal.crosses_billing ? (
-          <>While paused, it costs <span className="font-medium">{fee}/week</span> until it resumes{proposal.indefinite ? "" : ` on ${resume}`}.</>
-        ) : (
-          <>No credit is due this cycle (billing is within the week). If you stay paused past a billing date, {fee}/week applies while paused.</>
-        )}
+        While paused, each week is billed at <span className="font-medium">{fee}/week</span> instead of your usual plan rate, until it resumes{proposal.indefinite ? "" : ` on ${resume}`}.
       </p>
 
       <PromptActions
@@ -168,7 +157,7 @@ export function PauseCard({
       />
       {state === "approved" && (
         <p className="mt-2 text-xs font-medium text-emerald-700">
-          ✓ Paused{proposal.indefinite ? " indefinitely" : ` — resumes ${resume}`}{dropsNextBill ? ` (next bill drops ${credit})` : ""}.
+          ✓ Paused{proposal.indefinite ? " indefinitely" : ` — resumes ${resume}`} ({fee}/week while paused).
         </p>
       )}
       {state === "declined" && <p className="mt-2 text-xs font-medium text-slate-500">No problem — your subscription is unchanged.</p>}

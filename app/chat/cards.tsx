@@ -153,7 +153,7 @@ export function PauseCard({
         {dropsNextBill ? (
           <>Your <span className="font-medium">next bill drops by {credit}</span> for the weeks you skip. If you stay paused past a billing date, {fee}/week applies while paused.</>
         ) : proposal.crosses_billing ? (
-          <>This pause runs past your next billing date, so {fee}/week applies while you&apos;re paused and the credit for the weeks you skip lands on a later bill, not your next one.</>
+          <>While paused, it costs <span className="font-medium">{fee}/week</span> until it resumes{proposal.indefinite ? "" : ` on ${resume}`}.</>
         ) : (
           <>No credit is due this cycle (billing is within the week). If you stay paused past a billing date, {fee}/week applies while paused.</>
         )}

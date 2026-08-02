@@ -8,11 +8,11 @@ import { AccountPanel, Welcome } from "./chat/panels";
 import { toDecisionSources } from "./chat/decisions";
 import {
   PROPOSALS,
-  appendProposal,
   lockPendingProposals,
   proposalKindForEvent,
   setProposalEntryState,
 } from "./chat/proposals";
+import { reconcileIncomingProposal } from "./chat/dedup";
 import type {
   AccountData,
   AnyProposal,
@@ -276,12 +276,12 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
     setMessages((prev) => updateLast(prev, (m) => ({ ...m, ...patch })));
   }
 
-  // Append rather than replace: one turn can propose several kinds at once, or
-  // the same kind more than once (two refunds), and all must reach the customer.
+  // Route the proposal to a card. Distinct proposals (several kinds in one turn,
+  // or two refunds for two orders) each get their own card; an identical one the
+  // model re-proposed for a follow-up question re-uses its existing card instead
+  // of stacking a duplicate (see reconcileIncomingProposal).
   function addProposal(kind: ProposalKind, data: AnyProposal) {
-    setMessages((prev) =>
-      updateLast(prev, (m) => ({ ...m, proposals: appendProposal(m.proposals, kind, { data, state: "pending" }) })),
-    );
+    setMessages((prev) => reconcileIncomingProposal(prev, kind, data));
   }
 
   return (

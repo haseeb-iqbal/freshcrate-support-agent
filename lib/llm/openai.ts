@@ -59,14 +59,17 @@ export class OpenAIChatProvider implements ChatProvider {
   }
 
   async *streamAgentTurn(opts: AgentTurnOptions): AsyncIterable<AgentStreamEvent> {
-    const stream = await this.client.chat.completions.create({
-      model: opts.model ?? this.defaultModel,
-      messages: toOpenAIMessages(opts.messages),
-      tools: opts.tools?.length ? toOpenAITools(opts.tools) : undefined,
-      max_tokens: opts.maxTokens ?? Number(process.env.MAX_OUTPUT_TOKENS ?? 1024),
-      temperature: opts.temperature ?? 0.2,
-      stream: true,
-    });
+    const stream = await this.client.chat.completions.create(
+      {
+        model: opts.model ?? this.defaultModel,
+        messages: toOpenAIMessages(opts.messages),
+        tools: opts.tools?.length ? toOpenAITools(opts.tools) : undefined,
+        max_tokens: opts.maxTokens ?? Number(process.env.MAX_OUTPUT_TOKENS ?? 1024),
+        temperature: opts.temperature ?? 0.2,
+        stream: true,
+      },
+      { signal: opts.signal },
+    );
 
     // Tool-call fragments arrive across many chunks keyed by index; accumulate.
     const acc = new Map<number, { id: string; name: string; arguments: string }>();

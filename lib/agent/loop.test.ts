@@ -204,6 +204,29 @@ describe("runAgent", () => {
     expect(note?.content).toContain("CONFIRMED");
   });
 
+  it("ends a stalled turn with a graceful message instead of hanging", async () => {
+    const events: { event: string; data: unknown }[] = [];
+    // A provider that never yields and only settles once the deadline aborts it —
+    // the stuck-in-thinking case.
+    const stalling: ChatProvider = {
+      defaultModel: "fake",
+      async *streamAgentTurn(opts) {
+        await new Promise<void>((_, reject) => {
+          opts.signal?.addEventListener("abort", () => reject(new Error("aborted")));
+        });
+        yield { type: "text", value: "unreachable" };
+      },
+    };
+    await runAgent(
+      { customerId: "x", history: [{ role: "user", content: "hi" }], emit: (e, d) => events.push({ event: e, data: d }) },
+      { provider: stalling, toolByName: {}, toolDefinitions: [], timeoutMs: 20 },
+    );
+
+    const delta = events.filter((e) => e.event === "delta").map((e) => e.data).join("");
+    expect(delta).toMatch(/taking longer|try again/i);
+    expect(events.find((e) => e.event === "done")?.data).toMatchObject({ timedOut: true });
+  });
+
   it("passes the same instant to every tool in a turn", async () => {
     const seen: Date[] = [];
     const recordingTool: Record<string, Tool> = {

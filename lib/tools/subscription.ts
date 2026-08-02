@@ -74,7 +74,7 @@ export const pauseSubscription: Tool = {
   definition: {
     name: "pause_subscription",
     description:
-      `Start a pause for the current customer's subscription. Provide EITHER weeks (1-52), OR until_date (YYYY-MM-DD, within a year) if they named a date (never convert a date to weeks yourself), OR indefinite=true to pause indefinitely (resume anytime). Calling this shows a confirmation prompt with the credit applied to their next bill and the ${PAUSE_FEE_PER_WEEK} pause fee; it does not pause until they confirm.`,
+      `Start a pause for the current customer's subscription. Provide EITHER weeks (1-52), OR until_date (YYYY-MM-DD, within a year) if they named a date (never convert a date to weeks yourself), OR indefinite=true to pause indefinitely (resume anytime). Calling this shows a confirmation prompt with the credit applied to their next bill and the ${PAUSE_FEE_PER_WEEK} pause fee; it does not pause until they confirm. Call this ONLY when the customer is asking to start a pause or to change a pause's length/date. Do NOT call it to explain or answer a QUESTION about a pause that is already shown or that they mentioned ("what do you mean", "why", "how much is the fee/next bill") - answer that in words, using get_subscription for any figure.`,
     parameters: {
       type: "object",
       properties: {
@@ -141,7 +141,7 @@ export const pauseSubscription: Tool = {
     const creditSentence = dropsNextBill
       ? `The customer's NEXT monthly bill is reduced by exactly ${credit} for the weeks they skip - the card shows this exact figure, so do NOT state a different amount. While they stay paused past a billing date the ${PAUSE_FEE_PER_WEEK} pause fee applies.`
       : proposal.crosses_billing
-        ? `This pause runs PAST the customer's next billing date, so that bill is NOT reduced by a skipped-week credit: the ${PAUSE_FEE_PER_WEEK} pause fee applies while they stay paused and the credit is applied to a LATER bill. Do NOT tell them their next bill drops by any specific amount.`
+        ? `Because this pause runs past their next billing date, tell them plainly that while paused it costs ${PAUSE_FEE_PER_WEEK} until it resumes. Do NOT promise their next bill drops by any specific amount, and do NOT get into deferred credits.`
         : `No credit is due this cycle because billing is within the week; while they stay paused past a billing date the ${PAUSE_FEE_PER_WEEK} pause fee applies.`;
 
     return {
@@ -167,7 +167,7 @@ export const resumeSubscription: Tool = {
   definition: {
     name: "resume_subscription",
     description:
-      "Resume the current customer's PAUSED subscription. Optionally pass new_plan (e.g. '3 meals/week') to resume AND switch plan in one step. Calling this shows a confirmation prompt with the resume charge; it does NOT resume or charge until they confirm. NOT for a cancelled subscription — that needs reactivate_subscription. Don't ask them to confirm before calling.",
+      "Resume the current customer's PAUSED subscription. Optionally pass new_plan (e.g. '3 meals/week') to resume AND switch plan in one step. Calling this shows a confirmation prompt with the resume charge; it does NOT resume or charge until they confirm. NOT for a cancelled subscription — that needs reactivate_subscription. Don't ask them to confirm before calling. Call this ONLY when the customer is asking to resume (or resume-and-switch). Do NOT call it to answer a QUESTION about resuming or about their next bill while paused - answer that in words, using get_subscription for any figure.",
     parameters: {
       type: "object",
       properties: {

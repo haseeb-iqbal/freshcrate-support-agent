@@ -24,9 +24,15 @@ export interface AgentDeps {
   provider?: ChatProvider;
   toolByName?: Record<string, Tool>;
   toolDefinitions?: ToolDefinition[];
+  /** Wall-clock budget for the whole turn, in ms. Overridable in tests. */
+  timeoutMs?: number;
 }
 
 const MAX_ITERATIONS = Number(process.env.MAX_LOOP_ITERATIONS ?? 6);
+
+/** The model occasionally stalls mid-generation; cap the whole turn so a stuck
+ *  request can never leave the customer watching a spinner forever. */
+const DEFAULT_TIMEOUT_MS = Number(process.env.AGENT_TIMEOUT_MS ?? 45_000);
 
 /**
  * The agent loop: think → act → observe. Only the FINAL turn's text reaches the
@@ -52,67 +58,88 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
   let actionToolCallsMade = 0;
   const state: DispatchState = { shownProposals: new Set() };
 
-  for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
-    let text = "";
-    let toolCalls: ToolCall[] = [];
-    let streamedText = false;
+  // One deadline for the whole turn: if the model stalls, the signal aborts the
+  // in-flight request and we fall to the catch below with a graceful message.
+  const controller = new AbortController();
+  const deadline = setTimeout(() => controller.abort(), deps.timeoutMs ?? DEFAULT_TIMEOUT_MS);
+  let anyStreamedText = false;
 
-    for await (const ev of provider.streamAgentTurn({ messages, tools: definitions })) {
-      if (ev.type === "text") {
-        text += ev.value;
-        if (ev.value) {
-          emit("delta", ev.value);
-          streamedText = true;
+  try {
+    for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
+      let text = "";
+      let toolCalls: ToolCall[] = [];
+      let streamedText = false;
+
+      for await (const ev of provider.streamAgentTurn({ messages, tools: definitions, signal: controller.signal })) {
+        if (ev.type === "text") {
+          text += ev.value;
+          if (ev.value) {
+            emit("delta", ev.value);
+            streamedText = true;
+            anyStreamedText = true;
+          }
+        } else {
+          toolCalls = ev.value;
         }
-      } else {
-        toolCalls = ev.value;
+      }
+
+      if (toolCalls.length === 0) {
+        if (shouldNudge({ assistantText: text, actionToolCallCount: actionToolCallsMade, alreadyNudged: nudged })) {
+          nudged = true;
+          if (streamedText) emit("reset", {}); // discard the pre-nudge preamble
+          if (text) messages.push({ role: "assistant", content: text });
+          messages.push({
+            role: "system",
+            content:
+              "The customer asked for an account action but no tool was called. Call the correct tool now to show the confirmation prompt — do not merely describe or promise it.",
+          });
+          continue;
+        }
+        emit("done", {});
+        return;
+      }
+
+      // A tool turn is never the final answer — clear any preamble it streamed.
+      if (streamedText) emit("reset", {});
+      messages.push({ role: "assistant", content: text, toolCalls });
+      actionToolCallsMade += toolCalls.filter((c) => PROPOSAL_EVENTS[c.name]).length;
+
+      for (const call of toolCalls) {
+        let args: Record<string, unknown> = {};
+        try {
+          args = call.arguments ? JSON.parse(call.arguments) : {};
+        } catch {
+          // Malformed args — the handler will report the problem.
+        }
+        emit("tool_call", { name: call.name, args });
+
+        const tool = registry[call.name];
+        const result: ToolResult = tool
+          ? await tool.handler({ customerId, now: turnNow }, args).catch((err) => ({
+              ok: false,
+              summary: `Tool error: ${err instanceof Error ? err.message : "unknown"}`,
+            }))
+          : { ok: false, summary: `Unknown tool: ${call.name}` };
+
+        const { events, modelContent } = dispatchTool(call, result, state);
+        for (const e of events) emit(e.event, e.data);
+        messages.push({ role: "tool", toolCallId: call.id, content: modelContent });
       }
     }
 
-    if (toolCalls.length === 0) {
-      if (shouldNudge({ assistantText: text, actionToolCallCount: actionToolCallsMade, alreadyNudged: nudged })) {
-        nudged = true;
-        if (streamedText) emit("reset", {}); // discard the pre-nudge preamble
-        if (text) messages.push({ role: "assistant", content: text });
-        messages.push({
-          role: "system",
-          content:
-            "The customer asked for an account action but no tool was called. Call the correct tool now to show the confirmation prompt — do not merely describe or promise it.",
-        });
-        continue;
-      }
-      emit("done", {});
+    emit("delta", "\n\nI'm having trouble completing that — let me connect you with a human specialist.");
+    emit("done", { truncated: true });
+  } catch (err) {
+    // The turn ran past its budget: abort the preamble and close on a calm note
+    // rather than a spinner that never ends.
+    if (controller.signal.aborted) {
+      if (anyStreamedText) emit("reset", {});
+      emit("delta", "Sorry — that's taking longer than usual on my end. Please try again in a moment.");
+      emit("done", { timedOut: true });
       return;
     }
-
-    // A tool turn is never the final answer — clear any preamble it streamed.
-    if (streamedText) emit("reset", {});
-    messages.push({ role: "assistant", content: text, toolCalls });
-    actionToolCallsMade += toolCalls.filter((c) => PROPOSAL_EVENTS[c.name]).length;
-
-    for (const call of toolCalls) {
-      let args: Record<string, unknown> = {};
-      try {
-        args = call.arguments ? JSON.parse(call.arguments) : {};
-      } catch {
-        // Malformed args — the handler will report the problem.
-      }
-      emit("tool_call", { name: call.name, args });
-
-      const tool = registry[call.name];
-      const result: ToolResult = tool
-        ? await tool.handler({ customerId, now: turnNow }, args).catch((err) => ({
-            ok: false,
-            summary: `Tool error: ${err instanceof Error ? err.message : "unknown"}`,
-          }))
-        : { ok: false, summary: `Unknown tool: ${call.name}` };
-
-      const { events, modelContent } = dispatchTool(call, result, state);
-      for (const e of events) emit(e.event, e.data);
-      messages.push({ role: "tool", toolCallId: call.id, content: modelContent });
-    }
+    throw err;
+  } finally {
+    clearTimeout(deadline);
   }
-
-  emit("delta", "\n\nI'm having trouble completing that — let me connect you with a human specialist.");
-  emit("done", { truncated: true });
 }

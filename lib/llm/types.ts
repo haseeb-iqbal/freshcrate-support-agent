@@ -34,6 +34,8 @@ export interface AgentTurnOptions {
   model?: string;
   maxTokens?: number;
   temperature?: number;
+  /** Aborts the in-flight request when the turn exceeds its time budget. */
+  signal?: AbortSignal;
 }
 
 export interface ChatProvider {

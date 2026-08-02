@@ -45,6 +45,21 @@ export const getSubscription: Tool = {
     const adjustment = customer.billingAdjustmentCents;
     const nextBill = monthly === null ? null : Math.max(0, monthly + adjustment);
 
+    // Break the bill down so the model can explain it from facts instead of
+    // inventing fee math. A negative adjustment is a deferred pause credit; a
+    // positive one is a deferred resume/weeks-added charge. The $8/week pause fee
+    // is charged SEPARATELY, and ONLY while the customer stays paused across a
+    // billing date - so compute whether one is actually upcoming.
+    const pauseCredit = adjustment < 0 ? -adjustment : 0;
+    const deferredCharge = adjustment > 0 ? adjustment : 0;
+    const pauseFeeUpcoming = pauseFeeUpcomingCents(customer.subscriptionStatus, customer.pauseResumeDate, customer.billingDate);
+
+    const nextBill_ =
+      nextBill === null
+        ? null
+        : { amount_cents: nextBill, monthly_cents: monthly!, pause_credit_cents: pauseCredit, deferred_charge_cents: deferredCharge, pause_fee_upcoming_cents: pauseFeeUpcoming };
+    const note = nextBill === null ? undefined : nextBillNote(nextBill, monthly!, pauseCredit, deferredCharge, pauseFeeUpcoming);
+
     return {
       ok: true,
       summary: `Status ${customer.subscriptionStatus}, ${customer.plan}${nextBill === null ? "" : `, next bill ${money(nextBill)}`}`,
@@ -57,10 +72,37 @@ export const getSubscription: Tool = {
         plan_monthly_cents: monthly,
         billing_adjustment_cents: adjustment,
         next_bill_cents: nextBill,
+        next_bill: nextBill_,
+        next_bill_note: note,
       },
     };
   },
 };
+
+/** The $8/week pause fee that will hit at the next billing date - non-zero ONLY
+ *  when the subscription stays paused across it (indefinite, or a finite pause
+ *  resuming after billing). Mirrors reconcile's pause-fee rule so the two agree. */
+function pauseFeeUpcomingCents(status: string, pauseResumeDate: string | null, billingDate: string | null): number {
+  if (status !== "paused" || !billingDate) return 0;
+  const crosses = !pauseResumeDate || pauseResumeDate > billingDate;
+  if (!crosses) return 0;
+  const weeksPaused = pauseResumeDate
+    ? Math.min(4, weeksUntilDate(pauseResumeDate, new Date(`${billingDate}T00:00:00`)))
+    : 4; // indefinite: a full 4-week period
+  return Math.max(0, weeksPaused) * PAUSE_FEE_CENTS;
+}
+
+/** A plain-language breakdown the model relays instead of guessing at the math. */
+function nextBillNote(nextBill: number, monthly: number, pauseCredit: number, deferredCharge: number, pauseFeeUpcoming: number): string {
+  const parts = [`Next bill is ${money(nextBill)}: plan monthly ${money(monthly)}`];
+  if (pauseCredit > 0) parts.push(`minus a ${money(pauseCredit)} pause credit`);
+  if (deferredCharge > 0) parts.push(`plus a ${money(deferredCharge)} deferred charge`);
+  const fee =
+    pauseFeeUpcoming > 0
+      ? ` Separately, staying paused across the billing date adds an ${PAUSE_FEE_PER_WEEK} pause fee (about ${money(pauseFeeUpcoming)}) charged at that date - it is NOT part of the ${money(nextBill)} figure.`
+      : ` The ${PAUSE_FEE_PER_WEEK} pause fee does not apply to this bill (it only applies while paused across a billing date).`;
+  return `${parts.join(" ")}.${fee} Explain the bill using ONLY these numbers; do not add or invent any fee.`;
+}
 
 /**
  * Pause is propose-only. Accepts weeks (1-52), a target until_date (within a
@@ -111,6 +153,21 @@ export const pauseSubscription: Tool = {
     if (customer.subscriptionStatus === "cancelled") {
       return { ok: true, summary: "Cancelled — can't pause", data: { status: "cancelled", message: "A cancelled subscription can't be paused; tell the customer they'd need to reactivate first." } };
     }
+    if (customer.subscriptionStatus === "paused") {
+      // Already paused — there is nothing to pause, so surface NO card. Guarding
+      // here (like resume/reactivate/cancel do) stops a stray pause_subscription
+      // call — e.g. on a billing question — from popping a fresh pause prompt.
+      const resumeNote = customer.pauseResumeDate ? ` (set to resume ${customer.pauseResumeDate})` : " indefinitely";
+      return {
+        ok: true,
+        summary: "Already paused — no pause prompt",
+        data: {
+          status: "already_paused",
+          message:
+            `The subscription is already paused${resumeNote}. Do NOT show a pause prompt or claim to pause it again. Just tell the customer it's already paused; if they want it to run again use resume_subscription, and if they only asked a question, answer it.`,
+        },
+      };
+    }
 
     // The same quote /api/actions/pause applies on confirm, so the card cannot
     // promise a credit the write path would then refuse to pay.
@@ -151,7 +208,7 @@ export const pauseSubscription: Tool = {
         status: "needs_confirmation",
         proposal,
         message:
-          `A confirmation prompt is shown. Nothing is charged or credited now. ${creditSentence} The plan pauses from next week (this week's box still ships) and they can resume early. Keep your reply to a short lead-in and ask them to confirm. Do NOT say it's paused until they confirm.${proposal.already_paused ? " NOTE: already paused, so no new credit is due - do not promise one." : ""}`,
+          `A confirmation prompt is shown. Nothing is charged or credited now. ${creditSentence} The plan pauses from next week (this week's box still ships) and they can resume early. Keep your reply to a short lead-in and ask them to confirm. Do NOT say it's paused until they confirm.`,
       },
     };
   },

@@ -107,6 +107,14 @@ describe("buildSystemPrompt", () => {
     expect(outcomes.toLowerCase()).toContain("propose it again");
   });
 
+  it("treats a terse refusal like 'nah' as a stop, not a re-proposal cue", () => {
+    // The bug: after the customer typed "nah" to a pause prompt, the model
+    // re-called pause_subscription and re-announced "I've initiated the pause".
+    const outcomes = prompt.slice(prompt.indexOf("# Confirmation outcomes"), prompt.indexOf("# Refunds"));
+    expect(outcomes).toContain("nah");
+    expect(outcomes.toLowerCase()).toContain("call no action tool");
+  });
+
   it("introduces itself as Cratelyn", () => {
     expect(prompt).toContain("You are Cratelyn");
   });

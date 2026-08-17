@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { runAgent, type AgentDeps } from "./loop";
 import type { AgentMessage, AgentStreamEvent, ChatProvider, ToolCall } from "@/lib/llm/types";
 import type { Tool } from "@/lib/tools/types";
+import type { Decision } from "@/lib/decisions";
 
 /** A provider that replays a fixed list of scripted turns. */
 function fakeProvider(turns: AgentStreamEvent[][]): ChatProvider {
@@ -202,6 +203,59 @@ describe("runAgent", () => {
 
     const note = seenMessages[0].find((m) => m.role === "system" && m.content.includes("FC1006"));
     expect(note?.content).toContain("CONFIRMED");
+  });
+
+  it("drops a re-proposed action when the customer's message was only a decline", async () => {
+    // The "nah" bug: a pause prompt was shown, the customer typed "nah", and the
+    // model re-called pause_subscription. The guard skips it whole — no step, no
+    // card — regardless of what the model does.
+    const events: { event: string; data: unknown }[] = [];
+    const declined: Decision[] = [{ kind: "pause", outcome: "declined" }];
+    const deps: AgentDeps = {
+      provider: fakeProvider([toolTurn("pause_subscription", "Sure — "), textTurn("No problem, I've left your subscription as it is.")]),
+      toolByName: okTool("pause_subscription", { status: "needs_confirmation", proposal: { weeks: 3 } }),
+      toolDefinitions: [],
+    };
+    await runAgent(
+      {
+        customerId: "x",
+        history: [
+          { role: "user", content: "pause my subscription for 3 weeks" },
+          { role: "assistant", content: "Here's your pause request." },
+          { role: "user", content: "nah" },
+        ],
+        decisions: declined,
+        emit: (e, d) => events.push({ event: e, data: d }),
+      },
+      deps,
+    );
+
+    expect(events.some((e) => e.event === "pause_proposal")).toBe(false); // no card
+    expect(events.some((e) => e.event === "tool_call")).toBe(false); // no "Preparing a pause" step
+    expect(events.filter((e) => e.event === "delta").map((e) => e.data).at(-1)).toContain("left your subscription");
+    expect(events.some((e) => e.event === "done")).toBe(true);
+  });
+
+  it("still proposes when a message only STARTS with a negative but is a real request", async () => {
+    const events: { event: string; data: unknown }[] = [];
+    const declined: Decision[] = [{ kind: "pause", outcome: "declined" }];
+    const deps: AgentDeps = {
+      provider: fakeProvider([toolTurn("pause_subscription"), textTurn("Updated — please confirm below.")]),
+      toolByName: okTool("pause_subscription", { status: "needs_confirmation", proposal: { weeks: 4 } }),
+      toolDefinitions: [],
+    };
+    await runAgent(
+      {
+        customerId: "x",
+        history: [{ role: "user", content: "no, make it 4 weeks" }],
+        decisions: declined,
+        emit: (e, d) => events.push({ event: e, data: d }),
+      },
+      deps,
+    );
+
+    // "no, make it 4 weeks" is a request, not a pure decline — the card must appear.
+    expect(events.some((e) => e.event === "pause_proposal")).toBe(true);
   });
 
   it("ends a stalled turn with a graceful message instead of hanging", async () => {

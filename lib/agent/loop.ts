@@ -7,6 +7,7 @@ import { buildAgentMessages } from "./messages";
 import { buildSystemPrompt } from "./prompt";
 import { dispatchTool, PROPOSAL_EVENTS, type DispatchState } from "./dispatch";
 import { shouldNudge } from "./nudge";
+import { isPureDecline } from "./decline";
 
 export type AgentEmit = (event: string, data: unknown) => void;
 
@@ -58,6 +59,13 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
   let actionToolCallsMade = 0;
   const state: DispatchState = { shownProposals: new Set() };
 
+  // A message that is ONLY a refusal ("no", "nah", "not now") of a prompt already
+  // shown is a decline, never a request. gpt-4o-mini sometimes (re-)proposes the
+  // action anyway; when it does this turn, we drop that proposal deterministically
+  // rather than trust the model to read "nah" correctly (see the tool loop below).
+  const lastUser = [...history].reverse().find((m) => m.role === "user");
+  const declining = (decisions?.length ?? 0) > 0 && !!lastUser && isPureDecline(lastUser.content);
+
   // One deadline for the whole turn: if the model stalls, the signal aborts the
   // in-flight request and we fall to the catch below with a graceful message.
   const controller = new AbortController();
@@ -105,6 +113,21 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
       actionToolCallsMade += toolCalls.filter((c) => PROPOSAL_EVENTS[c.name]).length;
 
       for (const call of toolCalls) {
+        if (declining && PROPOSAL_EVENTS[call.name]) {
+          // Customer's message was only a decline, yet the model tried to
+          // (re-)propose. Skip it whole — no tool_call step, no card — and steer
+          // the model to just acknowledge. A tool message keeps the transcript
+          // valid without running the propose-only tool.
+          messages.push({
+            role: "tool",
+            toolCallId: call.id,
+            content: JSON.stringify({
+              note: "The customer's last message was only a refusal, so they do NOT want this action - it has NOT been proposed or shown. Do not prepare, initiate, propose, or announce it. Reply with a brief, friendly acknowledgement (you've left things as they are) and offer further help.",
+            }),
+          });
+          continue;
+        }
+
         let args: Record<string, unknown> = {};
         try {
           args = call.arguments ? JSON.parse(call.arguments) : {};

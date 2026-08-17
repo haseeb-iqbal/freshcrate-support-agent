@@ -93,9 +93,8 @@ describe("dispatchTool", () => {
   });
 
   it("emits an order card and tells the model not to restate the order for lookup_order", () => {
-    const call = { id: "c1", name: "lookup_order", arguments: "{}" };
-    const result = { ok: true, summary: "Order FC1001", data: { order: { order_number: "FC1001", status: "delivered" }, open_order_count: 1 } };
-    const out = dispatchTool(call as any, result as any, { shownProposals: new Set() });
+    const result: ToolResult = { ok: true, summary: "Order FC1001", data: { order: { order_number: "FC1001", status: "delivered" }, open_order_count: 1 } };
+    const out = dispatchTool(call("lookup_order"), result, freshState());
     expect(out.events.map((e) => e.event)).toContain("order");
     expect(out.events.find((e) => e.event === "order")?.data).toMatchObject({ order_number: "FC1001" });
     expect(out.modelContent).toContain("card");

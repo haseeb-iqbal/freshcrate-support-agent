@@ -1,6 +1,5 @@
 node_modules/
-.env
-.env.local
+.env.remote
 .next/
 out/
 dist/
@@ -21,3 +20,5 @@ cypress/videos/
 
 # local editor / harness config
 .claude/
+.vercel
+config.bat

@@ -29,6 +29,9 @@ You can switch between the 2, 3, and 4 meals/week plans any time (while your sub
 ## How pause billing works
 Pausing keeps your plan reserved for a flat **$8/week pause fee**. When you pause, you're **credited** the value of each week you'll skip before your next billing date, minus that $8/week fee — so a 2 meals/week customer ($30/week) with 2 weeks until billing gets a **$44 credit** (2 × ($30 − $8)). After that, the **$8/week fee is billed on each billing date** for as long as you stay paused — that's $32 for a full month, or less for a part-month if your pause ends mid-cycle. This works the same whether you paused for a set number of weeks or indefinitely. When you resume, you're **charged** for the weeks left until billing at your plan's weekly rate, again minus $8/week. You can pause for 1–52 weeks, until a date within a year, or indefinitely.
 
+## Sign-up fee
+New customers pay a one-time **$40 sign-up fee** plus their first month when they sign up. Your billing date is the day you sign up.
+
 ## Cancelling and the reactivation sign-up fee
 Cancelling is free. You've already paid for the current month, so your boxes keep arriving until your billing date, and you aren't charged again after that.
 

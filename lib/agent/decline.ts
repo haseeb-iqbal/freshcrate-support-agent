@@ -36,13 +36,32 @@ const DECLINES = new Set([
   "nah i'm good",
 ]);
 
+/** Hesitation words that can open a refusal ("actually no", "oh wait, never mind"). */
+const LEADING_FILLER = /^(?:(?:actually|oh|ah|um+|uh+|hmm+|wait|hold on|sorry|ok|okay|on second thought)\s+)+/;
+
+/** Politeness that can close one ("nah, thank you"). */
+const TRAILING_POLITE = /(?:\s+(?:thanks|thank you|please))+$/;
+
+/**
+ * "don't" aimed at the prompt on screen: "please don't", "no, don't pause it",
+ * "do not refund it". The object is limited to a pronoun or the subscription,
+ * so "don't charge me the fee" or "don't pause it, cancel it" still get through.
+ */
+const DONT =
+  /^(?:(?:no|nah|nope)\s+)?(?:please\s+)?(?:don't|dont|do not)(?:\s+(?:do|pause|resume|cancel|refund|reactivate|change|switch|apply|confirm|process)(?:\s+(?:it|that|this|them|my subscription))?)?$/;
+
+/** A change of mind with nothing riding along. */
+const CHANGED_MIND = /^(?:(?:i|i've|i have)\s+)?changed my mind$|^scratch that$|^i don't want (?:it|that|this|to)$/;
+
 export function isPureDecline(text: string): boolean {
   const normalized = text
     .trim()
     .toLowerCase()
     .replace(/[‘’´`]/g, "'") // curly / accented apostrophes → straight
-    .replace(/[.!?,…]+$/g, "") // trailing punctuation / ellipsis
+    .replace(/[.!?,…]+/g, " ") // punctuation, anywhere: "actually, no." → "actually no"
     .replace(/\s+/g, " ")
-    .trim();
-  return DECLINES.has(normalized);
+    .trim()
+    .replace(LEADING_FILLER, "")
+    .replace(TRAILING_POLITE, "");
+  return DECLINES.has(normalized) || DONT.test(normalized) || CHANGED_MIND.test(normalized);
 }

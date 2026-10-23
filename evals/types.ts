@@ -57,6 +57,8 @@ export interface EvalCase {
   /** Seeded customer key, from db/seed.ts. */
   customer: CustomerKey;
   steps: Step[];
+  /** In the quick smoke set (`npm run eval:smoke`). */
+  smoke?: boolean;
   /** A known bug: reported, but it does not fail the run. */
   knownFailing?: boolean;
   note?: string;

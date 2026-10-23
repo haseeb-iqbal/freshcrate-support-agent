@@ -25,6 +25,7 @@
     "kb:ingest": "tsx kb/ingest.ts",
     "kb:test": "tsx scripts/test-retrieval.ts",
     "eval": "tsx evals/run.ts",
+    "eval:smoke": "tsx evals/run.ts --smoke",
     "test": "cross-env TZ=UTC vitest run",
     "test:watch": "cross-env TZ=UTC vitest",
     "test:api": "cross-env TZ=UTC vitest run --config vitest.api.config.ts",

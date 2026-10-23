@@ -13,7 +13,8 @@ import { POST as reactivatePOST } from "@/app/api/actions/reactivate/route";
 import { POST as changePlanPOST } from "@/app/api/actions/change-plan/route";
 import { POST as cancelPOST } from "@/app/api/actions/cancel/route";
 import { POST as dietPOST } from "@/app/api/actions/dietary-track/route";
-import { CASES } from "./cases";
+import { CASES as BASE_CASES } from "./cases";
+import { GAP_CASES } from "./cases-gaps";
 import { excerptsFor, judge } from "./judge";
 import type { ConfirmStep, CustomerKey, EvalCase, Expect, SayStep } from "./types";
 
@@ -26,6 +27,8 @@ import type { ConfirmStep, CustomerKey, EvalCase, Expect, SayStep } from "./type
  * chat client's Confirm button. Writes evals/report.md and exits non-zero when
  * any case not marked knownFailing fails.
  */
+
+const CASES = [...BASE_CASES, ...GAP_CASES];
 
 const CUSTOMER_IDS: Record<CustomerKey, string> = {
   ava: "11111111-1111-1111-1111-111111110001",
@@ -219,7 +222,7 @@ function check(t: TurnResult, e: Expect = {}): string[] {
   return f;
 }
 
-async function runCase(c: EvalCase): Promise<CaseResult> {
+async function runCase(c: EvalCase, useJudge: boolean): Promise<CaseResult> {
   const id = CUSTOMER_IDS[c.customer];
   const r: CaseResult = { c, failures: [], judged: [], transcript: [], promptTokens: 0, completionTokens: 0, ms: 0 };
   const history: { role: "user" | "assistant"; content: string }[] = [];
@@ -256,7 +259,7 @@ async function runCase(c: EvalCase): Promise<CaseResult> {
     r.transcript.push(`> ${step.say}`, `  tools: ${t.tools.map((x) => x.name).join(", ") || "none"} | cards: ${t.cards.map((x) => x.event).join(", ") || "none"}`, `  ${t.text.replace(/\s+/g, " ").trim()}`);
     const expect = (step as SayStep).expect;
     for (const f of check(t, expect)) r.failures.push(`turn ${i + 1}: ${f}`);
-    if (expect?.judge) {
+    if (expect?.judge && useJudge) {
       const v = await judge(expect.judge, (step as SayStep).say, t.text, await excerptsFor(t.sources));
       r.judged.push({ pass: v.pass, reason: v.reason });
       r.promptTokens += v.promptTokens;
@@ -274,9 +277,12 @@ function verdict(r: CaseResult): "PASS" | "FAIL" | "XFAIL" | "XPASS" {
 }
 
 async function main() {
-  const only = process.argv[2];
-  const cases = only ? CASES.filter((c) => c.id.includes(only)) : CASES;
-  if (cases.length === 0) throw new Error(`No case id contains "${only}"`);
+  // `--smoke` runs the quick set; any other argument keeps cases whose id contains it.
+  const args = process.argv.slice(2);
+  const smoke = args.includes("--smoke");
+  const only = args.find((a) => !a.startsWith("--"));
+  const cases = CASES.filter((c) => (!smoke || c.smoke) && (!only || c.id.includes(only)));
+  if (cases.length === 0) throw new Error(`No cases match${smoke ? " --smoke" : ""}${only ? ` "${only}"` : ""}`);
 
   const [{ kb }] = await client<{ kb: number }[]>`select count(*)::int as kb from kb_chunks`;
   if (kb === 0) throw new Error("kb_chunks is empty - run `npm run kb:ingest` first");
@@ -296,7 +302,7 @@ async function main() {
     // Confirmed actions write to the DB, so the next case starts from a clean seed.
     if (dirty) seed();
     dirty = c.steps.some((s) => "confirm" in s);
-    const r = await runCase(c);
+    const r = await runCase(c, !smoke); // the smoke set skips the judge to stay cheap
     results.push(r);
     const lines = [...r.failures, ...r.judged.filter((j) => !j.pass).map((j) => `judge: ${j.reason}`)];
     console.log(`${verdict(r).padEnd(5)} ${c.id}${lines.length ? `\n      ${lines.join("\n      ")}` : ""}`);

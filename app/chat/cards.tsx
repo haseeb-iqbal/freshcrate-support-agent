@@ -303,7 +303,11 @@ export function PlanCard({
           That&apos;s <span className="font-medium">{money(proposal.weekly_savings_cents)}/week</span> less than buying those meals à la carte.
         </p>
       )}
-      <p className="mt-1 text-xs text-slate-500">{proration} Your new plan starts next week.</p>
+      <p className="mt-1 text-xs text-slate-500">
+        {proposal.paused
+          ? "Your subscription stays paused. Nothing is charged now - the new plan's rate starts when you resume."
+          : `${proration} Your new plan starts next week.`}
+      </p>
 
       <PromptActions
         state={state}
@@ -312,7 +316,11 @@ export function PlanCard({
         onConfirm={onConfirm}
         onDecline={onDecline}
       />
-      {state === "approved" && <p className="mt-2 text-xs font-medium text-emerald-700">✓ Plan changed to {proposal.plan} ({money(proposal.monthly_cents)}/month).</p>}
+      {state === "approved" && (
+        <p className="mt-2 text-xs font-medium text-emerald-700">
+          ✓ Plan changed to {proposal.plan} ({money(proposal.monthly_cents)}/month){proposal.paused ? " - still paused" : ""}.
+        </p>
+      )}
       {state === "declined" && <p className="mt-2 text-xs font-medium text-slate-500">No problem — your plan is unchanged.</p>}
       {state === "error" && <p className="mt-2 text-xs font-medium text-red-600">Couldn&apos;t change the plan — please try again.</p>}
     </div>

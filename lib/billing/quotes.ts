@@ -213,15 +213,24 @@ export interface PlanChangeQuote {
   weeks_until_billing: number;
   billing_date: string | null;
   weekly_savings_cents: number;
+  /**
+   * The switch happens while paused: the subscription stays paused, nothing is
+   * prorated, and the new plan's rate applies from resume (the resume charge
+   * and any later bill use it).
+   */
+  paused: boolean;
 }
 
 export function quotePlanChange(input: {
   currentPlan: PlanRate | null;
   billingDate: string | null;
   plan: PlanRate;
+  /** True when the subscription is paused - see PlanChangeQuote.paused. */
+  paused?: boolean;
   now: Date;
 }): PlanChangeQuote {
   const { currentPlan, billingDate, plan, now } = input;
+  const paused = input.paused === true;
   const weeksLeft = weeksUntilDate(billingDate, now);
 
   return {
@@ -229,9 +238,12 @@ export function quotePlanChange(input: {
     monthly_cents: plan.monthlyCents,
     weekly_cents: plan.weeklyCents,
     current_plan: currentPlan?.plan ?? null,
-    proration_cents: currentPlan ? prorationCents(currentPlan.weeklyCents, plan.weeklyCents, weeksLeft) : 0,
+    // No weeks are delivered while paused, so there is no rate difference to
+    // prorate; resuming bills the remaining weeks at the new rate instead.
+    proration_cents: currentPlan && !paused ? prorationCents(currentPlan.weeklyCents, plan.weeklyCents, weeksLeft) : 0,
     weeks_until_billing: weeksLeft,
     billing_date: billingDate,
     weekly_savings_cents: weeklySavingsCents(plan.mealsPerWeek, plan.weeklyCents),
+    paused,
   };
 }

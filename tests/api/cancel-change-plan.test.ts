@@ -3,6 +3,7 @@ import "dotenv/config";
 import { setClock } from "@/lib/clock";
 import { POST as cancelPOST } from "@/app/api/actions/cancel/route";
 import { POST as changePlanPOST } from "@/app/api/actions/change-plan/route";
+import { POST as resumePOST } from "@/app/api/actions/resume/route";
 import { createTestCustomer, customerOf, eventsOf, purgeCustomer, txnsOf } from "../helpers/db";
 import { postJson } from "../helpers/http";
 
@@ -88,13 +89,38 @@ describe("POST /api/actions/change-plan", () => {
     expect(await txnsOf(ID)).toHaveLength(1);
   });
 
-  it("refuses to change the plan of a paused subscription", async () => {
-    await createTestCustomer({ id: ID, subscriptionStatus: "paused", billingDate: BILLING });
+  it("switches a paused subscription's plan and keeps it paused, with no proration", async () => {
+    // KB pricing-and-plans: plans can be switched while active OR paused. While
+    // paused nothing is prorated - the new rate applies from resume - and the
+    // pause credit already deferred is left as it is.
+    await createTestCustomer({
+      id: ID,
+      subscriptionStatus: "paused",
+      billingDate: BILLING,
+      pauseResumeDate: "2026-09-01",
+      billingAdjustmentCents: -8800,
+    });
     const res = await postJson(changePlanPOST, { customerId: ID, plan: "3 meals/week" });
 
-    expect(res.status).toBe(409);
-    expect(await res.json()).toMatchObject({ error: "paused" });
-    expect((await customerOf(ID)).plan).toBe("2 meals/week");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ ok: true, plan: "3 meals/week", proration_cents: 0 });
+    const c = await customerOf(ID);
+    expect(c.plan).toBe("3 meals/week");
+    expect(c.subscriptionStatus).toBe("paused");
+    expect(c.pauseResumeDate).toBe("2026-09-01");
+    expect(c.billingAdjustmentCents).toBe(-8800);
+    expect(await txnsOf(ID)).toEqual([]);
+    expect(await eventsOf(ID)).toEqual(["plan_changed"]);
+  });
+
+  it("resumes a plan switched while paused at the new plan's rate", async () => {
+    await createTestCustomer({ id: ID, subscriptionStatus: "paused", billingDate: BILLING, billingAdjustmentCents: -8800 });
+    await postJson(changePlanPOST, { customerId: ID, plan: "3 meals/week" });
+    const res = await postJson(resumePOST, { customerId: ID });
+
+    // 4 weeks to billing back at ($42 - $8): +$136 on the -$88 already deferred.
+    expect(res.status).toBe(200);
+    expect((await customerOf(ID)).billingAdjustmentCents).toBe(-8800 + 4 * 3400);
   });
 
   it("refuses to change the plan of a cancelled subscription", async () => {

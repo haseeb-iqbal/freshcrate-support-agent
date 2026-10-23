@@ -165,6 +165,12 @@ describe("quotePlanChange", () => {
     expect(q.proration_cents).toBe(-8800);
   });
 
+  it("prorates nothing while paused - the new rate applies from resume", () => {
+    const q = quotePlanChange({ ...base, currentPlan: PLAN_2, plan: PLAN_3, paused: true });
+    expect(q.proration_cents).toBe(0);
+    expect(q.paused).toBe(true);
+  });
+
   it("prorates nothing when billing is due within the week", () => {
     const q = quotePlanChange({ ...base, billingDate: "2026-07-24", currentPlan: PLAN_2, plan: PLAN_3 });
     expect(q.proration_cents).toBe(0);

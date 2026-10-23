@@ -10,7 +10,7 @@ You can pause for **1 to 52 weeks**, until a specific date within a year, or **i
 Your plan always pauses (or resumes) from **next week** — this week's box still ships. When you pause, you're **credited** the value of the weeks you'll skip before your next billing date, minus the $8/week pause fee (see Pricing & Plans). While you stay paused, that **$8/week fee is billed on each billing date** instead of your plan price. When you resume, you're **charged** for the weeks remaining until billing at your plan's weekly rate, minus the same $8/week fee.
 
 ## Changing plan while paused
-You can't change plan while paused. If you'd like a different plan, resume and switch at the same time — resuming on the new plan applies its weekly rate to the resume charge.
+You can switch plan while you're paused, and your subscription stays paused. Nothing is prorated or charged at the time, because no boxes ship while you're paused, and the $8/week pause fee stays the same. The new plan's weekly rate applies from when you resume, including the resume charge. If you'd rather restart straight away, you can resume and switch plan at the same time.
 
 ## Resuming early
 You can resume any time before your scheduled resume date from **Account → Subscription → Resume**, or by asking support. Resuming restarts your plan from next week.

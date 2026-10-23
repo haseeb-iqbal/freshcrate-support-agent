@@ -11,7 +11,7 @@ export const changePlan: Tool = {
   definition: {
     name: "change_plan",
     description:
-      "Change the current customer's subscription plan (e.g. '2 meals/week', '3 meals/week', '4 meals/week'). Call this immediately when the customer asks to switch plans — calling it shows the confirmation prompt with the new price and proration; it does NOT change the plan until they confirm via the prompt. Don't ask them to confirm before calling it.",
+      "Change the current customer's subscription plan (e.g. '2 meals/week', '3 meals/week', '4 meals/week'), on an ACTIVE or a PAUSED subscription - a paused one stays paused and takes the new plan's rate from when it resumes. Call this immediately when the customer asks to switch plans — calling it shows the confirmation prompt with the new price and proration; it does NOT change the plan until they confirm via the prompt. Don't ask them to confirm before calling it.",
     parameters: {
       type: "object",
       properties: {
@@ -45,18 +45,6 @@ export const changePlan: Tool = {
         },
       };
     }
-    if (customer?.subscriptionStatus === "paused") {
-      return {
-        ok: true,
-        summary: "Paused — must resume to change plan",
-        data: {
-          status: "paused",
-          redirect_to: "resume_subscription",
-          message:
-            "The subscription is paused, so the plan can't be changed while paused. Offer to resume AND switch plan together: call resume_subscription with new_plan set to the requested plan (this resumes the subscription on the new plan). Ask if they'd like to do that.",
-        },
-      };
-    }
     if (customer?.plan === newPlan) {
       return { ok: true, summary: `Already on ${newPlan}`, data: { status: "noop", message: "The customer is already on this plan — let them know, no change needed." } };
     }
@@ -68,8 +56,22 @@ export const changePlan: Tool = {
       currentPlan: customer ? await getPlan(customer.plan) : null,
       billingDate: customer?.billingDate ?? null,
       plan,
+      paused: customer?.subscriptionStatus === "paused",
       now: ctx.now,
     });
+
+    if (proposal.paused) {
+      return {
+        ok: true,
+        summary: `Proposed plan change to ${newPlan} while paused (${money(plan.monthlyCents)}/mo from resume)`,
+        data: {
+          status: "needs_confirmation",
+          proposal,
+          message:
+            "A confirmation prompt shows the new plan and its monthly price. The subscription STAYS PAUSED: nothing is prorated or charged now, the $8/week pause fee is unchanged, and the new plan's rate applies from when it resumes. Ask the customer to confirm; do NOT say it's changed or resumed. If they also want to resume now, use resume_subscription with new_plan instead.",
+        },
+      };
+    }
 
     return {
       ok: true,

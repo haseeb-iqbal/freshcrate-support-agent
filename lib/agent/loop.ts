@@ -6,7 +6,7 @@ import { toolByName as realToolByName, toolDefinitions as realToolDefinitions, t
 import { buildAgentMessages } from "./messages";
 import { buildSystemPrompt } from "./prompt";
 import { dispatchTool, PROPOSAL_EVENTS, type DispatchState } from "./dispatch";
-import { shouldNudge } from "./nudge";
+import { ORDER_CARD_TOOLS, shouldNudge, shouldNudgeOrderCard } from "./nudge";
 import { isPureDecline } from "./decline";
 
 export type AgentEmit = (event: string, data: unknown) => void;
@@ -57,6 +57,7 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
   // read-only lookup must not (see shouldNudge). Counting every tool here let a
   // "looked up the order, then described a refund" turn escape the nudge.
   let actionToolCallsMade = 0;
+  let orderToolCallsMade = 0;
   const state: DispatchState = { shownProposals: new Set() };
 
   // A message that is ONLY a refusal ("no", "nah", "not now") of a prompt already
@@ -65,6 +66,11 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
   // rather than trust the model to read "nah" correctly (see the tool loop below).
   const lastUser = [...history].reverse().find((m) => m.role === "user");
   const declining = (decisions?.length ?? 0) > 0 && !!lastUser && isPureDecline(lastUser.content);
+
+  // Orders whose refund the customer confirmed earlier in this conversation.
+  const refundedThisChat = new Set(
+    (decisions ?? []).filter((d) => d.kind === "refund" && d.outcome === "confirmed" && d.orderNumber).map((d) => d.orderNumber!),
+  );
 
   // One deadline for the whole turn: if the model stalls, the signal aborts the
   // in-flight request and we fall to the catch below with a graceful message.
@@ -103,6 +109,17 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
           });
           continue;
         }
+        if (shouldNudgeOrderCard({ assistantText: text, orderToolCallCount: orderToolCallsMade, alreadyNudged: nudged })) {
+          nudged = true;
+          if (streamedText) emit("reset", {});
+          if (text) messages.push({ role: "assistant", content: text });
+          messages.push({
+            role: "system",
+            content:
+              "You introduced an order card but no tool was called, so nothing is shown. Call lookup_order now for one order (position 1 for the latest), or list_orders only if they asked to see their full history.",
+          });
+          continue;
+        }
         emit("done", {});
         return;
       }
@@ -110,7 +127,7 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
       // A tool turn is never the final answer — clear any preamble it streamed.
       if (streamedText) emit("reset", {});
       messages.push({ role: "assistant", content: text, toolCalls });
-      actionToolCallsMade += toolCalls.filter((c) => PROPOSAL_EVENTS[c.name]).length;
+      orderToolCallsMade += toolCalls.filter((c) => ORDER_CARD_TOOLS.has(c.name)).length;
 
       for (const call of toolCalls) {
         if (declining && PROPOSAL_EVENTS[call.name]) {
@@ -134,6 +151,22 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
         } catch {
           // Malformed args — the handler will report the problem.
         }
+
+        if (call.name === "issue_refund" && refundedThisChat.has(String(args.order_number ?? ""))) {
+          // The customer already confirmed this order's refund in this chat, so
+          // a further refund request ("another order") is about a different
+          // one. gpt-4o-mini re-calls issue_refund for the same order, gets
+          // already_refunded, and escalates; skip it and point it elsewhere.
+          messages.push({
+            role: "tool",
+            toolCallId: call.id,
+            content: JSON.stringify({
+              note: `The refund for ${String(args.order_number)} was already confirmed earlier in this conversation, so the customer means a DIFFERENT order. Do not call issue_refund for ${String(args.order_number)} again and do not escalate. Find the other order with lookup_order, or ask which order they mean.`,
+            }),
+          });
+          continue;
+        }
+
         emit("tool_call", { name: call.name, args });
 
         const tool = registry[call.name];
@@ -143,6 +176,12 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
               summary: `Tool error: ${err instanceof Error ? err.message : "unknown"}`,
             }))
           : { ok: false, summary: `Unknown tool: ${call.name}` };
+
+        // An action call the tool redirected ("paused - use resume_subscription")
+        // did not act, so it must not suppress the nudge either.
+        if (PROPOSAL_EVENTS[call.name] && !(result.data as { redirect_to?: string } | undefined)?.redirect_to) {
+          actionToolCallsMade++;
+        }
 
         const { events, modelContent } = dispatchTool(call, result, state);
         for (const e of events) emit(e.event, e.data);

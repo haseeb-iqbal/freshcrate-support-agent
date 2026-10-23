@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { shouldNudge } from "./nudge";
+import { shouldNudge, shouldNudgeOrderCard } from "./nudge";
 
 const nudge = (assistantText: string, over: Partial<Parameters<typeof shouldNudge>[0]> = {}) =>
   shouldNudge({ assistantText, actionToolCallCount: 0, alreadyNudged: false, ...over });
@@ -149,6 +149,27 @@ describe("shouldNudge", () => {
       "You previously declined the gluten-free switch, so no change was made to your meals.",
     ]) {
       expect(nudge(text)).toBe(false);
+    }
+  });
+});
+
+describe("shouldNudgeOrderCard", () => {
+  const base = { orderToolCallCount: 0, alreadyNudged: false };
+
+  it("nudges a lead-in for an order card that was never fetched", () => {
+    for (const t of ["Here's your order history:", "Here is your latest order:", "Here are your orders.", "Here's your most recent order:"]) {
+      expect(shouldNudgeOrderCard({ ...base, assistantText: t })).toBe(true);
+    }
+  });
+
+  it("does not nudge once an order tool ran, or a second time", () => {
+    expect(shouldNudgeOrderCard({ ...base, orderToolCallCount: 1, assistantText: "Here's your order history:" })).toBe(false);
+    expect(shouldNudgeOrderCard({ ...base, alreadyNudged: true, assistantText: "Here's your order history:" })).toBe(false);
+  });
+
+  it("does not nudge a reply that is not presenting an order card", () => {
+    for (const t of ["Which order do you mean?", "Your order history shows every charge.", "Here's how refunds work:"]) {
+      expect(shouldNudgeOrderCard({ ...base, assistantText: t })).toBe(false);
     }
   });
 });

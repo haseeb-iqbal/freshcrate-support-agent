@@ -39,6 +39,7 @@ export const changePlan: Tool = {
         summary: "Cancelled — must reactivate before changing plan",
         data: {
           status: "cancelled",
+          redirect_to: "reactivate_subscription",
           message:
             "The subscription is cancelled, so the plan can't be changed directly. To start on this plan, call reactivate_subscription with new_plan set to the requested plan — that reactivates and switches plan together.",
         },
@@ -50,6 +51,7 @@ export const changePlan: Tool = {
         summary: "Paused — must resume to change plan",
         data: {
           status: "paused",
+          redirect_to: "resume_subscription",
           message:
             "The subscription is paused, so the plan can't be changed while paused. Offer to resume AND switch plan together: call resume_subscription with new_plan set to the requested plan (this resumes the subscription on the new plan). Ask if they'd like to do that.",
         },

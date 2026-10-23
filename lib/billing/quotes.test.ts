@@ -34,8 +34,15 @@ describe("quotePause (paused week billed at $8)", () => {
     expect(q.already_paused).toBe(true);
   });
 
-  it("derives the resume date from the pause length when none was given", () => {
+  it("derives the resume date from the pause length, counted from next week", () => {
+    // This week's box still ships and the pause starts next week (KB
+    // pause-resume), so 2 skipped weeks resume 3 weeks out, not 2.
     const q = quotePause({ ...base, status: "active", indefinite: false, weeks: 2 });
+    expect(q.resume_date).toBe("2026-08-10");
+  });
+
+  it("counts an extension from today when the pause is already running", () => {
+    const q = quotePause({ ...base, status: "paused", indefinite: false, weeks: 2 });
     expect(q.resume_date).toBe("2026-08-03");
   });
 

@@ -111,7 +111,7 @@ export const issueRefund: Tool = {
           items: order.items ?? [],
         },
         message:
-          "A confirmation prompt has been shown to the customer with the refund details (order, amount, card). Let them know their order can be refunded and ask if they'd like to initiate it. Do NOT say the refund is done — it is only initiated once they confirm.",
+          "A confirmation prompt has been shown to the customer with the refund details (order, amount, card). Let them know their order can be refunded and ask them to confirm it. Do NOT say the refund is done or started — nothing happens until they confirm.",
       },
     };
   },

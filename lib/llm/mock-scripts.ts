@@ -53,7 +53,7 @@ export const MOCK_SCRIPTS: Record<string, Script> = {
   },
   "switch me to the 4 meals/week plan": {
     pre_tool: [call("change_plan", { new_plan: "4 meals/week" })],
-    post_tool: [t("Your subscription is paused, so I can resume you on the 4 meals/week plan at the same time — want me to do that?")],
+    post_tool: [t("Here's the switch to 4 meals/week. Your subscription stays paused, and the new rate starts when you resume - confirm below.")],
   },
   "refund my last order, it was damaged": {
     pre_tool: [call("issue_refund", { order_number: "FC1020", reason: "damaged box" })],

@@ -2,6 +2,8 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import "dotenv/config";
 import { getSubscription } from "@/lib/tools/subscription";
 import { getPlan } from "@/lib/billing/plans";
+import { db } from "@/db";
+import { subscriptionEvents } from "@/db/schema";
 import { createTestCustomer, purgeCustomer } from "../helpers/db";
 
 // Isolated throwaway customer (88888888-…00NN range), so this doesn't depend on
@@ -86,6 +88,31 @@ describe("get_subscription (integration, seeded DB)", () => {
     const d = r.data as SubData;
     expect(d.next_bill?.amount_cents).toBe(3200); // $32
     expect(d.next_bill?.paused_weeks_billed).toBe(4);
+  });
+
+  it("explains a credit earned on an earlier plan as a credit, not a paused-week count", async () => {
+    // Paused on 2 meals/week (2 weeks x ($30 - $8) = $44 deferred), then switched
+    // to 4 meals/week while paused. $44 happens to equal ONE 4-meal paused week
+    // ($52 - $8), so dividing the credit by the current rate would say "1 paused
+    // week" for what was 2. The note must call it a credit instead.
+    await createTestCustomer({
+      id: ID,
+      plan: "4 meals/week",
+      subscriptionStatus: "paused",
+      billingDate: "2026-08-30",
+      pauseResumeDate: "2026-09-06",
+      billingAdjustmentCents: -4400,
+    });
+    await db.insert(subscriptionEvents).values([
+      { customerId: ID, eventType: "paused", createdAt: new Date("2026-07-20T09:00:00Z") },
+      { customerId: ID, eventType: "plan_changed", createdAt: new Date("2026-07-27T09:00:00Z") },
+    ]);
+    const r = await getSubscription.handler({ customerId: ID, now: new Date(2026, 7, 2) }, {});
+    const d = r.data as SubData;
+    expect(d.next_bill?.amount_cents).toBe(16400); // $208 - $44
+    expect(d.next_bill?.paused_weeks_billed).toBe(0);
+    expect(d.next_bill_note).toMatch(/\$44 pause credit/);
+    expect(d.next_bill_note).not.toMatch(/paused weeks? billed/);
   });
 
   it("floors the next bill at zero when a reduction exceeds the monthly", async () => {

@@ -110,6 +110,8 @@ export interface PlanChangeProposal {
   weeks_until_billing: number;
   billing_date?: string | null;
   weekly_savings_cents?: number;
+  /** Switched while paused: stays paused, no proration, new rate from resume. */
+  paused?: boolean;
 }
 
 export interface CancelProposal {

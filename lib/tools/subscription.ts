@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "../../db";
-import { customers } from "../../db/schema";
+import { customers, subscriptionEvents } from "../../db/schema";
 import { PAUSE_FEE_CENTS, SIGNUP_FEE_CENTS, pausedWeekReductionCents, weeksUntilDate } from "../billing/pricing";
 import { getPlan } from "../billing/plans";
 import { quotePause, quoteReactivate, quoteResume } from "../billing/quotes";
@@ -48,11 +48,15 @@ export const getSubscription: Tool = {
     const weekly = plan?.weeklyCents ?? null;
     // Paused weeks reflected in this bill = the reduction divided by the per-week
     // reduction (weekly − $8). Lets the note say "N weeks at $8" without guessing.
+    // Not after a plan switch during this pause: the credit was then earned at the
+    // OLD plan's rate, so dividing by the new one miscounts (Diego's $44 is two
+    // 2-meal weeks but exactly one 4-meal week) - the note calls it a credit.
     const perWeek = weekly === null ? 0 : pausedWeekReductionCents(weekly);
-    const pausedWeeks =
-      customer.subscriptionStatus === "paused" && monthly !== null && nextBill !== null && perWeek > 0
-        ? Math.max(0, Math.round((monthly - nextBill) / perWeek))
-        : 0;
+    const reduction = monthly !== null && nextBill !== null ? monthly - nextBill : 0;
+    const paused = customer.subscriptionStatus === "paused";
+    const countable =
+      paused && perWeek > 0 && reduction > 0 && reduction % perWeek === 0 && !(await planChangedDuringPause(customer.id));
+    const pausedWeeks = countable ? reduction / perWeek : 0;
     const nextBill_ =
       nextBill === null || monthly === null
         ? null
@@ -81,6 +85,17 @@ export const getSubscription: Tool = {
 /** The actual next bill, from running the biller forward to the billing date so
  *  a finite pause's auto-resume is folded in. Falls back to monthly + adjustment
  *  when there is no plan rate or billing date to project from. */
+/** Whether the plan was switched after the subscription was last paused. */
+async function planChangedDuringPause(customerId: string): Promise<boolean> {
+  const [latest] = await db
+    .select({ eventType: subscriptionEvents.eventType })
+    .from(subscriptionEvents)
+    .where(and(eq(subscriptionEvents.customerId, customerId), inArray(subscriptionEvents.eventType, ["paused", "plan_changed"])))
+    .orderBy(desc(subscriptionEvents.createdAt))
+    .limit(1);
+  return latest?.eventType === "plan_changed";
+}
+
 function nextBillCents(
   customer: { subscriptionStatus: string; billingDate: string | null; pauseResumeDate: string | null },
   weeklyCents: number | null,
@@ -109,6 +124,9 @@ function nextBillNote(nextBill: number, monthly: number, weekly: number | null, 
   if (pausedWeeks > 0) {
     const rate = weekly === null ? "your usual weekly rate" : `${money(weekly)}/week`;
     return `Next bill is ${money(nextBill)}: your ${money(monthly)} plan with ${pausedWeeks} paused week${pausedWeeks === 1 ? "" : "s"} billed at ${PAUSE_FEE_PER_WEEK} instead of ${rate}. That is the whole bill - nothing else is added or taken off. Explain it from these numbers.`;
+  }
+  if (nextBill < monthly) {
+    return `Next bill is ${money(nextBill)}: your ${money(monthly)} plan less a ${money(monthly - nextBill)} pause credit for weeks skipped while paused. That is the whole bill - nothing else is added or taken off. Explain it from these numbers.`;
   }
   if (adjustment > 0) {
     return `Next bill is ${money(nextBill)}: your ${money(monthly)} plan plus ${money(adjustment)} for the weeks added back on resuming. Explain from these numbers; do not invent a fee.`;
@@ -295,8 +313,11 @@ export const reactivateSubscription: Tool = {
         summary: `${customer.subscriptionStatus}, not cancelled`,
         data: {
           status: customer.subscriptionStatus,
-          ...(customer.subscriptionStatus === "paused" ? { redirect_to: "resume_subscription" } : {}),
-          message: "Not cancelled — no reactivation needed. If paused, use resume_subscription.",
+          ...(customer.subscriptionStatus === "paused" ? { redirect_to: args.new_plan ? "change_plan" : "resume_subscription" } : {}),
+          message:
+            customer.subscriptionStatus === "paused" && args.new_plan
+              ? "Paused, not cancelled - no reactivation needed. To switch plan, call change_plan with that plan now: it switches the plan and keeps the subscription paused. Use resume_subscription with new_plan only if they also asked to resume."
+              : "Not cancelled — no reactivation needed. If paused, use resume_subscription to restart it.",
         },
       };
     }

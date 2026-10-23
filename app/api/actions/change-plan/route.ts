@@ -13,7 +13,8 @@ interface ChangePlanBody extends ActionBody {
 }
 
 /** Applies a plan change, records the prorated charge/refund, and logs the
- *  status change. Called by the confirmation prompt, never the model. */
+ *  status change. A paused subscription switches plan and stays paused, with no
+ *  proration. Called by the confirmation prompt, never the model. */
 export const POST = actionRoute<ChangePlanBody>(async ({ body, customer, now }) => {
   const newPlan = body.plan;
   if (!newPlan) return new Response("Missing plan", { status: 400 });
@@ -26,10 +27,6 @@ export const POST = actionRoute<ChangePlanBody>(async ({ body, customer, now }) 
   if (customer.subscriptionStatus === "cancelled") {
     return Response.json({ ok: false, error: "cancelled" }, { status: 409 });
   }
-  if (customer.subscriptionStatus === "paused") {
-    // Plan changes aren't allowed while paused — resume with new_plan instead.
-    return Response.json({ ok: false, error: "paused" }, { status: 409 });
-  }
   if (customer.plan === newPlan) {
     // Nothing to change — do not log a plan_changed event for a non-change.
     return Response.json({ ok: false, error: "same_plan" }, { status: 409 });
@@ -39,6 +36,8 @@ export const POST = actionRoute<ChangePlanBody>(async ({ body, customer, now }) 
     currentPlan: await getPlan(customer.plan),
     billingDate: customer.billingDate,
     plan,
+    // A paused subscription switches plan and stays paused, unprorated.
+    paused: customer.subscriptionStatus === "paused",
     now,
   });
   const proration = quote.proration_cents;

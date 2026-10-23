@@ -26,7 +26,6 @@ const CASES: Case[] = [
   { q: "My box arrived damaged — can I get a refund?", expect: "refunds-and-damaged-boxes" },
   { q: "How do I switch from 2 meals to 4 meals a week?", expect: "plan-changes" },
   { q: "How do I update the credit card on my account?", expect: "account-and-billing" },
-  { q: "How does the referral program work and what do I earn?", expect: "referral-program" },
   { q: "When will my box be delivered and what's the time window?", expect: "delivery-schedule" },
   { q: "How long do ingredients stay fresh in the fridge?", expect: "food-safety-and-freshness" },
   { q: "Do you deliver to my area and what does shipping cost?", expect: "delivery-areas-and-fees" },

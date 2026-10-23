@@ -1,13 +1,13 @@
 # Account & Billing Basics
 
 ## When you're charged
-FreshCrate charges your payment method each week when that week's box locks at the Wednesday 11:59pm cutoff. The charge covers the box shipping that week. If you're paused or have skipped a week, you aren't charged for it.
+FreshCrate bills your plan **monthly**, on your billing date. Your billing date is set on the day you sign up (sign up on the 12th and you're billed on the 12th of each month), and each monthly charge covers about four weekly boxes. You can see your next billing date under **Account → Billing**. While you're paused, the $8/week pause fee is billed on your billing date instead of your plan price - see the pausing article for how that works.
 
 ## What payment methods we accept
 FreshCrate accepts most major credit and debit cards (**Visa, Mastercard, American Express, and Discover**), as well as **Apple Pay, Google Pay, and PayPal**. You can update or switch between them any time.
 
 ## Updating your payment method
-Update your card or payment details from **Account → Billing → Payment Method**. A new payment method applies to your next charge. If a charge fails, we retry for up to 3 days and email you; your box may be held until payment succeeds.
+Update your card or payment details from **Account → Billing → Payment Method**. A new payment method applies to your next charge. If a charge fails, we retry for up to 3 days and email you. If it still fails after that, your subscription is paused until you update your payment method.
 
 ## Updating email, password, and address
 Change your email, password, and contact details from **Account → Profile**. Update your delivery address from **Account → Delivery Settings** — address changes follow the weekly cutoff, so update before Wednesday 11:59pm to affect the next box.

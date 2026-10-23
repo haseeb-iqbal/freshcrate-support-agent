@@ -8,7 +8,7 @@ Every FreshCrate menu is built on one of four dietary tracks, and you pick the o
 - **Vegetarian** - no meat, poultry, fish or seafood. Contains dairy and eggs unless the meal is also tagged dairy-free.
 - **Dairy-Free** - no milk, butter, cream, cheese, yoghurt, ghee, whey or casein. We use olive oil or a plant spread instead of butter.
 
-Each track offers 8 meals and 5 add-ons each week. Every track costs exactly the same: there is no surcharge for choosing a specialist track. You can set or change your track from **Account → Preferences**, or just ask in chat.
+Each track offers 8 meals and 5 add-ons each week, and the menu **rotates weekly**. The menus below are this week's; next week's menu is shown in your account before the Wednesday cutoff. Every track costs exactly the same: there is no surcharge for choosing a specialist track. You can set or change your track from **Account → Preferences**, or just ask in chat.
 
 ## What every meal costs
 Every meal on every track lists at **$17.50**. The meals included in your weekly plan are **free** as part of your subscription - you will see the $17.50 list price struck through with "Free" next to it in your orders. That is true on all four tracks.
@@ -126,7 +126,7 @@ The "Also suits" column on each menu above lists every other diet a meal qualifi
 Meals on the **Standard** track carry no dietary guarantee and are never labelled gluten-free or dairy-free, even where they contain no gluten or no dairy. A meal is prepared under gluten-free or dairy-free controls whenever it carries that label, so if you need to avoid an ingredient, go by the labels rather than by which track a meal sits on.
 
 ## Every gluten-free meal
-These 16 meals are gluten-free, wherever they sit on the menu:
+These 16 meals on this week's menu are gluten-free, wherever they sit on the menu:
 
 | Meal | Menu it's on |
 |---|---|
@@ -148,7 +148,7 @@ These 16 meals are gluten-free, wherever they sit on the menu:
 | Cajun Prawn & Dirty Rice | Dairy-Free |
 
 ## Every dairy-free meal
-These 16 meals are dairy-free, wherever they sit on the menu:
+These 16 meals on this week's menu are dairy-free, wherever they sit on the menu:
 
 | Meal | Menu it's on |
 |---|---|
@@ -170,7 +170,7 @@ These 16 meals are dairy-free, wherever they sit on the menu:
 | Falafel Mezze Plate | Vegetarian |
 
 ## Every vegetarian meal
-These 10 meals are vegetarian, wherever they sit on the menu:
+These 10 meals on this week's menu are vegetarian, wherever they sit on the menu:
 
 | Meal | Menu it's on |
 |---|---|
@@ -186,7 +186,7 @@ These 10 meals are vegetarian, wherever they sit on the menu:
 | Teriyaki Tofu & Soba Noodles | Dairy-Free |
 
 ## Nutrition
-Every meal is nutritionally balanced and the figures in the per-track tables below are **per serving**. Full
+Every meal is nutritionally balanced and the figures in the per-track tables below are **per serving**. Every meal serves **2 people**. Full
 per-recipe nutrition - calories plus protein, carbohydrate and fat - is printed on
 each meal's recipe card and shown on the meal's page in your account before you
 choose it. Add-ons are extra: sides are roughly 180-320 kcal, desserts 320-520 kcal,
@@ -245,13 +245,13 @@ and drinks 90-180 kcal each; exact values are on each add-on's page.
 | Cajun Prawn & Dirty Rice | 600 kcal | 38 g | 66 g | 20 g |
 
 ## Allergens and ingredient information
-Every recipe lists its ingredients and major allergens (such as nuts, dairy, gluten, soy and shellfish) on the recipe card and on the meal's page in your account. FreshCrate prepares ingredients in facilities that handle common allergens, so we can't guarantee a recipe is fully free of cross-contact. If you have a severe allergy, check the recipe card for that week's meal before you order, and contact us if anything is unclear.
+Every recipe lists its ingredients and major allergens (such as nuts, dairy, gluten, soy and shellfish) on the recipe card and on the meal's page in your account. FreshCrate prepares ingredients in facilities that handle common allergens. Meals labelled gluten-free or dairy-free are prepared under cross-contact controls for gluten or dairy, so you can rely on those labels. For other allergens we can't guarantee a recipe is fully free of cross-contact. If you have a severe allergy, check the recipe card for that week's meal before you order, and contact us if anything is unclear.
 
 ## Vegan, keto and other diets
 We do not offer a vegan track, and we do not certify any meal as vegan. The closest options are the **Vegetarian** and **Dairy-Free** menus - some of those meals contain no animal products at all, but others use eggs, dairy or honey, so check the recipe card's ingredient list before ordering. We also **do not offer keto, paleo or low-carb tracks**, and we can't build a bespoke menu for a diet we don't list. Our four tracks are Standard, Gluten-Free, Vegetarian and Dairy-Free; if none of them works for you, ask and we'll put you in touch with someone who can help.
 
 ## Choosing your weekly recipes
-Even with a track set, you can hand-pick each week's recipes from that track's menu before the Wednesday cutoff. If you don't choose, we auto-select recipes from your track. There's no extra charge for any track.
+Even with a track set, you can hand-pick each week's recipes from that track's menu before the Wednesday cutoff. You can only choose meals and add-ons from your own track's menu; to order from another menu, switch track. If you don't choose, we auto-select recipes from your track. There's no extra charge for any track.
 
 ## Halal and kosher
 All FreshCrate meals are **halal-certified**. No pork, pork derivatives or alcohol is used anywhere in our kitchens, on any track, in any meal or add-on. We are not kosher-certified, and our menu includes shellfish and dishes that combine meat and dairy.

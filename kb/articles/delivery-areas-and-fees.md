@@ -10,4 +10,4 @@ Delivery is included in your subscription, so there's no separate shipping fee. 
 Boxes arrive between 8am and 8pm on your delivery day. We don't offer guaranteed narrow time windows or live carrier tracking, but we email you a notification when your box ships so you know it's on the way.
 
 ## Address changes and coverage
-If you move, update your address under **Account → Delivery Settings** before the Wednesday cutoff. If your new address is outside our delivery area, we'll let you know and can pause your subscription until coverage is available.
+If you move, update your address under **Account → Delivery Settings** before the Wednesday cutoff. If your new address is outside our delivery area, we'll let you know and can pause your subscription until coverage is available. The usual $8/week pause fee applies while you're paused, so if you don't expect coverage soon, cancelling may suit you better.

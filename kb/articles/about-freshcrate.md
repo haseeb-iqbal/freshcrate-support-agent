@@ -17,7 +17,7 @@ Cooking a good dinner on a weeknight shouldn't feel like a second job. We plan t
 
 **Less waste by design.** Pre-portioning exists so you use what you're sent and throw less away. We treat reducing food waste as part of the product, not an afterthought.
 
-**Leaving is easy.** There's no contract and no minimum number of boxes. You can skip a week, pause, or cancel from your account in a few clicks - we don't hide the exit or make you argue your way out.
+**Leaving is easy.** There's no contract and no minimum number of boxes. You can pause or cancel from your account in a few clicks - we don't hide the exit or make you argue your way out.
 
 **Cooking for real households.** Recipes are built for families with picky eaters, roommates on different diets, and people cooking for one - not just for a photo.
 

@@ -9,5 +9,5 @@ No. There are no promotions, sales, or intro offers currently running. If that e
 ## Why our pricing works this way
 Rather than run temporary promo pricing that later jumps to a higher rate, we keep one honest price. Your plan meals are already free as part of your subscription, so a plan costs less than buying the same meals à la carte - see the pricing article for the exact per-week savings on each plan size.
 
-## Earning account credit
-The one way to earn credit toward your boxes is our **referral program**: when a friend signs up through your link and gets their first box, you both receive an account credit. That's a referral reward, not a discount code or promotion - see the referral program article for how it works.
+## Is there a referral program?
+No. FreshCrate doesn't have a referral program or any other way to earn account credit.

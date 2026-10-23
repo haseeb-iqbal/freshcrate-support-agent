@@ -7,7 +7,7 @@ FreshCrate bills your plan **monthly**, on your billing date. Your billing date 
 FreshCrate accepts most major credit and debit cards (**Visa, Mastercard, American Express, and Discover**), as well as **Apple Pay, Google Pay, and PayPal**. You can update or switch between them any time.
 
 ## Updating your payment method
-Update your card or payment details from **Account → Billing → Payment Method**. A new payment method applies to your next charge. If a charge fails, we retry for up to 3 days and email you; your box may be held until payment succeeds.
+Update your card or payment details from **Account → Billing → Payment Method**. A new payment method applies to your next charge. If a charge fails, we retry for up to 3 days and email you. If it still fails after that, your subscription is paused until you update your payment method.
 
 ## Updating email, password, and address
 Change your email, password, and contact details from **Account → Profile**. Update your delivery address from **Account → Delivery Settings** — address changes follow the weekly cutoff, so update before Wednesday 11:59pm to affect the next box.

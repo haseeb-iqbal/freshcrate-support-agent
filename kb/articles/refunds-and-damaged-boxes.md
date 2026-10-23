@@ -1,7 +1,7 @@
 # Refunds & Damaged Boxes
 
 ## When you're eligible for a refund
-You're eligible for a refund or free replacement if your box arrives damaged, has missing or spoiled ingredients, arrives more than 24 hours late, or never arrives. Refunds are issued to your original payment method, and replacements ship on your next delivery day.
+You're eligible for a refund if your box arrives damaged, has missing or spoiled ingredients, arrives more than 24 hours late, or never arrives. Refunds are issued to your original payment method. FreshCrate doesn't send replacement boxes - problems are resolved with a refund.
 
 ## Reporting a damaged or missing item
 Report problems within 7 days of delivery from **Account → Orders → Report a Problem**, or by asking support. Tell us which order and what was wrong (for example, a damaged box or a missing protein). A photo helps but isn't required for most claims.
@@ -16,4 +16,4 @@ A refund can be confirmed right in chat when it's **$20 or less** and you haven'
 A refund routes to a support specialist for approval — rather than being confirmed automatically — when it's **above $20**, when you've **already had a refund in the last 14 days**, or when the order was **already refunded once** before. We'll still resolve your issue; it just needs a person to approve it first.
 
 ## What can't be refunded
-Only meal orders can be refunded. Fees — sign-up fees, pause hold fees, plan-change charges, and monthly plan payments — aren't refundable and are always handled by a specialist if you have a question about them.
+Only meal orders can be refunded. Sign-up fees, pause fees, plan-change prorations and monthly plan payments aren't refundable. If you have a question about a fee, a specialist will handle it.

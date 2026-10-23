@@ -186,7 +186,7 @@ These 10 meals are vegetarian, wherever they sit on the menu:
 | Teriyaki Tofu & Soba Noodles | Dairy-Free |
 
 ## Nutrition
-Every meal is nutritionally balanced and the figures in the per-track tables below are **per serving**. Full
+Every meal is nutritionally balanced and the figures in the per-track tables below are **per serving**. Every meal serves **2 people**. Full
 per-recipe nutrition - calories plus protein, carbohydrate and fat - is printed on
 each meal's recipe card and shown on the meal's page in your account before you
 choose it. Add-ons are extra: sides are roughly 180-320 kcal, desserts 320-520 kcal,
@@ -245,7 +245,7 @@ and drinks 90-180 kcal each; exact values are on each add-on's page.
 | Cajun Prawn & Dirty Rice | 600 kcal | 38 g | 66 g | 20 g |
 
 ## Allergens and ingredient information
-Every recipe lists its ingredients and major allergens (such as nuts, dairy, gluten, soy and shellfish) on the recipe card and on the meal's page in your account. FreshCrate prepares ingredients in facilities that handle common allergens, so we can't guarantee a recipe is fully free of cross-contact. If you have a severe allergy, check the recipe card for that week's meal before you order, and contact us if anything is unclear.
+Every recipe lists its ingredients and major allergens (such as nuts, dairy, gluten, soy and shellfish) on the recipe card and on the meal's page in your account. FreshCrate prepares ingredients in facilities that handle common allergens. Meals labelled gluten-free or dairy-free are prepared under cross-contact controls for gluten or dairy, so you can rely on those labels. For other allergens we can't guarantee a recipe is fully free of cross-contact. If you have a severe allergy, check the recipe card for that week's meal before you order, and contact us if anything is unclear.
 
 ## Vegan, keto and other diets
 We do not offer a vegan track, and we do not certify any meal as vegan. The closest options are the **Vegetarian** and **Dairy-Free** menus - some of those meals contain no animal products at all, but others use eggs, dairy or honey, so check the recipe card's ingredient list before ordering. We also **do not offer keto, paleo or low-carb tracks**, and we can't build a bespoke menu for a diet we don't list. Our four tracks are Standard, Gluten-Free, Vegetarian and Dairy-Free; if none of them works for you, ask and we'll put you in touch with someone who can help.

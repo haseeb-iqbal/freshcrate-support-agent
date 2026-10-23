@@ -1,7 +1,7 @@
 # Pausing & Resuming Your Subscription
 
 ## How pausing works
-Pausing skips upcoming boxes without cancelling your subscription. Your plan, recipes preferences, and delivery day are all kept while you're paused. You can pause from **Account → Subscription → Pause**, or just ask support to pause for you.
+Pausing skips upcoming boxes without cancelling your subscription. Your plan, recipe preferences, and delivery day are all kept while you're paused. You can pause from **Account → Subscription → Pause**, or just ask support to pause for you.
 
 ## How long you can pause
 You can pause for **1 to 52 weeks**, until a specific date within a year, or **indefinitely** (resume whenever you like). A finite pause resumes automatically on your normal delivery day when it ends. Pausing does not count as a cancellation. A **cancelled** subscription can't be paused — you'd reactivate it first.

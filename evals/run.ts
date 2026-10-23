@@ -2,11 +2,19 @@ import "dotenv/config";
 import { spawnSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import type { NextRequest } from "next/server";
-import { client } from "@/db";
+import { eq } from "drizzle-orm";
+import { client, db } from "@/db";
+import { customers } from "@/db/schema";
 import { POST as chatPOST } from "@/app/api/chat/route";
 import { POST as refundPOST } from "@/app/api/actions/refund/route";
+import { POST as pausePOST } from "@/app/api/actions/pause/route";
+import { POST as resumePOST } from "@/app/api/actions/resume/route";
+import { POST as reactivatePOST } from "@/app/api/actions/reactivate/route";
 import { POST as changePlanPOST } from "@/app/api/actions/change-plan/route";
+import { POST as cancelPOST } from "@/app/api/actions/cancel/route";
+import { POST as dietPOST } from "@/app/api/actions/dietary-track/route";
 import { CASES } from "./cases";
+import { excerptsFor, judge } from "./judge";
 import type { ConfirmStep, CustomerKey, EvalCase, Expect, SayStep } from "./types";
 
 /**
@@ -50,6 +58,24 @@ const DECISION_KIND: Record<string, string> = {
   diet_change_proposal: "dietary_track",
 };
 
+type Handler = (req: NextRequest) => Promise<Response>;
+type Data = Record<string, unknown>;
+
+/**
+ * What the chat client's Confirm button posts for each card kind - the same
+ * endpoints and bodies as app/chat/proposals.ts (which can't be imported here:
+ * it pulls in the React cards).
+ */
+const CONFIRM: Record<string, { handler: Handler; body: (p: Data) => Data }> = {
+  refund_proposal: { handler: refundPOST, body: (p) => ({ orderNumber: p.order_number, reason: p.reason }) },
+  pause_proposal: { handler: pausePOST, body: (p) => ({ weeks: p.weeks, resumeDate: p.resume_date, indefinite: p.indefinite }) },
+  resume_proposal: { handler: resumePOST, body: (p) => ({ newPlan: p.plan_changed ? p.plan : undefined }) },
+  reactivate_proposal: { handler: reactivatePOST, body: (p) => ({ newPlan: p.plan_changed ? p.plan : undefined }) },
+  plan_change_proposal: { handler: changePlanPOST, body: (p) => ({ plan: p.plan }) },
+  cancel_proposal: { handler: cancelPOST, body: () => ({}) },
+  diet_change_proposal: { handler: dietPOST, body: (p) => ({ track: p.new_track }) },
+};
+
 interface Card {
   event: string;
   data: Record<string, unknown>;
@@ -61,6 +87,7 @@ interface TurnResult {
   events: { event: string; data: unknown }[];
   tools: { name: string; args: Record<string, unknown> }[];
   cards: { event: string; data: Record<string, unknown> }[];
+  sources: { slug: string; heading: string }[];
   promptTokens: number;
   completionTokens: number;
   ms: number;
@@ -69,6 +96,8 @@ interface TurnResult {
 interface CaseResult {
   c: EvalCase;
   failures: string[];
+  /** Judge verdicts, one per judged turn. Reported, never gating. */
+  judged: { pass: boolean; reason: string }[];
   transcript: string[];
   promptTokens: number;
   completionTokens: number;
@@ -100,7 +129,7 @@ async function chatTurn(customerId: string, messages: { role: "user" | "assistan
   if (!res.ok || !res.body) throw new Error(`chat returned ${res.status}: ${await res.text()}`);
   const raw = await res.text();
 
-  const out: TurnResult = { text: "", events: [], tools: [], cards: [], promptTokens: 0, completionTokens: 0, ms: 0 };
+  const out: TurnResult = { text: "", events: [], tools: [], cards: [], sources: [], promptTokens: 0, completionTokens: 0, ms: 0 };
   for (const block of raw.split("\n\n")) {
     const event = block.match(/^event: (.*)$/m)?.[1];
     const line = block.match(/^data: (.*)$/m)?.[1];
@@ -112,6 +141,7 @@ async function chatTurn(customerId: string, messages: { role: "user" | "assistan
       out.events.push({ event, data });
       if (event === "tool_call") out.tools.push(data as TurnResult["tools"][number]);
       if (DECISION_KIND[event]) out.cards.push({ event, data: data as Record<string, unknown> });
+      if (event === "sources") out.sources.push(...(data as TurnResult["sources"]));
       if (event === "usage") {
         const u = data as { promptTokens: number; completionTokens: number };
         out.promptTokens += u.promptTokens;
@@ -125,16 +155,25 @@ async function chatTurn(customerId: string, messages: { role: "user" | "assistan
 
 /** The chat client's Confirm button: the same action handler, the same body. */
 async function confirm(customerId: string, card: Card): Promise<boolean> {
-  const handler = card.event === "refund_proposal" ? refundPOST : changePlanPOST;
-  const body =
-    card.event === "refund_proposal"
-      ? { customerId, orderNumber: card.data.order_number, reason: card.data.reason }
-      : { customerId, plan: card.data.plan };
-  const res = await handler(
-    new Request("http://eval/api/actions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }) as unknown as NextRequest,
+  const route = CONFIRM[card.event];
+  if (!route) throw new Error(`No confirm route for ${card.event}`);
+  const res = await route.handler(
+    new Request("http://eval/api/actions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ customerId, ...route.body(card.data) }),
+    }) as unknown as NextRequest,
   );
   const json = (await res.json().catch(() => ({}))) as { ok?: boolean };
   return res.ok && !!json.ok;
+}
+
+/** Customer columns that differ from what the confirm step expects. */
+async function dbMismatches(customerId: string, want: Data): Promise<string[]> {
+  const [row] = (await db.select().from(customers).where(eq(customers.id, customerId)).limit(1)) as Data[];
+  return Object.entries(want)
+    .filter(([k, v]) => JSON.stringify(row?.[k]) !== JSON.stringify(v))
+    .map(([k, v]) => `after confirm, ${k} is ${JSON.stringify(row?.[k])}, expected ${JSON.stringify(v)}`);
 }
 
 const matches = (data: unknown, where: Record<string, unknown> = {}) =>
@@ -156,6 +195,13 @@ function check(t: TurnResult, e: Expect = {}): string[] {
     }
   }
   if (e.noCards && t.cards.length) f.push(`expected no card, got ${t.cards.map((c) => c.event).join(", ")}`);
+  for (const ev of e.noCardEvents ?? []) if (t.cards.some((c) => c.event === ev)) f.push(`must not show ${ev}`);
+  if (e.multi) {
+    const shown = e.multi.filter((ev) => t.cards.some((c) => c.event === ev));
+    const ok = shown.length === e.multi.length || (shown.length > 0 && t.text.includes("?"));
+    if (!ok) f.push(`expected cards ${e.multi.join(" + ")} (or one plus a question), got ${t.cards.map((c) => c.event).join(", ") || "none"}`);
+  }
+  if (e.asks && !t.text.includes("?")) f.push("expected the reply to ask the customer something");
   for (const want of e.events ?? []) {
     if (!t.events.some((x) => x.event === want.event && matches(x.data, want.where))) f.push(`expected event ${want.event} ${JSON.stringify(want.where ?? {})}`);
   }
@@ -175,7 +221,7 @@ function check(t: TurnResult, e: Expect = {}): string[] {
 
 async function runCase(c: EvalCase): Promise<CaseResult> {
   const id = CUSTOMER_IDS[c.customer];
-  const r: CaseResult = { c, failures: [], transcript: [], promptTokens: 0, completionTokens: 0, ms: 0 };
+  const r: CaseResult = { c, failures: [], judged: [], transcript: [], promptTokens: 0, completionTokens: 0, ms: 0 };
   const history: { role: "user" | "assistant"; content: string }[] = [];
   const cards: Card[] = [];
 
@@ -189,6 +235,7 @@ async function runCase(c: EvalCase): Promise<CaseResult> {
       card.state = (await confirm(id, card)) ? "approved" : "error";
       r.transcript.push(`[confirm ${step.confirm}: ${card.state}]`);
       if (card.state === "error") r.failures.push(`step ${i + 1}: confirming ${step.confirm} failed`);
+      else if (step.db) for (const m of await dbMismatches(id, step.db)) r.failures.push(`step ${i + 1}: ${m}`);
       continue;
     }
     // Typing a new message locks any card still waiting, as the chat client does.
@@ -207,7 +254,15 @@ async function runCase(c: EvalCase): Promise<CaseResult> {
     r.completionTokens += t.completionTokens;
     r.ms += t.ms;
     r.transcript.push(`> ${step.say}`, `  tools: ${t.tools.map((x) => x.name).join(", ") || "none"} | cards: ${t.cards.map((x) => x.event).join(", ") || "none"}`, `  ${t.text.replace(/\s+/g, " ").trim()}`);
-    for (const f of check(t, (step as SayStep).expect)) r.failures.push(`turn ${i + 1}: ${f}`);
+    const expect = (step as SayStep).expect;
+    for (const f of check(t, expect)) r.failures.push(`turn ${i + 1}: ${f}`);
+    if (expect?.judge) {
+      const v = await judge(expect.judge, (step as SayStep).say, t.text, await excerptsFor(t.sources));
+      r.judged.push({ pass: v.pass, reason: v.reason });
+      r.promptTokens += v.promptTokens;
+      r.completionTokens += v.completionTokens;
+      r.transcript.push(`  judge: ${v.pass ? "pass" : "FAIL"} - ${v.reason}`);
+    }
   }
   return r;
 }
@@ -243,7 +298,8 @@ async function main() {
     dirty = c.steps.some((s) => "confirm" in s);
     const r = await runCase(c);
     results.push(r);
-    console.log(`${verdict(r).padEnd(5)} ${c.id}${r.failures.length ? `\n      ${r.failures.join("\n      ")}` : ""}`);
+    const lines = [...r.failures, ...r.judged.filter((j) => !j.pass).map((j) => `judge: ${j.reason}`)];
+    console.log(`${verdict(r).padEnd(5)} ${c.id}${lines.length ? `\n      ${lines.join("\n      ")}` : ""}`);
   }
   if (dirty) seed(); // leave the demo DB as seeded
 
@@ -251,10 +307,12 @@ async function main() {
   const prompt = results.reduce((s, r) => s + r.promptTokens, 0);
   const completion = results.reduce((s, r) => s + r.completionTokens, 0);
   const gating = results.filter((r) => !r.c.knownFailing).length;
+  const judged = results.flatMap((r) => r.judged);
   const summary = [
     `Passed ${count("PASS")}/${gating} gating cases` +
       ` | known failing: ${count("XFAIL")} still failing, ${count("XPASS")} now passing` +
       (skipped.length ? ` | ${skipped.length} skipped (over the $${BUDGET_USD} budget)` : ""),
+    `LLM judge (non-gating): ${judged.filter((j) => j.pass).length}/${judged.length} passed`,
     `Tokens: ${prompt.toLocaleString()} in, ${completion.toLocaleString()} out | est. cost $${usd(prompt, completion).toFixed(4)} (gpt-4o-mini list prices; KB embeddings add well under $0.001)`,
   ];
   console.log(`\n${summary.join("\n")}`);
@@ -266,13 +324,13 @@ async function main() {
     "",
     ...summary.map((s) => `- ${s}`),
     "",
-    "| Result | Case | Turns | Tokens | Failures |",
-    "| --- | --- | --- | --- | --- |",
+    "| Result | Case | Turns | Tokens | Failures | Judge |",
+    "| --- | --- | --- | --- | --- | --- |",
     ...results.map(
       (r) =>
-        `| ${verdict(r)} | ${r.c.id} | ${r.c.steps.filter((s) => "say" in s).length} | ${(r.promptTokens + r.completionTokens).toLocaleString()} | ${r.failures.join("<br>").replace(/\|/g, "\\|") || "-"} |`,
+        `| ${verdict(r)} | ${r.c.id} | ${r.c.steps.filter((s) => "say" in s).length} | ${(r.promptTokens + r.completionTokens).toLocaleString()} | ${r.failures.join("<br>").replace(/\|/g, "\\|") || "-"} | ${r.judged.map((j) => `${j.pass ? "pass" : "FAIL"}: ${j.reason}`).join("<br>").replace(/\|/g, "\\|") || "-"} |`,
     ),
-    ...skipped.map((c) => `| SKIP | ${c.id} | - | - | over budget |`),
+    ...skipped.map((c) => `| SKIP | ${c.id} | - | - | over budget | - |`),
     "",
     "## Transcripts",
     "",

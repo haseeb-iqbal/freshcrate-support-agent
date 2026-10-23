@@ -113,13 +113,20 @@ describe("quoteReactivate", () => {
     expect(q.total_cents).toBe(16000);
   });
 
-  it("is not free when switching plan, even inside the billing period", () => {
+  it("charges the sign-up fee when switching plan, even inside the billing period", () => {
     const q = quoteReactivate({ ...base, billingDate: BILLING, plan: PLAN_3, requestedPlan: "3 meals/week" });
     expect(q.free).toBe(false);
     expect(q.plan_changed).toBe(true);
-    // Still inside the period, so no sign-up fee - just the new plan's price.
-    expect(q.signup_fee_cents).toBe(0);
-    expect(q.total_cents).toBe(16800);
+    // Only the same plan inside the period is free; a new plan is a fresh
+    // sign-up: $168 monthly + $40 sign-up.
+    expect(q.signup_fee_cents).toBe(4000);
+    expect(q.total_cents).toBe(20800);
+  });
+
+  it("starts a new cycle a month out when a plan switch is billed inside the period", () => {
+    // The first month is charged today, so keeping 2026-08-17 would bill it twice.
+    const q = quoteReactivate({ ...base, billingDate: BILLING, plan: PLAN_3, requestedPlan: "3 meals/week" });
+    expect(q.next_billing_date).toBe("2026-08-20");
   });
 
   it("keeps a billing date that is still ahead", () => {

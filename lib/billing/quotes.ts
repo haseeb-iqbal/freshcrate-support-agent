@@ -177,8 +177,10 @@ export function quoteReactivate(input: {
   const planChanged = !!requestedPlan && requestedPlan !== currentPlan;
   const within = withinBillingPeriod(billingDate, now);
   // Free only when resubscribing within the billing period on the SAME plan.
+  // Anything else - a lapsed period OR a different plan - is a fresh sign-up:
+  // the sign-up fee plus the plan's first month (pricing-and-plans KB article).
   const free = within && !planChanged;
-  const signupFee = within ? 0 : SIGNUP_FEE_CENTS;
+  const signupFee = free ? 0 : SIGNUP_FEE_CENTS;
 
   return {
     plan: plan.plan,
@@ -190,7 +192,9 @@ export function quoteReactivate(input: {
     free,
     within_billing: within,
     billing_date: billingDate,
-    next_billing_date: within ? billingDate : addMonthsIso(1, now),
+    // A paid reactivation bills its first month today, so the next bill is a
+    // month out; keeping the old date would bill that month a second time.
+    next_billing_date: free ? billingDate : addMonthsIso(1, now),
   };
 }
 

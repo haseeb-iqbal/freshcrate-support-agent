@@ -231,7 +231,7 @@ export const resumeSubscription: Tool = {
     const [customer] = await db.select().from(customers).where(eq(customers.id, ctx.customerId)).limit(1);
     if (!customer) return { ok: false, summary: "Customer not found." };
     if (customer.subscriptionStatus === "cancelled") {
-      return { ok: true, summary: "Cancelled — needs reactivation", data: { status: "cancelled", message: "The subscription is cancelled, not paused. Use reactivate_subscription instead." } };
+      return { ok: true, summary: "Cancelled — needs reactivation", data: { status: "cancelled", redirect_to: "reactivate_subscription", message: "The subscription is cancelled, not paused. Use reactivate_subscription instead." } };
     }
     if (customer.subscriptionStatus !== "paused") {
       return { ok: true, summary: `Already ${customer.subscriptionStatus}`, data: { status: customer.subscriptionStatus, message: "Nothing to resume — tell the customer their current status." } };
@@ -290,7 +290,15 @@ export const reactivateSubscription: Tool = {
     const [customer] = await db.select().from(customers).where(eq(customers.id, ctx.customerId)).limit(1);
     if (!customer) return { ok: false, summary: "Customer not found." };
     if (customer.subscriptionStatus !== "cancelled") {
-      return { ok: true, summary: `${customer.subscriptionStatus}, not cancelled`, data: { status: customer.subscriptionStatus, message: "Not cancelled — no reactivation needed. If paused, use resume_subscription." } };
+      return {
+        ok: true,
+        summary: `${customer.subscriptionStatus}, not cancelled`,
+        data: {
+          status: customer.subscriptionStatus,
+          ...(customer.subscriptionStatus === "paused" ? { redirect_to: "resume_subscription" } : {}),
+          message: "Not cancelled — no reactivation needed. If paused, use resume_subscription.",
+        },
+      };
     }
 
     const requestedPlan = args.new_plan ? String(args.new_plan).trim() : undefined;

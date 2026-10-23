@@ -34,11 +34,12 @@ describe("POST /api/actions/pause", () => {
 
     expect(res.status).toBe(200);
     // stored adjustment = whole cycle at (weekly − $8): 4 x $22 = $88.
-    expect(await res.json()).toMatchObject({ ok: true, weeks: 2, adjustment_cents: 8800, weekly_fee_cents: 800, resume_date: "2026-08-03" });
+    expect(await res.json()).toMatchObject({ ok: true, weeks: 2, adjustment_cents: 8800, weekly_fee_cents: 800, resume_date: "2026-08-10" });
 
+    // Pauses from next week, so the 2 skipped weeks end 3 weeks out.
     const c = await customerOf(ID);
     expect(c.subscriptionStatus).toBe("paused");
-    expect(c.pauseResumeDate).toBe("2026-08-03");
+    expect(c.pauseResumeDate).toBe("2026-08-10");
     expect(c.billingAdjustmentCents).toBe(-8800);
     expect(await txnsOf(ID)).toEqual([]); // deferred, not an immediate transaction
     expect(await eventsOf(ID)).toEqual(["paused"]);

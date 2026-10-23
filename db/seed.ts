@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { db, client } from "./index";
 import { customers, escalations, orders, plans, subscriptionEvents, transactions } from "./schema";
-import { MEAL_LIST_PRICE_CENTS, weeklyValueCents, weeksUntilDate } from "../lib/billing/pricing";
+import { MEAL_LIST_PRICE_CENTS, pausedWeekReductionCents, weeksUntilDate } from "../lib/billing/pricing";
 import { addDaysIso } from "../lib/date";
 import { ADDON_CATALOGUE, mealsForTrack, type DietaryTrack } from "../lib/domain/menu";
 
@@ -234,12 +234,13 @@ async function main() {
     c.lastReconciledAt = seededAt;
     c.dietaryTrack = TRACK_BY_CUSTOMER[c.id!];
     if (c.subscriptionStatus === "paused") {
-      // Deferred model: the pause credit is the whole remaining cycle at the
-      // full weekly rate (lib/billing/pricing.ts's weeklyValueCents/quotePause),
-      // stored as a one-time adjustment applied to the NEXT monthly bill - not
-      // written up front as its own transaction row.
+      // Deferred model: the pause credit is the whole remaining cycle at
+      // (weekly - $8) per week, the same rule quotePause applies (each paused
+      // week is billed at the $8 fee instead of the plan rate), stored as a
+      // one-time adjustment applied to the NEXT monthly bill - not written up
+      // front as its own transaction row.
       const weeksToBilling = weeksUntilDate(c.billingDate, seededAt);
-      c.billingAdjustmentCents = -weeklyValueCents(weekly(c.plan), weeksToBilling);
+      c.billingAdjustmentCents = -pausedWeekReductionCents(weekly(c.plan)) * weeksToBilling;
     }
   }
   // Diego is a FINITE pause (auto-resumes ~3 weeks out — skip-forward demo);

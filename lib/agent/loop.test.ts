@@ -77,6 +77,46 @@ describe("runAgent", () => {
     expect(events.some((e) => e.event === "pause_proposal")).toBe(true);
   });
 
+  it("nudges an order-card lead-in written without fetching the order, so the card appears", async () => {
+    // gpt-4o-mini answers "where's my latest order?" with "Here's your order
+    // history:" and no tool call, leaving a lead-in to a card that never shows.
+    const events: { event: string; data: unknown }[] = [];
+    const deps: AgentDeps = {
+      provider: fakeProvider([textTurn("Here's your order history:"), toolTurn("lookup_order"), textTurn("Your latest order is on its way.")]),
+      toolByName: okTool("lookup_order", { order: { order_number: "FC1004" } }),
+      toolDefinitions: [],
+    };
+    await runAgent({ customerId: "x", history: [{ role: "user", content: "where's my latest order?" }], emit: (e, d) => events.push({ event: e, data: d }) }, deps);
+
+    expect(events.some((e) => e.event === "reset")).toBe(true);
+    expect(events.some((e) => e.event === "order")).toBe(true);
+    expect(events.filter((e) => e.event === "delta").at(-1)?.data).toBe("Your latest order is on its way.");
+  });
+
+  it("still nudges when the only action call was redirected to another tool", async () => {
+    // Paused customer, "switch me to 4 meals/week": the model called
+    // reactivate_subscription, was told to use resume_subscription, then wrote
+    // "I'll proceed with that now. Please confirm to resume" with no card.
+    const events: { event: string; data: unknown }[] = [];
+    const deps: AgentDeps = {
+      provider: fakeProvider([
+        toolTurn("reactivate_subscription"),
+        textTurn("I'll proceed with that now. Please confirm to resume your subscription!"),
+        toolTurn("resume_subscription"),
+        textTurn("Here's the resume - confirm below."),
+      ]),
+      toolByName: {
+        ...okTool("reactivate_subscription", { status: "paused", redirect_to: "resume_subscription", message: "use resume_subscription" }),
+        ...okTool("resume_subscription", { status: "needs_confirmation", proposal: { plan: "4 meals/week" } }),
+      },
+      toolDefinitions: [],
+    };
+    await runAgent({ customerId: "x", history: [{ role: "user", content: "switch me to the 4 meals/week plan" }], emit: (e, d) => events.push({ event: e, data: d }) }, deps);
+
+    expect(events.some((e) => e.event === "resume_proposal")).toBe(true);
+    expect(events.filter((e) => e.event === "delta").at(-1)?.data).toBe("Here's the resume - confirm below.");
+  });
+
   it("nudges a refund described after a read-only lookup, so the card still appears", async () => {
     // The screenshot bug: lookup_order (read-only) then a prose refund proposal
     // with no issue_refund call. The read tool must NOT suppress the nudge.
@@ -234,6 +274,54 @@ describe("runAgent", () => {
     expect(events.some((e) => e.event === "tool_call")).toBe(false); // no "Preparing a pause" step
     expect(events.filter((e) => e.event === "delta").map((e) => e.data).at(-1)).toContain("left your subscription");
     expect(events.some((e) => e.event === "done")).toBe(true);
+  });
+
+  it("skips a refund for an order whose refund the customer already confirmed this conversation", async () => {
+    // "I also want a refund for another order": gpt-4o-mini re-called
+    // issue_refund for the order just refunded, got already_refunded, and
+    // escalated - instead of finding the OTHER order.
+    const events: { event: string; data: unknown }[] = [];
+    const toolMessages: string[] = [];
+    let i = 0;
+    const turns = [
+      [{ type: "tool_calls", value: [{ id: "c1", name: "issue_refund", arguments: '{"order_number":"FC1008"}' }] }],
+      textTurn("Which other order would you like refunded?"),
+    ] as AgentStreamEvent[][];
+    const provider: ChatProvider = {
+      defaultModel: "fake",
+      async *streamAgentTurn({ messages }) {
+        for (const m of messages) if (m.role === "tool") toolMessages.push(m.content);
+        yield* turns[Math.min(i++, turns.length - 1)];
+      },
+    };
+    let refundCalls = 0;
+    const deps: AgentDeps = {
+      provider,
+      toolByName: {
+        issue_refund: {
+          definition: { name: "issue_refund", description: "", parameters: {} },
+          handler: async () => {
+            refundCalls++;
+            return { ok: true, summary: "already refunded", data: { status: "already_refunded" } };
+          },
+        },
+      },
+      toolDefinitions: [],
+    };
+    await runAgent(
+      {
+        customerId: "x",
+        history: [{ role: "user", content: "I also want a refund for another order" }],
+        decisions: [{ kind: "refund", outcome: "confirmed", orderNumber: "FC1008" }],
+        emit: (e, d) => events.push({ event: e, data: d }),
+      },
+      deps,
+    );
+
+    expect(refundCalls).toBe(0);
+    expect(events.some((e) => e.event === "tool_call")).toBe(false);
+    expect(toolMessages.join(" ")).toContain("FC1008");
+    expect(toolMessages.join(" ")).toMatch(/different order/i);
   });
 
   it("still proposes when a message only STARTS with a negative but is a real request", async () => {

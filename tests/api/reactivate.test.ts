@@ -27,13 +27,25 @@ describe("POST /api/actions/reactivate", () => {
     expect(await eventsOf(ID)).toEqual(["reactivated"]);
   });
 
-  it("charges the new plan but no sign-up fee when switching plan inside the billing period", async () => {
+  it("charges the new plan plus the sign-up fee when switching plan inside the billing period", async () => {
     await cancelled("2026-08-17");
     const res = await postJson(POST, { customerId: ID, newPlan: "3 meals/week" });
 
-    expect(await res.json()).toMatchObject({ free: false, plan: "3 meals/week", total_cents: 16800 });
-    expect(await txnsOf(ID)).toEqual([{ type: "monthly_billing", amountCents: 16800 }]);
+    // $168 monthly + $40 sign-up: only the same plan inside the period is free.
+    expect(await res.json()).toMatchObject({ free: false, plan: "3 meals/week", total_cents: 20800 });
+    expect(await txnsOf(ID)).toEqual([
+      { type: "signup_fee", amountCents: 4000 },
+      { type: "monthly_billing", amountCents: 16800 },
+    ]);
     expect(await eventsOf(ID)).toEqual(["reactivated", "plan_changed"]);
+  });
+
+  it("moves billing a month out when a plan switch inside the period is charged today", async () => {
+    // The first month was just billed; keeping 2026-08-17 would bill it again.
+    await cancelled("2026-08-17");
+    await postJson(POST, { customerId: ID, newPlan: "3 meals/week" });
+
+    expect((await customerOf(ID)).billingDate).toBe("2026-08-20");
   });
 
   it("charges the plan price plus the sign-up fee once the billing period has passed", async () => {
@@ -58,9 +70,9 @@ describe("POST /api/actions/reactivate", () => {
     expect((await customerOf(ID)).billingDate).toBe("2026-08-20");
   });
 
-  it("leaves a billing date that is still in the future alone", async () => {
+  it("leaves a billing date that is still in the future alone on a free reactivation", async () => {
     await cancelled("2026-08-17");
-    await postJson(POST, { customerId: ID, newPlan: "3 meals/week" });
+    await postJson(POST, { customerId: ID });
 
     expect((await customerOf(ID)).billingDate).toBe("2026-08-17");
   });

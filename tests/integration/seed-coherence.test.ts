@@ -2,7 +2,8 @@ import { beforeAll, describe, expect, it } from "vitest";
 import "dotenv/config";
 import { eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { customers, orders, subscriptionEvents } from "@/db/schema";
+import { customers, orders, plans, subscriptionEvents } from "@/db/schema";
+import { pausedWeekReductionCents } from "@/lib/billing/pricing";
 import { OPEN_STATUSES } from "@/lib/domain/terms";
 import { addOnsForTrack, isDietaryTrack, mealByName, type DietaryTrack } from "@/lib/domain/menu";
 
@@ -134,5 +135,27 @@ describe("seed dietary coherence", () => {
     expect(refund("FC1008")).toBe(1750); // confirmable, and the E2E spec asserts "$17.50"
     expect(refund("FC1015")).toBe(1750); // refundable, so Tom's 14-day cooldown fires
     expect(refund("FC1020")).toBeGreaterThan(2000); // must escalate past the ceiling
+  });
+});
+
+/**
+ * A paused customer's deferred credit must come from the same rule the pause
+ * tool quotes: each paused week is billed at the $8 fee, so it takes
+ * (weekly - $8) off the bill. Seeding it at the full weekly rate gave Diego a
+ * -$60 credit no real pause could produce, and get_subscription then explained
+ * his bill as "3 paused weeks" when he is paused for 2.
+ */
+describe("seed billing coherence", () => {
+  it("seeds every paused customer's credit as whole paused weeks at (weekly - $8)", async () => {
+    const paused = await db
+      .select({ name: customers.name, adjustment: customers.billingAdjustmentCents, weekly: plans.weeklyCents })
+      .from(customers)
+      .innerJoin(plans, eq(customers.plan, plans.plan))
+      .where(eq(customers.subscriptionStatus, "paused"));
+    expect(paused.length).toBeGreaterThan(0);
+    const wrong = paused
+      .filter((c) => c.adjustment > 0 || c.adjustment % pausedWeekReductionCents(c.weekly) !== 0)
+      .map((c) => `${c.name}: ${c.adjustment} is not a multiple of -${pausedWeekReductionCents(c.weekly)}`);
+    expect(wrong).toEqual([]);
   });
 });

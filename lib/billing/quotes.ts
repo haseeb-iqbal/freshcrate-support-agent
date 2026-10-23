@@ -80,7 +80,11 @@ export function quotePause(input: {
   // remaining cycle; resume claws back the weeks that end up active again.
   const adjustment = alreadyPaused ? 0 : pausedWeekReductionCents(weekly) * weeksToBilling;
 
-  const resumeDate = indefinite ? null : (input.resumeDate ?? addWeeksIso(weeks ?? 0, now));
+  // A new pause starts NEXT week - this week's box still ships (KB pause-resume)
+  // - so the skipped weeks end one week later than `weeks` from today. A pause
+  // already running is extended from today.
+  const startOffsetWeeks = alreadyPaused ? 0 : 1;
+  const resumeDate = indefinite ? null : (input.resumeDate ?? addWeeksIso((weeks ?? 0) + startOffsetWeeks, now));
 
   return {
     indefinite,
@@ -177,8 +181,10 @@ export function quoteReactivate(input: {
   const planChanged = !!requestedPlan && requestedPlan !== currentPlan;
   const within = withinBillingPeriod(billingDate, now);
   // Free only when resubscribing within the billing period on the SAME plan.
+  // Anything else - a lapsed period OR a different plan - is a fresh sign-up:
+  // the sign-up fee plus the plan's first month (pricing-and-plans KB article).
   const free = within && !planChanged;
-  const signupFee = within ? 0 : SIGNUP_FEE_CENTS;
+  const signupFee = free ? 0 : SIGNUP_FEE_CENTS;
 
   return {
     plan: plan.plan,
@@ -190,7 +196,9 @@ export function quoteReactivate(input: {
     free,
     within_billing: within,
     billing_date: billingDate,
-    next_billing_date: within ? billingDate : addMonthsIso(1, now),
+    // A paid reactivation bills its first month today, so the next bill is a
+    // month out; keeping the old date would bill that month a second time.
+    next_billing_date: free ? billingDate : addMonthsIso(1, now),
   };
 }
 

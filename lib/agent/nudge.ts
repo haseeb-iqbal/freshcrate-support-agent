@@ -100,3 +100,19 @@ function claimsStateChange(text: string): boolean {
 export function shouldNudge(o: { assistantText: string; actionToolCallCount: number; alreadyNudged: boolean }): boolean {
   return !o.alreadyNudged && o.actionToolCallCount === 0 && claimsStateChange(o.assistantText);
 }
+
+/** A lead-in that presents an order card: "Here's your order history:". */
+const ORDER_CARD_LEAD_IN = /\bhere(?:'s| is| are)\s+your\s+(?:(?:latest|last|most recent|recent)\s+)?(?:order|orders|order history)\b/i;
+
+/** Tools whose result renders an order card. */
+export const ORDER_CARD_TOOLS = new Set(["lookup_order", "list_orders"]);
+
+/**
+ * Nudge once when the model wrote the lead-in to an order card without calling
+ * the tool that renders one. gpt-4o-mini sometimes answers "where's my latest
+ * order?" with just "Here's your order history:" and no tool call, so the
+ * customer gets a lead-in to a card that never appears.
+ */
+export function shouldNudgeOrderCard(o: { assistantText: string; orderToolCallCount: number; alreadyNudged: boolean }): boolean {
+  return !o.alreadyNudged && o.orderToolCallCount === 0 && ORDER_CARD_LEAD_IN.test(o.assistantText);
+}

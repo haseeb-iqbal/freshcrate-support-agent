@@ -73,6 +73,7 @@ export function dispatchTool(call: ToolCall, result: ToolResult, state: Dispatch
 
   // needs_confirmation results surface an action card — but only once.
   let duplicateProposal = false;
+  let freshProposal = false;
   if (result.ok && data?.status === "needs_confirmation" && PROPOSAL_EVENTS[call.name]) {
     const key = proposalKey(call);
     if (state.shownProposals.has(key)) {
@@ -80,6 +81,7 @@ export function dispatchTool(call: ToolCall, result: ToolResult, state: Dispatch
     } else {
       state.shownProposals.add(key);
       events.push({ event: PROPOSAL_EVENTS[call.name], data: data.proposal });
+      freshProposal = true;
     }
   }
 
@@ -109,6 +111,14 @@ export function dispatchTool(call: ToolCall, result: ToolResult, state: Dispatch
     modelContent = JSON.stringify({
       order: data.order,
       note: "This order is shown to the customer in a card. Give a short natural lead-in and do NOT restate its number, status, price, items, or dates. You may still answer a specific question about it in a sentence.",
+    });
+  } else if (freshProposal) {
+    // Sits right beside the proposal the model is about to describe, where the
+    // system prompt's version of this rule was too far away to stick.
+    modelContent = JSON.stringify({
+      ...data,
+      reply_style:
+        "Nothing has changed yet - the customer must confirm the prompt first. Open your reply with \"Here's\" and what the prompt does, then ask them to confirm below - e.g. \"Here's the cancellation - confirm below if you'd like to go ahead.\" Describe it as waiting on them, never as already started.",
     });
   } else {
     modelContent = JSON.stringify(result.data ?? { ok: result.ok, summary: result.summary });

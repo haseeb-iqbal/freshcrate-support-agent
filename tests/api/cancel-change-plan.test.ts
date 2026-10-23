@@ -27,6 +27,14 @@ describe("POST /api/actions/cancel", () => {
     expect(await eventsOf(ID)).toEqual(["cancelled"]);
   });
 
+  it("keeps the paid-for month: billing date unchanged, nothing charged or refunded", async () => {
+    await createTestCustomer({ id: ID, billingDate: BILLING });
+    await postJson(cancelPOST, { customerId: ID });
+
+    expect((await customerOf(ID)).billingDate).toBe(BILLING);
+    expect(await txnsOf(ID)).toEqual([]);
+  });
+
   it("rejects a replayed confirmation instead of logging a second cancellation", async () => {
     await createTestCustomer({ id: ID, billingDate: BILLING });
     const first = await postJson(cancelPOST, { customerId: ID });

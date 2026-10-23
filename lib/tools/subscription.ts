@@ -374,7 +374,7 @@ export const cancelSubscription: Tool = {
         status: "needs_confirmation",
         proposal: { billing_date: customer.billingDate, signup_fee_cents: SIGNUP_FEE_CENTS },
         message:
-          "A cancellation prompt is shown, warning that resubscribing after the billing date costs a sign-up fee (before then, same plan, is free). Briefly relay that and ask them to confirm. Do NOT say it's cancelled until they confirm.",
+          "A cancellation prompt is shown. The month is already paid, so boxes keep arriving until the billing date and nothing more is charged after it. Resubscribing after the billing date costs a sign-up fee plus the first month (before then, same plan, is free). Briefly relay that and ask them to confirm. Do NOT say it's cancelled until they confirm.",
       },
     };
   },

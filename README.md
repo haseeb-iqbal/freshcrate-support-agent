@@ -137,7 +137,7 @@ The **mock LLM provider** (`lib/llm/mock.ts`, enabled by `MOCK_LLM=1`) returns s
 ### Real-model evals
 
 ```bash
-npm run eval              # all cases, real OpenAI model (~$0.12 a run)
+npm run eval              # all cases, real OpenAI model (~$0.13 a run)
 npm run eval -- decline   # only cases whose id contains "decline"
 ```
 

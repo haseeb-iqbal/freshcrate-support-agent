@@ -51,8 +51,7 @@ export const GAP_CASES: EvalCase[] = [
     id: "multi-turn-order-then-refund",
     customer: "priya",
     knownFailing: true,
-    note: "Turn 3 escalates as over the $20 ceiling, so the refund targeted another order (likely FC1010, $22.49) instead of FC1008, the order just discussed. FC1008 alone would give a $17.50 card.",
-    note: "'it' in the last turn must resolve to FC1008, the order the customer just asked about.",
+    note: "'it' in turn 3 must resolve to FC1008. Instead it escalates as over the $20 ceiling, so the refund targeted another order (likely FC1010, $22.49); FC1008 alone gives a $17.50 card.",
     steps: [
       { say: "where's my latest order?", expect: { tools: ["lookup_order"], events: [{ event: "order", where: { order_number: "FC1009" } }] } },
       { say: "and the one before that?", expect: { events: [{ event: "order", where: { order_number: "FC1008" } }] } },

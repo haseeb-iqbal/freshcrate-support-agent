@@ -134,6 +134,16 @@ npm run cypress           # in a second terminal, once the server is up
 
 The **mock LLM provider** (`lib/llm/mock.ts`, enabled by `MOCK_LLM=1`) returns scripted tool-calls and answers, making both the loop unit tests and the Cypress suite fast, free, and 100% deterministic. Real OpenAI is used in dev and production.
 
+### Real-model evals
+
+```bash
+npm run eval              # all cases, real OpenAI model (~$0.13 a run)
+npm run eval -- decline   # only cases whose id contains "decline"
+npm run eval:smoke        # 15 core cases (money, guardrails, main flows), no judge (~$0.03)
+```
+
+The mock can't show how the real model behaves, so `evals/` plays scripted conversations through the same `POST /api/chat` handler the browser uses, against a freshly seeded DB. Each turn is rule-checked: which tools ran, which confirmation cards appeared (and their figures), required facts in the reply, and banned phrases such as "I've initiated". Cards are confirmed through the same `/api/actions/*` routes as the Confirm button, and the customer row is checked afterwards. KB and policy answers are also scored by an LLM judge (gpt-4o-mini) for tone and for sticking to the cited excerpts; judge scores are reported but don't fail the run yet. It writes `evals/report.md` with per-case results and transcripts, total tokens and estimated cost, stops if a run passes $0.25, and exits non-zero if any case fails. Cases marked `knownFailing` are known bugs: they're reported but don't fail the run. It needs `OPENAI_API_KEY`, the local DB and an ingested KB, and it reseeds the DB.
+
 ---
 
 ## Project status & roadmap
@@ -149,7 +159,7 @@ Built in phases; each phase has an acceptance gate.
 | 4 — Guardrails | Refund confirmation, ceiling, injection handling | ✅ done |
 | — Account/billing layer | Subscription lifecycle, plan pricing, add-ons, transactions ledger | ✅ done |
 | 4.5 — Loop & contract hardening | Deterministic loop, richer tool contracts, Vitest + Cypress + mock LLM | 🔧 in progress |
-| 5 — Evals | Eval cases + runner + LLM-as-judge | ⬜ planned |
+| 5 — Evals | Eval cases + runner (rule checks; LLM-as-judge later) | 🟡 in progress |
 | 6 — Cost & observability | Model router, per-turn cost tracking, dashboard | ⬜ planned |
 | 7 — Polish & deploy | Live deploy, demo walkthrough, docs | ⬜ planned |
 

@@ -63,6 +63,20 @@ describe("runAgent", () => {
     expect(kinds.filter((k) => k === "done").length).toBe(1);
   });
 
+  it("reports the turn's token usage, summed across model calls, just before done", async () => {
+    const events: { event: string; data: unknown }[] = [];
+    const usage = (p: number, c: number): AgentStreamEvent => ({ type: "usage", value: { promptTokens: p, completionTokens: c } });
+    const deps: AgentDeps = {
+      provider: fakeProvider([[...toolTurn("lookup_order"), usage(1000, 20)], [...textTurn("It has shipped."), usage(1200, 10)]]),
+      toolByName: okTool("lookup_order", { order: { order_number: "FC1005" } }),
+      toolDefinitions: [],
+    };
+    await runAgent({ customerId: "x", history: [{ role: "user", content: "where is my order" }], emit: (e, d) => events.push({ event: e, data: d }) }, deps);
+
+    expect(events.at(-2)).toEqual({ event: "usage", data: { promptTokens: 2200, completionTokens: 30 } });
+    expect(events.at(-1)?.event).toBe("done");
+  });
+
   it("nudges once when an action was requested but no tool was called", async () => {
     const events: { event: string; data: unknown }[] = [];
     const deps: AgentDeps = {

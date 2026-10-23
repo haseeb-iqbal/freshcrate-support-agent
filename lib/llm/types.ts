@@ -23,10 +23,18 @@ export type AgentMessage =
   | { role: "assistant"; content: string; toolCalls?: ToolCall[] }
   | { role: "tool"; toolCallId: string; content: string };
 
-/** What a streamed agent turn yields: text deltas, then (if any) tool calls. */
+/** Tokens one model call consumed, as the provider reports them. */
+export interface TokenUsage {
+  promptTokens: number;
+  completionTokens: number;
+}
+
+/** What a streamed agent turn yields: text deltas, then (if any) tool calls,
+ *  then (if the provider reports it) the call's token usage. */
 export type AgentStreamEvent =
   | { type: "text"; value: string }
-  | { type: "tool_calls"; value: ToolCall[] };
+  | { type: "tool_calls"; value: ToolCall[] }
+  | { type: "usage"; value: TokenUsage };
 
 export interface AgentTurnOptions {
   messages: AgentMessage[];

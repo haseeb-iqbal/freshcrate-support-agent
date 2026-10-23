@@ -1,7 +1,7 @@
 import { now } from "@/lib/clock";
 import type { Decision } from "@/lib/decisions";
 import { getChatProvider } from "@/lib/llm";
-import type { AgentMessage, ChatProvider, ToolCall, ToolDefinition } from "@/lib/llm/types";
+import type { AgentMessage, ChatProvider, TokenUsage, ToolCall, ToolDefinition } from "@/lib/llm/types";
 import { toolByName as realToolByName, toolDefinitions as realToolDefinitions, type Tool, type ToolResult } from "@/lib/tools";
 import { buildAgentMessages } from "./messages";
 import { buildSystemPrompt } from "./prompt";
@@ -77,6 +77,13 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
   const controller = new AbortController();
   const deadline = setTimeout(() => controller.abort(), deps.timeoutMs ?? DEFAULT_TIMEOUT_MS);
   let anyStreamedText = false;
+  // Tokens across every model call this turn, reported once as it ends (evals
+  // price runs from it). Nothing is emitted when the provider reports none.
+  const usage: TokenUsage = { promptTokens: 0, completionTokens: 0 };
+  const finish = (data: Record<string, unknown>) => {
+    if (usage.promptTokens || usage.completionTokens) emit("usage", usage);
+    emit("done", data);
+  };
 
   try {
     for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
@@ -92,8 +99,11 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
             streamedText = true;
             anyStreamedText = true;
           }
-        } else {
+        } else if (ev.type === "tool_calls") {
           toolCalls = ev.value;
+        } else {
+          usage.promptTokens += ev.value.promptTokens;
+          usage.completionTokens += ev.value.completionTokens;
         }
       }
 
@@ -120,7 +130,7 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
           });
           continue;
         }
-        emit("done", {});
+        finish({});
         return;
       }
 
@@ -190,14 +200,14 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
     }
 
     emit("delta", "\n\nI'm having trouble completing that — let me connect you with a human specialist.");
-    emit("done", { truncated: true });
+    finish({ truncated: true });
   } catch (err) {
     // The turn ran past its budget: abort the preamble and close on a calm note
     // rather than a spinner that never ends.
     if (controller.signal.aborted) {
       if (anyStreamedText) emit("reset", {});
       emit("delta", "Sorry — that's taking longer than usual on my end. Please try again in a moment.");
-      emit("done", { timedOut: true });
+      finish({ timedOut: true });
       return;
     }
     throw err;

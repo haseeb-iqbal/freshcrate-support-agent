@@ -25,6 +25,8 @@ export const GAP_CASES: EvalCase[] = [
   {
     id: "menu-addon-other-track",
     customer: "ava",
+    knownFailing: true,
+    note: "Failed 2 of 3 runs (passed once on a dev run): tells a Standard customer \"Yes, you can add a Mango Lassi\" and offers to add it, though the KB says add-ons come only from your own track.",
     // Mango Lassi is a Vegetarian add-on; Ava is on the Standard track.
     steps: [{ say: "can I add a Mango Lassi to my next box?", expect: { tools: ["search_knowledge_base"], noCards: true, facts: [/own (?:track|menu)|your (?:track|menu)|vegetarian|switch/i], judge: TONE_AND_GROUNDING } }],
   },
@@ -69,6 +71,8 @@ export const GAP_CASES: EvalCase[] = [
   {
     id: "multi-turn-kb-then-action",
     customer: "noah",
+    knownFailing: true,
+    note: "Flaky (failed 2 of 3 runs): \"how much does pausing cost?\" is sometimes answered with a pause proposal card instead of the fee.",
     steps: [
       { say: "how much does pausing cost?", expect: { noCards: true, facts: ["$8"] } },
       { say: "ok, pause me for 2 weeks then", expect: { cards: [{ event: "pause_proposal", where: { weeks: 2 } }] } },

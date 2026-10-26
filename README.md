@@ -137,12 +137,12 @@ The **mock LLM provider** (`lib/llm/mock.ts`, enabled by `MOCK_LLM=1`) returns s
 ### Real-model evals
 
 ```bash
-npm run eval              # all cases, real OpenAI model (~$0.13 a run)
+npm run eval              # all cases, real OpenAI model (~$0.20 a run) - before merging behaviour changes
 npm run eval -- decline   # only cases whose id contains "decline"
-npm run eval:smoke        # 15 core cases (money, guardrails, main flows), no judge (~$0.03)
+npm run eval:smoke        # 15 core cases (money, guardrails, main flows), no judge (~$0.025) - while iterating
 ```
 
-The mock can't show how the real model behaves, so `evals/` plays scripted conversations through the same `POST /api/chat` handler the browser uses, against a freshly seeded DB. Each turn is rule-checked: which tools ran, which confirmation cards appeared (and their figures), required facts in the reply, and banned phrases such as "I've initiated". Cards are confirmed through the same `/api/actions/*` routes as the Confirm button, and the customer row is checked afterwards. KB and policy answers are also scored by an LLM judge (gpt-4o-mini) for tone and for sticking to the cited excerpts; judge scores are reported but don't fail the run yet. It writes `evals/report.md` with per-case results and transcripts, total tokens and estimated cost, stops if a run passes $0.25, and exits non-zero if any case fails. Cases marked `knownFailing` are known bugs: they're reported but don't fail the run. It needs `OPENAI_API_KEY`, the local DB and an ingested KB, and it reseeds the DB.
+The mock can't show how the real model behaves, so `evals/` plays scripted conversations through the same `POST /api/chat` handler the browser uses, against a freshly seeded DB. Each turn is rule-checked: which tools ran, which confirmation cards appeared (and their figures), required facts in the reply, and banned phrases such as "I've initiated". Cards are confirmed through the same `/api/actions/*` routes as the Confirm button, and the customer row is checked afterwards. KB and policy answers are also scored by an LLM judge (gpt-4o-mini) for tone and for sticking to the cited excerpts; judge scores are reported but don't fail the run yet. It writes `evals/report.md` with per-case results and transcripts, total tokens and estimated cost, stops if a run passes $0.40, and exits non-zero if any case fails. Cases marked `knownFailing` are known bugs: they're reported but don't fail the run. It needs `OPENAI_API_KEY`, the local DB and an ingested KB, and it reseeds the DB.
 
 ---
 

@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { db, client } from "./index";
 import { customers, escalations, orders, plans, subscriptionEvents, transactions } from "./schema";
-import { MEAL_LIST_PRICE_CENTS, pausedWeekReductionCents, weeksUntilDate } from "../lib/billing/pricing";
+import { MEAL_LIST_PRICE_CENTS, PLAN_RATES, pausedWeekReductionCents, weeksUntilDate } from "../lib/billing/pricing";
 import { addDaysIso } from "../lib/date";
 import { ADDON_CATALOGUE, mealsForTrack, type DietaryTrack } from "../lib/domain/menu";
 
@@ -59,11 +59,7 @@ const C = {
 
 const ts = (iso: string) => new Date(iso);
 
-const planRows: (typeof plans.$inferInsert)[] = [
-  { plan: "2 meals/week", mealsPerWeek: 2, weeklyCents: 3000, monthlyCents: 12000 },
-  { plan: "3 meals/week", mealsPerWeek: 3, weeklyCents: 4200, monthlyCents: 16800 },
-  { plan: "4 meals/week", mealsPerWeek: 4, weeklyCents: 5200, monthlyCents: 20800 },
-];
+const planRows: (typeof plans.$inferInsert)[] = PLAN_RATES.map((p) => ({ ...p }));
 
 /** Which diet each demo customer is on. Their meals and add-ons are drawn from
  *  this track, so nobody is seeded a box their own diet rules out. */

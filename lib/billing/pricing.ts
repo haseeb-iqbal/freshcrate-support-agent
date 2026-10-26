@@ -4,6 +4,17 @@
  * in `./plans.ts`.
  */
 
+/**
+ * The three plans and their rates. The single source for the plans table (the
+ * seed inserts these) and for the figures the KB articles quote
+ * (lib/billing/kb-figures.test.ts checks the articles against them).
+ */
+export const PLAN_RATES = [
+  { plan: "2 meals/week", mealsPerWeek: 2, weeklyCents: 3000, monthlyCents: 12000 },
+  { plan: "3 meals/week", mealsPerWeek: 3, weeklyCents: 4200, monthlyCents: 16800 },
+  { plan: "4 meals/week", mealsPerWeek: 4, weeklyCents: 5200, monthlyCents: 20800 },
+] as const;
+
 /** One-time fee to reactivate a cancelled subscription. */
 export const SIGNUP_FEE_CENTS = Number(process.env.SIGNUP_FEE_CENTS ?? 4000); // $40
 

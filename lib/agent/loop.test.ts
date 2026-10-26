@@ -290,6 +290,72 @@ describe("runAgent", () => {
     expect(events.some((e) => e.event === "done")).toBe(true);
   });
 
+  it("drops an action proposed for a question about it, and has the knowledge base searched", async () => {
+    // "how much does pausing cost?" was answered with a pause card.
+    const events: { event: string; data: unknown }[] = [];
+    const deps: AgentDeps = {
+      provider: fakeProvider([toolTurn("pause_subscription"), toolTurn("search_knowledge_base"), textTurn("Pausing costs $8 per week.")]),
+      toolByName: { ...okTool("pause_subscription", { status: "needs_confirmation", proposal: { weeks: 2 } }), ...okTool("search_knowledge_base", {}) },
+      toolDefinitions: [],
+    };
+    await runAgent({ customerId: "x", history: [{ role: "user", content: "how much does pausing cost?" }], emit: (e, d) => events.push({ event: e, data: d }) }, deps);
+
+    expect(events.some((e) => e.event === "pause_proposal")).toBe(false);
+    expect(events.filter((e) => e.event === "tool_call").map((e) => (e.data as { name: string }).name)).toEqual(["search_knowledge_base"]);
+    expect(events.filter((e) => e.event === "delta").map((e) => e.data).at(-1)).toContain("$8");
+  });
+
+  it("nudges once to search the knowledge base when a policy question is answered without it", async () => {
+    const events: { event: string; data: unknown }[] = [];
+    const deps: AgentDeps = {
+      provider: fakeProvider([toolTurn("get_subscription"), textTurn("Your boxes stop on 2nd November."), toolTurn("search_knowledge_base"), textTurn("Your boxes keep coming until your billing date.")]),
+      toolByName: { ...okTool("get_subscription", {}), ...okTool("search_knowledge_base", {}) },
+      toolDefinitions: [],
+    };
+    await runAgent({ customerId: "x", history: [{ role: "user", content: "if I cancel, do my boxes stop right away?" }], emit: (e, d) => events.push({ event: e, data: d }) }, deps);
+
+    expect(events.filter((e) => e.event === "tool_call").map((e) => (e.data as { name: string }).name)).toEqual(["get_subscription", "search_knowledge_base"]);
+    expect(events.filter((e) => e.event === "delta").map((e) => e.data).at(-1)).toContain("billing date");
+  });
+
+  it("makes the model search when a can-I-add menu question is answered with no tool at all", async () => {
+    const events: { event: string; data: unknown }[] = [];
+    const deps: AgentDeps = {
+      provider: fakeProvider([textTurn("Yes, you can add a Mango Lassi!"), toolTurn("search_knowledge_base"), textTurn("Mango Lassi isn't on your menu.")]),
+      toolByName: okTool("search_knowledge_base", {}),
+      toolDefinitions: [],
+    };
+    await runAgent({ customerId: "x", history: [{ role: "user", content: "can I add a Mango Lassi to my next box?" }], emit: (e, d) => events.push({ event: e, data: d }) }, deps);
+
+    expect(events.filter((e) => e.event === "tool_call").map((e) => (e.data as { name: string }).name)).toEqual(["search_knowledge_base"]);
+    expect(events.filter((e) => e.event === "delta").map((e) => e.data).at(-1)).toContain("isn't on your menu");
+  });
+
+  it("does not propose a dietary-track switch for a message that names no track", async () => {
+    // "can I add a Mango Lassi?" was read as a wish for the Vegetarian track.
+    const events: { event: string; data: unknown }[] = [];
+    const deps: AgentDeps = {
+      provider: fakeProvider([toolTurn("change_dietary_track"), textTurn("Mango Lassi is on the Vegetarian menu, not yours.")]),
+      toolByName: okTool("change_dietary_track", { status: "needs_confirmation", proposal: { new_track: "vegetarian" } }),
+      toolDefinitions: [],
+    };
+    await runAgent({ customerId: "x", history: [{ role: "user", content: "can I add a Mango Lassi to my next box?" }], emit: (e, d) => events.push({ event: e, data: d }) }, deps);
+
+    expect(events.some((e) => e.event === "diet_change_proposal")).toBe(false);
+  });
+
+  it("still proposes a track switch when the customer names the track", async () => {
+    const events: { event: string; data: unknown }[] = [];
+    const deps: AgentDeps = {
+      provider: fakeProvider([toolTurn("change_dietary_track"), textTurn("Please confirm below.")]),
+      toolByName: okTool("change_dietary_track", { status: "needs_confirmation", proposal: { new_track: "vegetarian" } }),
+      toolDefinitions: [],
+    };
+    await runAgent({ customerId: "x", history: [{ role: "user", content: "switch me to vegetarian meals" }], emit: (e, d) => events.push({ event: e, data: d }) }, deps);
+
+    expect(events.some((e) => e.event === "diet_change_proposal")).toBe(true);
+  });
+
   it("skips a refund for an order whose refund the customer already confirmed this conversation", async () => {
     // "I also want a refund for another order": gpt-4o-mini re-called
     // issue_refund for the order just refunded, got already_refunded, and

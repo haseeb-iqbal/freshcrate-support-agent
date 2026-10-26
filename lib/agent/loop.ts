@@ -8,6 +8,7 @@ import { buildSystemPrompt } from "./prompt";
 import { dispatchTool, PROPOSAL_EVENTS, type DispatchState } from "./dispatch";
 import { ORDER_CARD_TOOLS, shouldNudge, shouldNudgeOrderCard } from "./nudge";
 import { isPureDecline } from "./decline";
+import { isActionQuestion, isAddRequest, mentionsDietaryTrack } from "./question";
 
 export type AgentEmit = (event: string, data: unknown) => void;
 
@@ -67,6 +68,19 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
   const lastUser = [...history].reverse().find((m) => m.role === "user");
   const declining = (decisions?.length ?? 0) > 0 && !!lastUser && isPureDecline(lastUser.content);
 
+  // A question ABOUT an action ("how much does pausing cost?") is for the
+  // knowledge base, not a request: drop any proposal made for it and make sure
+  // the knowledge base was searched (see the tool loop and the nudge below).
+  const askingAboutAction = !!lastUser && isActionQuestion(lastUser.content);
+  // "can I add a Mango Lassi?" is a menu question too, but only when the model
+  // answered it without calling any tool at all.
+  const askingToAdd = !!lastUser && isAddRequest(lastUser.content);
+  let searchedKb = false;
+  let anyToolCalled = false;
+  let kbNudged = false;
+  // A track switch needs the conversation to be about a track or diet.
+  const trackInPlay = mentionsDietaryTrack(history);
+
   // Orders whose refund the customer confirmed earlier in this conversation.
   const refundedThisChat = new Set(
     (decisions ?? []).filter((d) => d.kind === "refund" && d.outcome === "confirmed" && d.orderNumber).map((d) => d.orderNumber!),
@@ -108,6 +122,19 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
       }
 
       if (toolCalls.length === 0) {
+        // A policy question needs the knowledge base, whatever else the model did.
+        // It has its own flag so the generic nudge below can't use up the one retry.
+        if (!kbNudged && !searchedKb && (askingAboutAction || (askingToAdd && !anyToolCalled))) {
+          kbNudged = true;
+          if (streamedText) emit("reset", {});
+          if (text) messages.push({ role: "assistant", content: text });
+          messages.push({
+            role: "system",
+            content:
+              "The customer asked a question about FreshCrate's policy, fees or menu, not for an account action. Call search_knowledge_base now and answer only from the excerpts it returns. Do not answer from memory.",
+          });
+          continue;
+        }
         if (shouldNudge({ assistantText: text, actionToolCallCount: actionToolCallsMade, alreadyNudged: nudged })) {
           nudged = true;
           if (streamedText) emit("reset", {}); // discard the pre-nudge preamble
@@ -136,6 +163,7 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
 
       // A tool turn is never the final answer — clear any preamble it streamed.
       if (streamedText) emit("reset", {});
+      anyToolCalled = true;
       messages.push({ role: "assistant", content: text, toolCalls });
       orderToolCallsMade += toolCalls.filter((c) => ORDER_CARD_TOOLS.has(c.name)).length;
 
@@ -154,6 +182,20 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
           });
           continue;
         }
+
+        const notAnAction =
+          PROPOSAL_EVENTS[call.name] &&
+          (askingAboutAction
+            ? "The customer asked a QUESTION about this action, not for the action itself, so it has NOT been proposed or shown. Call search_knowledge_base and answer their question in words from the excerpts."
+            : call.name === "change_dietary_track" && !trackInPlay
+              ? "The customer has not asked to change their dietary track, so no switch has been proposed or shown. Answer what they asked with search_knowledge_base. If they asked for a meal or add-on from another track, say it isn't on their own track's menu, name the track it belongs to, and offer to switch tracks if they want."
+              : "");
+        if (notAnAction) {
+          messages.push({ role: "tool", toolCallId: call.id, content: JSON.stringify({ note: notAnAction }) });
+          continue;
+        }
+
+        if (call.name === "search_knowledge_base") searchedKb = true;
 
         let args: Record<string, unknown> = {};
         try {

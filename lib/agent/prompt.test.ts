@@ -59,6 +59,32 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("get_subscription");
   });
 
+  it("treats a question about an action as a knowledge question, not a request", () => {
+    // The bug: "how much does pausing cost?" and "if I cancel, do my boxes stop?"
+    // were answered with a pause / cancel confirmation card.
+    const knowledge = prompt.slice(prompt.indexOf("# Knowledge answers"), prompt.indexOf("# Orders"));
+    expect(knowledge).toContain("is a knowledge question, not a request to act");
+    expect(knowledge).toContain("call NO action tool");
+    expect(knowledge).toContain("billed MONTHLY");
+  });
+
+  it("names the order number in prose and uses lookup_order for a named order", () => {
+    // The bug: "refund it" after "and the one before that?" refunded another
+    // order, because the prose answer never carried the order number.
+    const orders = prompt.slice(prompt.indexOf("# Orders"), prompt.indexOf("# Subscription"));
+    expect(orders).toContain("always name its order number");
+    expect(orders).toContain("never list_orders");
+    expect(orders).toContain("couldn't find that order");
+  });
+
+  it("keeps the model from offering add-ons from another track or waiving fees", () => {
+    const diet = prompt.slice(prompt.indexOf("# Dietary tracks"), prompt.indexOf("# Actions need a tool call"));
+    expect(diet).toContain("OWN track's menu");
+    expect(diet).toContain("never say \"yes\" or offer to add it");
+    const refunds = prompt.slice(prompt.indexOf("# Refunds"), prompt.indexOf("# Ambiguity"));
+    expect(refunds).toContain("cannot waive, discount or adjust");
+  });
+
   it("names the confirmation tools and the search tool", () => {
     for (const t of ["search_knowledge_base", "lookup_order", "list_orders", "get_subscription", "issue_refund", "escalate_to_human"]) {
       expect(prompt).toContain(t);

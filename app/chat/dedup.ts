@@ -1,3 +1,4 @@
+import { PROPOSAL_KIND_TABLE } from "./proposal-kinds";
 import type { AnyProposal, Message, MessageProposals, ProposalKind, ProposalState } from "./types";
 
 /**
@@ -13,28 +14,9 @@ import type { AnyProposal, Message, MessageProposals, ProposalKind, ProposalStat
  * Kept free of the JSX card table (proposals.ts) so it can be unit-tested.
  */
 
-/**
- * What makes two proposals of a kind "the same action" — the fields the customer
- * chose, not the derived amounts. Two pauses of the same length that resume on
- * the same day are one request; a different length is a different request.
- */
+/** What makes two proposals of a kind "the same action" (see PROPOSAL_KIND_TABLE). */
 export function proposalIdentity(kind: ProposalKind, data: AnyProposal): string {
-  switch (kind) {
-    case "refund":
-      return (data as { order_number: string }).order_number;
-    case "pause": {
-      const p = data as { indefinite: boolean; weeks: number | null; resume_date: string | null };
-      return p.indefinite ? "indefinite" : `${p.weeks}:${p.resume_date}`;
-    }
-    case "resume":
-    case "reactivate":
-    case "plan":
-      return (data as { plan: string }).plan;
-    case "diet":
-      return (data as { new_track: string }).new_track;
-    case "cancel":
-      return "cancel";
-  }
+  return PROPOSAL_KIND_TABLE[kind].identity(data);
 }
 
 /** A proposal in one of these states is still on screen and unresolved, so an

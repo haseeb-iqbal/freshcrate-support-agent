@@ -3,80 +3,47 @@ import { collectDecisions, describeDecisions, parseDecisions } from "./decisions
 
 describe("collectDecisions", () => {
   it("returns nothing for a transcript with no proposals", () => {
-    expect(collectDecisions([{}, {}])).toEqual([]);
+    expect(collectDecisions([])).toEqual([]);
   });
 
   it("reports a confirmed refund with its order number", () => {
+    expect(collectDecisions([{ kind: "refund", state: "approved", orderNumber: "FC1006" }])).toEqual([
+      { kind: "refund", outcome: "confirmed", orderNumber: "FC1006" },
+    ]);
+  });
+
+  it("translates each prompt state to its outcome", () => {
     expect(
-      collectDecisions([{ proposal: { order_number: "FC1006" }, proposalState: "approved" }]),
-    ).toEqual([{ kind: "refund", outcome: "confirmed", orderNumber: "FC1006" }]);
-  });
-
-  it("reports a declined pause", () => {
-    expect(collectDecisions([{ pauseProposal: {}, pauseState: "declined" }])).toEqual([
+      collectDecisions([
+        { kind: "pause", state: "declined" },
+        // An unanswered prompt: the case a server-side DB check cannot tell from a decline.
+        { kind: "cancel", state: "pending" },
+        { kind: "cancel", state: "submitting" },
+        // The customer moved on without answering: passed over.
+        { kind: "plan_change", state: "locked" },
+        { kind: "resume", state: "error" },
+        { kind: "dietary_track", state: "approved" },
+      ]),
+    ).toEqual([
       { kind: "pause", outcome: "declined" },
-    ]);
-  });
-
-  it("reports an unanswered prompt as awaiting a response", () => {
-    // This is the case a server-side DB check cannot distinguish from a decline.
-    expect(collectDecisions([{ cancelProposal: {}, cancelState: "pending" }])).toEqual([
       { kind: "cancel", outcome: "awaiting_response" },
-    ]);
-  });
-
-  it("reports a failed action as failed, not confirmed", () => {
-    expect(collectDecisions([{ resumeProposal: {}, resumeState: "error" }])).toEqual([
+      { kind: "cancel", outcome: "awaiting_response" },
+      { kind: "plan_change", outcome: "declined" },
       { kind: "resume", outcome: "failed" },
+      { kind: "dietary_track", outcome: "confirmed" },
     ]);
   });
 
-  it("defaults a proposal with no recorded state to awaiting a response", () => {
-    expect(collectDecisions([{ planProposal: {} }])).toEqual([
-      { kind: "plan_change", outcome: "awaiting_response" },
-    ]);
-  });
-
-  it("covers every proposal kind the chat can show", () => {
+  it("keeps transcript order", () => {
     const out = collectDecisions([
-      { proposal: { order_number: "FC1001" }, proposalState: "approved" },
-      { pauseProposal: {}, pauseState: "approved" },
-      { resumeProposal: {}, resumeState: "approved" },
-      { reactivateProposal: {}, reactivateState: "approved" },
-      { planProposal: {}, planState: "approved" },
-      { cancelProposal: {}, cancelState: "approved" },
-      { dietProposal: {}, dietState: "approved" },
-    ]);
-    expect(out.map((d) => d.kind)).toEqual([
-      "refund",
-      "pause",
-      "resume",
-      "reactivate",
-      "plan_change",
-      "cancel",
-      "dietary_track",
-    ]);
-  });
-
-  it("reports a declined dietary-track switch", () => {
-    // The diet card is a confirmation prompt like any other; without this the
-    // model never learns the customer already answered it.
-    expect(collectDecisions([{ dietProposal: {}, dietState: "declined" }])).toEqual([
-      { kind: "dietary_track", outcome: "declined" },
-    ]);
-  });
-
-  it("keeps transcript order across messages", () => {
-    const out = collectDecisions([
-      { pauseProposal: {}, pauseState: "declined" },
-      {},
-      { proposal: { order_number: "FC1006" }, proposalState: "approved" },
+      { kind: "pause", state: "declined" },
+      { kind: "refund", state: "approved", orderNumber: "FC1006" },
     ]);
     expect(out.map((d) => d.kind)).toEqual(["pause", "refund"]);
   });
 
-  it("omits the order number when a refund proposal carries none", () => {
-    const [d] = collectDecisions([{ proposal: {}, proposalState: "declined" }]);
+  it("omits the order number when a refund prompt carries none", () => {
+    const [d] = collectDecisions([{ kind: "refund", state: "declined" }]);
     expect(d).toEqual({ kind: "refund", outcome: "declined" });
   });
 });

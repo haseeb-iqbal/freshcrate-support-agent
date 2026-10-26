@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { collectDecisions } from "@/lib/decisions";
+import { DECISION_KINDS, collectDecisions } from "@/lib/decisions";
+import { PROPOSAL_KINDS, PROPOSAL_KIND_TABLE } from "./proposal-kinds";
 import { toDecisionSources } from "./decisions";
 import type { Message, MessageProposals, ProposalPayloads, ProposalState } from "./types";
 
@@ -64,5 +65,14 @@ describe("toDecisionSources", () => {
 
   it("yields nothing for messages without proposals", () => {
     expect(decisionsFor([msg(), { role: "user", content: "hi" }])).toEqual([]);
+  });
+});
+
+describe("PROPOSAL_KIND_TABLE", () => {
+  it("names every card kind in the server's decisions vocabulary, one to one", () => {
+    // The server drops a decision whose kind it doesn't know, so a card kind
+    // without a valid name would silently never reach the model.
+    const names = PROPOSAL_KINDS.map((k) => PROPOSAL_KIND_TABLE[k].decision);
+    expect([...names].sort()).toEqual([...DECISION_KINDS].sort());
   });
 });

@@ -3,7 +3,7 @@ import { isActionQuestion, isAddRequest, isCompanyTopicQuestion, mentionsDietary
 
 describe("isCompanyTopicQuestion", () => {
   it("matches questions on topics the KB covers", () => {
-    for (const t of ["can I get a discount code?", "how long do the proteins last in the fridge?", "I'm moving to Alaska, what happens to my subscription?", "I have a nut allergy - are your meals safe for me?", "are the calorie counts for one person or the whole meal?"]) {
+    for (const t of ["can I get a discount code?", "how long do the proteins last in the fridge?", "I'm moving to Alaska, what happens to my subscription?", "I have a nut allergy - are your meals safe for me?", "are the calorie counts for one person or the whole meal?", "do you have a vegan or keto menu?"]) {
       expect(isCompanyTopicQuestion(t)).toBe(true);
     }
   });

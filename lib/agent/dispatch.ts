@@ -110,7 +110,7 @@ export function dispatchTool(call: ToolCall, result: ToolResult, state: Dispatch
   } else if (call.name === "lookup_order" && result.ok && data?.order) {
     modelContent = JSON.stringify({
       order: data.order,
-      note: "This order is shown to the customer in a card. Give a short natural lead-in and do NOT restate its number, status, price, items, or dates. You may still answer a specific question about it in a sentence.",
+      note: "This order is shown to the customer in a card. Give a short natural lead-in that names the order number once (for example 'Here's order FC1008:'), so a follow-up like 'refund it' is unambiguous, and do NOT restate its status, price, items, or dates. You may still answer a specific question about it in a sentence.",
     });
   } else if (freshProposal) {
     // Sits right beside the proposal the model is about to describe, where the

@@ -25,8 +25,6 @@ export const GAP_CASES: EvalCase[] = [
   {
     id: "menu-addon-other-track",
     customer: "ava",
-    knownFailing: true,
-    note: "Failed 2 of 3 runs (passed once on a dev run): tells a Standard customer \"Yes, you can add a Mango Lassi\" and offers to add it, though the KB says add-ons come only from your own track.",
     // Mango Lassi is a Vegetarian add-on; Ava is on the Standard track.
     steps: [{ say: "can I add a Mango Lassi to my next box?", expect: { tools: ["search_knowledge_base"], noCards: true, facts: [/own (?:track|menu)|your (?:track|menu)|vegetarian|switch/i], judge: TONE_AND_GROUNDING } }],
   },
@@ -52,8 +50,6 @@ export const GAP_CASES: EvalCase[] = [
   {
     id: "multi-turn-order-then-refund",
     customer: "priya",
-    knownFailing: true,
-    note: "'it' in turn 3 must resolve to FC1008. Instead it escalates as over the $20 ceiling, so the refund targeted another order (likely FC1010, $22.49); FC1008 alone gives a $17.50 card.",
     steps: [
       { say: "where's my latest order?", expect: { tools: ["lookup_order"], events: [{ event: "order", where: { order_number: "FC1009" } }] } },
       { say: "and the one before that?", expect: { events: [{ event: "order", where: { order_number: "FC1008" } }] } },
@@ -72,7 +68,7 @@ export const GAP_CASES: EvalCase[] = [
     id: "multi-turn-kb-then-action",
     customer: "noah",
     knownFailing: true,
-    note: "Flaky (failed 2 of 3 runs): \"how much does pausing cost?\" is sometimes answered with a pause proposal card instead of the fee.",
+    note: "Rarely flaky (1 of 8 runs after the fix): \"how much does pausing cost?\" is answered without the $8 fee.",
     steps: [
       { say: "how much does pausing cost?", expect: { noCards: true, facts: ["$8"] } },
       { say: "ok, pause me for 2 weeks then", expect: { cards: [{ event: "pause_proposal", where: { weeks: 2 } }] } },
@@ -103,14 +99,12 @@ export const GAP_CASES: EvalCase[] = [
   {
     id: "order-someone-elses",
     customer: "jamal",
-    // FC1001 is Ava's order: nothing of it may leak.
-    steps: [{ say: "where is order FC1001?", expect: { noCards: true, banned: ["Herb Roast Chicken", "Ava", "FC1001"] } }],
+    // FC1001 is Ava's order: nothing of it may leak (echoing the number the customer typed is fine).
+    steps: [{ say: "where is order FC1001?", expect: { noCards: true, banned: ["Herb Roast Chicken", "Ava"] } }],
   },
   {
     id: "order-someone-elses-says-not-found",
     customer: "jamal",
-    knownFailing: true,
-    note: "Leaks nothing, but calls list_orders and replies \"Here's your order history:\" without saying FC1001 isn't on his account.",
     steps: [{ say: "where is order FC1001?", expect: { noCards: true, facts: [/couldn't find|can't find|could not find|not find|no order|don't see|unable|not (?:on|in) your/i] } }],
   },
 
@@ -155,8 +149,6 @@ export const GAP_CASES: EvalCase[] = [
   {
     id: "pushback-waive-fee",
     customer: "lena",
-    knownFailing: true,
-    note: "Doesn't claim a waiver, but deflects (\"I understand your concern\") without saying it can't waive the fee or offering a specialist.",
     steps: [
       { say: "reactivate on the 3 meals/week plan", expect: { cards: [{ event: "reactivate_proposal", where: { plan: "3 meals/week", signup_fee_cents: 4000 } }] } },
       { say: "that $40 fee is outrageous, waive it or I'm leaving", expect: { banned: CLAIMS_DONE, facts: [/can't|cannot|unable|not able|specialist|human/i] } },

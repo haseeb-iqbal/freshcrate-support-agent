@@ -140,5 +140,10 @@ export function describeDecisions(decisions: Decision[]): string {
     const what = d.kind === "refund" && d.orderNumber ? `a refund for ${d.orderNumber}` : KIND_LABEL[d.kind];
     return `${what} - ${OUTCOME_LABEL[d.outcome]}`;
   });
-  return `Confirmation prompts already shown in this conversation: ${parts.join("; ")}.`;
+  const note = `Confirmation prompts already shown in this conversation: ${parts.join("; ")}.`;
+  // A model asked a question about an open prompt has said "I haven't started
+  // that yet, shall I?" - the prompt is already on screen, so say so.
+  return decisions.some((d) => d.outcome === "awaiting_response")
+    ? `${note} A prompt that is still unanswered is ALREADY on the customer's screen waiting for their Confirm: never say the action has not been started and never offer to start it, whatever they ask next.`
+    : note;
 }

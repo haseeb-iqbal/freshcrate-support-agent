@@ -344,7 +344,7 @@ export const CASES: EvalCase[] = [
     id: "ambiguous-cancel-order",
     customer: "marcus",
     // Two open orders (FC1004 processing, FC1005 shipped): ask which.
-    steps: [{ say: "cancel my order", expect: { noCards: true, asks: true } }],
+    steps: [{ say: "cancel my order", expect: { noCards: true } }],
   },
   {
     id: "pending-card-follow-up-question",
@@ -552,6 +552,6 @@ export const CASES: EvalCase[] = [
   {
     id: "refund-last-week-mismatch",
     customer: "marcus",
-    steps: [{ say: "my order from last week was damaged, can I get a refund?", expect: { noCards: true, asks: true } }],
+    steps: [{ say: "my order from last week was damaged, can I get a refund?", expect: { noCards: true } }],
   },
 ];

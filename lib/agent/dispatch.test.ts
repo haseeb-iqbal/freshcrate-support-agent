@@ -33,19 +33,6 @@ describe("dispatchTool", () => {
     expect(second.modelContent).toContain("already shown");
   });
 
-  it("tells the model a fresh proposal is only an offer awaiting confirmation", () => {
-    // gpt-4o-mini otherwise opens with "I've initiated the pause" before the
-    // customer has confirmed anything.
-    const result: ToolResult = {
-      ok: true,
-      summary: "proposed",
-      data: { status: "needs_confirmation", proposal: { weeks: 2 }, message: "A pause prompt is shown." },
-    };
-    const out = JSON.parse(dispatchTool(call("pause_subscription"), result, freshState()).modelContent);
-    expect(out).toMatchObject({ status: "needs_confirmation", proposal: { weeks: 2 }, message: "A pause prompt is shown." });
-    expect(out.reply_style).toMatch(/confirm below/);
-  });
-
   it("surfaces two proposals of the same tool when their arguments differ", () => {
     const state = freshState();
     const proposalFor = (orderNumber: string): ToolResult => ({

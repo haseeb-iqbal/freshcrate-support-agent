@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import { dietLeadIn } from "./lead-ins";
 import { db } from "../../db";
 import { customers } from "../../db/schema";
 import { DIETARY_TRACKS, isDietaryTrack, mealsForTrack } from "../domain/menu";
@@ -66,6 +67,7 @@ export const changeDietaryTrack: Tool = {
           effective_from: addWeeksIso(1, ctx.now),
           meals_preview: mealsForTrack(requested).slice(0, 3).map((m) => m.name),
         },
+        lead_in: dietLeadIn({ new_track: requested, effective_from: addWeeksIso(1, ctx.now) }),
         message:
           "A confirmation prompt shows the new track and a few of its meals. The switch applies from next week's menu; boxes already processing or shipped are packed and keep their meals. Ask them to confirm; do NOT say it's changed until they confirm.",
       },

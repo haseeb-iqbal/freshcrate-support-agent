@@ -4,6 +4,7 @@ import { customers } from "../../db/schema";
 import { getPlan, listPlans } from "../billing/plans";
 import { quotePlanChange } from "../billing/quotes";
 import { money } from "../money";
+import { planChangeLeadIn } from "./lead-ins";
 import type { Tool } from "./types";
 
 /** Change the customer's plan — propose-only, with the new monthly price. */
@@ -67,6 +68,7 @@ export const changePlan: Tool = {
         data: {
           status: "needs_confirmation",
           proposal,
+          lead_in: planChangeLeadIn(proposal),
           message:
             "A confirmation prompt shows the new plan and its monthly price. The subscription STAYS PAUSED: nothing is prorated or charged now, the $8/week pause fee is unchanged, and the new plan's rate applies from when it resumes. Ask the customer to confirm; do NOT say it's changed or resumed. If they also want to resume now, use resume_subscription with new_plan instead.",
         },
@@ -79,6 +81,7 @@ export const changePlan: Tool = {
       data: {
         status: "needs_confirmation",
         proposal,
+        lead_in: planChangeLeadIn(proposal),
         message:
           "A confirmation prompt shows the new plan, its monthly price, and the prorated charge/refund for the weeks left until billing (the new plan starts the following week). Ask the customer to confirm; do NOT say it's changed until they confirm.",
       },

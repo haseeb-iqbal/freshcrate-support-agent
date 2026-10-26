@@ -274,6 +274,7 @@ export const CASES: EvalCase[] = [
     id: "kb-refund-policy",
     smoke: true,
     customer: "ava",
+    note: "Flaky: passed 3 of 3 alone (2026-10-26) but failed 1 full run, answering \"which order?\" instead of the policy.",
     steps: [{ say: "how do refunds work?", expect: { tools: ["search_knowledge_base"], events: [{ event: "sources" }], noTools: ["list_orders"], facts: ["$20", "14 days"], judge: TONE_AND_GROUNDING } }],
   },
   {
@@ -381,6 +382,7 @@ export const CASES: EvalCase[] = [
   {
     id: "typos",
     customer: "ava",
+    note: "Flaky: passed 3 of 3 alone (2026-10-26) but failed 1 full run, showing the history card instead of the latest order.",
     steps: [{ say: "wher is my lattest ordr??", expect: { tools: ["lookup_order"], events: [{ event: "order", where: { order_number: "FC1001" } }] } }],
   },
   {

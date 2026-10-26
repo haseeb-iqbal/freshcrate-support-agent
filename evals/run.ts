@@ -45,8 +45,8 @@ const CUSTOMER_IDS: Record<CustomerKey, string> = {
 
 /** gpt-4o-mini list prices, USD per 1M tokens. */
 const PRICE_PER_M = { input: 0.15, output: 0.6 };
-/** A full run should cost well under this; past it the remaining cases are skipped. */
-const BUDGET_USD = 0.25;
+/** A full run costs about $0.20; past this the remaining cases are skipped. */
+const BUDGET_USD = 0.4;
 /** Claims an action happened before the customer confirmed anything. */
 const GLOBAL_BANNED: RegExp[] = [/\bI(?:'ve| have) initiated\b/i];
 

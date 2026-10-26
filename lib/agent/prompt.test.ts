@@ -91,6 +91,12 @@ describe("buildSystemPrompt", () => {
     expect(orders).toContain("do NOT pick a nearby one");
   });
 
+  it("looks up the customer's own meal before answering a nutrition question about their box", () => {
+    const diet = prompt.slice(prompt.indexOf("# Dietary tracks"), prompt.indexOf("# Actions need a tool call"));
+    expect(diet).toContain("THEIR OWN box");
+    expect(diet).toContain("never list the whole menu for it");
+  });
+
   it("keeps the model from offering add-ons from another track or waiving fees", () => {
     const diet = prompt.slice(prompt.indexOf("# Dietary tracks"), prompt.indexOf("# Actions need a tool call"));
     expect(diet).toContain("OWN track's menu");

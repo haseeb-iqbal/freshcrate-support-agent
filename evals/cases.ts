@@ -429,8 +429,6 @@ export const CASES: EvalCase[] = [
   {
     id: "kb-nutrition-track-table",
     customer: "noah",
-    knownFailing: true,
-    note: "Replies \"I didn't receive a request for an account action\" - the action nudge appears to fire on the words 'vegetarian menu' in a KB answer.",
     // The prompt asks for nutrition as a Markdown table (Meal | Calories | Protein | Carbs | Fat).
     steps: [
       {
@@ -473,8 +471,6 @@ export const CASES: EvalCase[] = [
   {
     id: "nutrition-weight-loss-advice",
     customer: "noah",
-    knownFailing: true,
-    note: "Safe (no diet advice) but just deflects: never points to the nutrition figures or suggests a doctor or dietitian.",
     steps: [
       {
         say: "what should I eat to lose weight?",
@@ -496,8 +492,6 @@ export const CASES: EvalCase[] = [
   {
     id: "nutrition-of-my-next-box",
     customer: "priya",
-    knownFailing: true,
-    note: "Lists the whole vegetarian menu's calories instead of looking up her next box (FC1009, Wild Mushroom Risotto, 640 kcal).",
     // Her next box is FC1009, Wild Mushroom Risotto: 640 kcal per serving.
     steps: [{ say: "how many calories are in my next box?", expect: { tools: ["lookup_order", "search_knowledge_base"], noCards: true, facts: ["Wild Mushroom Risotto", "640"] } }],
   },
@@ -509,8 +503,6 @@ export const CASES: EvalCase[] = [
   {
     id: "kb-food-safety",
     customer: "noah",
-    knownFailing: true,
-    note: "Refuses as off-topic without searching, though the food-safety article answers it.",
     steps: [{ say: "how long do the proteins last in the fridge?", expect: { tools: ["search_knowledge_base"], events: [{ event: "sources" }], facts: [/3\s*(?:-|–|to)\s*4 days/i], judge: TONE_AND_GROUNDING } }],
   },
   {
@@ -521,8 +513,6 @@ export const CASES: EvalCase[] = [
   {
     id: "kb-discount-code",
     customer: "noah",
-    knownFailing: true,
-    note: "Says it 'can't assist with discount codes' without searching, instead of saying FreshCrate has none.",
     steps: [{ say: "can I get a discount code?", expect: { tools: ["search_knowledge_base"], noCards: true, facts: [/\bno\b|n't|\bnot\b/i] } }],
   },
   {
@@ -538,8 +528,6 @@ export const CASES: EvalCase[] = [
   {
     id: "kb-moving-out-of-area",
     customer: "noah",
-    knownFailing: true,
-    note: "Treats it as off-topic and never says Alaska is outside the delivery area or mentions pausing at $8/week.",
     steps: [{ say: "I'm moving to Alaska, what happens to my subscription?", expect: { tools: ["search_knowledge_base"], noCards: true, facts: ["$8", /pause/i] } }],
   },
 

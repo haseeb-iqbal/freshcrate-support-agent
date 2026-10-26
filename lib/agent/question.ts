@@ -33,6 +33,21 @@ export function isAddRequest(text: string): boolean {
   return text.includes("?") && /\b(?:can|could|may) (?:i|we)\b[^?.!]*\badd\b/i.test(text);
 }
 
+/**
+ * A question on a topic the knowledge base covers but the model tends to wave
+ * off as out of scope ("can I get a discount code?", "how long do the proteins
+ * last in the fridge?", "I'm moving to Alaska, what happens?"). The scope rule
+ * makes gpt-4o-mini refuse these without searching. Needs a "?" and skips
+ * attempts to override the instructions.
+ */
+const COMPANY_TOPICS =
+  /\b(?:discount|coupon|promo\w*|voucher|fridge|refrigerat\w*|freezer|storage|spoil\w*|expir\w*|moving|relocat\w*|move to|recycl\w*|packaging|allerg\w*)\b/i;
+const OVERRIDE_ATTEMPT = /\b(?:ignore|disregard)\b[^?.!]*\binstructions\b|\byou are now\b|\bsystem prompt\b/i;
+
+export function isCompanyTopicQuestion(text: string): boolean {
+  return text.includes("?") && COMPANY_TOPICS.test(text) && !OVERRIDE_ATTEMPT.test(text);
+}
+
 /** A track or diet word, in the customer's message or the assistant's offer it answers. */
 const TRACK_WORDS = /\b(?:vegetarian|gluten[- ]?free|dairy[- ]?free|standard|vegan|diet|dietary|track|menu)\b/i;
 

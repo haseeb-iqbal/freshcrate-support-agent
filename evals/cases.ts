@@ -349,8 +349,6 @@ export const CASES: EvalCase[] = [
   {
     id: "pending-card-follow-up-question",
     customer: "ava",
-    knownFailing: true,
-    note: "Flaky (failed 1 of 2 runs): re-shows the pause card and repeats its last reply instead of explaining the fee.",
     steps: [PAUSE_TWO_WEEKS, { say: "what's the $8 fee for?", expect: { noTools: ["pause_subscription"], noCards: true, facts: ["$8"] } }],
   },
   {
@@ -485,8 +483,6 @@ export const CASES: EvalCase[] = [
   {
     id: "kb-nutrition-per-serving",
     customer: "noah",
-    knownFailing: true,
-    note: "Answers from memory (\"typically for one person\") without searching; the KB says figures are per serving and each meal serves 2 people.",
     steps: [{ say: "are the calorie counts for one person or the whole meal?", expect: { tools: ["search_knowledge_base"], noCards: true, facts: [/per serving|one serving|each serving/i, /2 people|two people/i] } }],
   },
   {

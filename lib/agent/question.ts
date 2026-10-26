@@ -41,7 +41,7 @@ export function isAddRequest(text: string): boolean {
  * attempts to override the instructions.
  */
 const COMPANY_TOPICS =
-  /\b(?:discount|coupon|promo\w*|voucher|fridge|refrigerat\w*|freezer|storage|spoil\w*|expir\w*|moving|relocat\w*|move to|recycl\w*|packaging|allerg\w*)\b/i;
+  /\b(?:discount|coupon|promo\w*|voucher|fridge|refrigerat\w*|freezer|storage|spoil\w*|expir\w*|moving|relocat\w*|move to|recycl\w*|packaging|allerg\w*|calor\w*|nutrition\w*|serving\w*)\b/i;
 const OVERRIDE_ATTEMPT = /\b(?:ignore|disregard)\b[^?.!]*\binstructions\b|\byou are now\b|\bsystem prompt\b/i;
 
 export function isCompanyTopicQuestion(text: string): boolean {

@@ -193,7 +193,11 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
               ? "The customer has not asked to change their dietary track, so no switch has been proposed or shown. Answer what they asked with search_knowledge_base. If they asked for a meal or add-on from another track, say it isn't on their own track's menu, name the track it belongs to, and offer to switch tracks if they want."
               : "");
         if (notAnAction) {
-          messages.push({ role: "tool", toolCallId: call.id, content: JSON.stringify({ note: notAnAction }) });
+          messages.push({
+            role: "tool",
+            toolCallId: call.id,
+            content: JSON.stringify({ note: `${notAnAction} Do not mention this, apologise, or say you misunderstood: just answer the customer's question directly.` }),
+          });
           continue;
         }
 

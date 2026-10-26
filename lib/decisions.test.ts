@@ -158,6 +158,11 @@ describe("describeDecisions", () => {
     expect(out).toContain("unanswered");
   });
 
+  it("says an unanswered prompt is already on screen, and only then", () => {
+    expect(describeDecisions([{ kind: "pause", outcome: "awaiting_response" }])).toContain("ALREADY on the customer's screen");
+    expect(describeDecisions([{ kind: "pause", outcome: "declined" }])).not.toContain("ALREADY");
+  });
+
   it("reports a failed action", () => {
     expect(describeDecisions([{ kind: "cancel", outcome: "failed" }])).toContain("FAILED");
   });

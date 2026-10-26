@@ -14,9 +14,9 @@ Add-ons are priced by type: **sides $4.99, desserts $5.99, drinks $3.49**. The m
 
 Because your plan meals are free, a plan costs less than buying the same meals à la carte at $17.50 each:
 
-- **2 meals/week** — $30/week vs $35 à la carte → you save **$5/week**
-- **3 meals/week** — $42/week vs $52.50 à la carte → you save **$10.50/week**
-- **4 meals/week** — $52/week vs $70 à la carte → you save **$18/week**
+- **2 meals/week** — $30/week ($120/month) vs $35 à la carte → you save **$5/week**
+- **3 meals/week** — $42/week ($168/month) vs $52.50 à la carte → you save **$10.50/week**
+- **4 meals/week** — $52/week ($208/month) vs $70 à la carte → you save **$18/week**
 
 You can also order **extra meals** beyond your weekly plan. Extra meals are **not free** — they're charged at the $17.50 list price (plus any add-ons).
 

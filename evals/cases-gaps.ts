@@ -68,7 +68,7 @@ export const GAP_CASES: EvalCase[] = [
     id: "multi-turn-kb-then-action",
     customer: "noah",
     knownFailing: true,
-    note: "Rarely flaky (1 of 8 runs after the fix): \"how much does pausing cost?\" is answered without the $8 fee.",
+    note: "Flaky, passes about 3 runs in 4: the model sometimes calls pause_subscription for \"how much does pausing cost?\", gets the call dropped, and replies with an apology instead of the $8 fee.",
     steps: [
       { say: "how much does pausing cost?", expect: { noCards: true, facts: ["$8"] } },
       { say: "ok, pause me for 2 weeks then", expect: { cards: [{ event: "pause_proposal", where: { weeks: 2 } }] } },

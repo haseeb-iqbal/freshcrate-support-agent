@@ -8,7 +8,7 @@ import { buildSystemPrompt } from "./prompt";
 import { dispatchTool, PROPOSAL_EVENTS, type DispatchState } from "./dispatch";
 import { ORDER_CARD_TOOLS, shouldNudge, shouldNudgeOrderCard } from "./nudge";
 import { isPureDecline } from "./decline";
-import { isActionQuestion, isAddRequest, mentionsDietaryTrack } from "./question";
+import { isActionQuestion, isAddRequest, isCompanyTopicQuestion, mentionsDietaryTrack } from "./question";
 
 export type AgentEmit = (event: string, data: unknown) => void;
 
@@ -74,7 +74,9 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
   const askingAboutAction = !!lastUser && isActionQuestion(lastUser.content);
   // "can I add a Mango Lassi?" is a menu question too, but only when the model
   // answered it without calling any tool at all.
-  const askingToAdd = !!lastUser && isAddRequest(lastUser.content);
+  // The same goes for a discount, storage or moving question the scope rule
+  // makes the model wave off as out of scope without looking.
+  const askingToAdd = !!lastUser && (isAddRequest(lastUser.content) || isCompanyTopicQuestion(lastUser.content));
   let searchedKb = false;
   let anyToolCalled = false;
   let kbNudged = false;

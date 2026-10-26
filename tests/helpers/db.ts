@@ -22,6 +22,8 @@ export interface TestOrderInput {
   status?: string;
   kind?: string;
   refundedAt?: Date | null;
+  /** ISO date; defaults to 2026-06-05. */
+  deliveryDate?: string | null;
 }
 
 /** Delete a test customer and everything referencing it, children first. */
@@ -66,7 +68,7 @@ export async function createTestOrder(input: TestOrderInput): Promise<void> {
     listPriceCents: input.listPriceCents ?? 1750,
     addOns: input.addOns ?? [],
     placedAt: new Date(2026, 5, 1),
-    deliveryDate: "2026-06-05",
+    deliveryDate: input.deliveryDate === undefined ? "2026-06-05" : input.deliveryDate,
     refundedAt: input.refundedAt ?? null,
     items: ["Test Meal"],
   });

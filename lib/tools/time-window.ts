@@ -8,6 +8,11 @@ export interface TimeWindow {
   phrase: string;
 }
 
+/** Whether the message names this order number as a whole word ("FC1008", not "XFC10089"). */
+export function namesOrder(message: string, orderNumber: string): boolean {
+  return message.toUpperCase().split(/[^A-Z0-9]+/).includes(orderNumber.toUpperCase());
+}
+
 /**
  * The time the customer pinned an order to ("my order from last week"), if they
  * did. Deliberately small: only phrases with an unambiguous reading. "Last week"

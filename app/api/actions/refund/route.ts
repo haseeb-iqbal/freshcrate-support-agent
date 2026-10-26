@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { orders, transactions } from "@/db/schema";
-import { evaluateRefund } from "@/lib/guardrails/refund-policy";
+import { evaluateRefund, notYetDue } from "@/lib/guardrails/refund-policy";
 import { latestRefundAt, refundAmountCents } from "@/lib/tools/orders";
 import { actionRoute, type ActionBody } from "@/lib/http/action-route";
 import { toIsoDate } from "@/lib/date";
@@ -29,6 +29,10 @@ export const POST = actionRoute<RefundBody>(async ({ body, customer, now }) => {
   const [order] = await db.select().from(orders).where(owned).limit(1);
   if (!order) return new Response("Order not found for this customer", { status: 404 });
   if (order.refundedAt) return Response.json({ ok: false, error: "already_refunded" }, { status: 409 });
+
+  // Same lateness rule as the issue_refund tool, so the write path can't be
+  // driven around the proposal step.
+  if (notYetDue(order, now)) return Response.json({ ok: false, error: "not_yet_due" }, { status: 403 });
 
   const refundCents = refundAmountCents(order);
   const decision = evaluateRefund({

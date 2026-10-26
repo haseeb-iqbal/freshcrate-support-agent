@@ -73,6 +73,14 @@ describe("selectOrder", () => {
     expect(selectOrder(orders, { date: "2020-01-01" })).toBeNull();
   });
 
+  it("matches an order delivered or placed inside a date range, and none outside it", () => {
+    // 'last week': FC1005 was placed on the 21st, inside the range; the others are not.
+    expect(selectOrder(orders, { dateFrom: "2026-06-15", dateTo: "2026-06-22" })?.orderNumber).toBe("FC1005");
+    expect(selectOrder(orders, { dateFrom: "2026-06-08", dateTo: "2026-06-14" })).toBeNull();
+    const delivered = mk("FC1010", "2026-07-01T00:00:00Z", { deliveryDate: "2026-07-25" });
+    expect(selectOrder([delivered], { dateFrom: "2026-07-20" })?.orderNumber).toBe("FC1010");
+  });
+
   it("prefers order_number over date", () => {
     expect(selectOrder(orders, { orderNumber: "FC1006", date: "2026-06-23" })?.orderNumber).toBe("FC1006");
   });

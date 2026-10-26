@@ -42,6 +42,24 @@ describe("POST /api/actions/refund", () => {
     expect(row.refundedAt).not.toBeNull();
   });
 
+  it("refuses a box that is on its way and not a day late, or has no delivery date", async () => {
+    // TODAY is 2026-07-20: due tomorrow is not late, and no date can't show it is.
+    await createTestOrder({ customerId: OWNER, orderNumber: "TST1090", status: "shipped", deliveryDate: "2026-07-21" });
+    await createTestOrder({ customerId: OWNER, orderNumber: "TST1091", status: "shipped", deliveryDate: null });
+    for (const orderNumber of ["TST1090", "TST1091"]) {
+      const res = await postJson(POST, { customerId: OWNER, orderNumber, reason: "damaged" });
+      expect(res.status).toBe(403);
+      expect(await res.json()).toMatchObject({ ok: false, error: "not_yet_due" });
+    }
+    expect(await txnsOf(OWNER)).toEqual([]);
+  });
+
+  it("refunds a shipped box once it is more than a day late", async () => {
+    await createTestOrder({ customerId: OWNER, orderNumber: "TST1092", status: "shipped", deliveryDate: "2026-07-18" });
+    const res = await postJson(POST, { customerId: OWNER, orderNumber: "TST1092", reason: "never arrived" });
+    expect(res.status).toBe(200);
+  });
+
   it("refunds list price plus add-ons, not the charged total", async () => {
     // A subscription meal is charged 0 but refunds at its undiscounted value.
     await createTestOrder({

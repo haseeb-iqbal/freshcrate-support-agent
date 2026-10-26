@@ -77,6 +77,20 @@ describe("buildSystemPrompt", () => {
     expect(orders).toContain("couldn't find that order");
   });
 
+  it("answers what resuming costs from resume_quote, and refuses a box that is not late yet", () => {
+    const sub = prompt.slice(prompt.indexOf("# Subscription"), prompt.indexOf("# Dietary tracks"));
+    expect(sub).toContain("resume_quote");
+    expect(sub).toContain("never with the stay-paused next_bill_cents");
+    const refunds = prompt.slice(prompt.indexOf("# Refunds"), prompt.indexOf("# Ambiguity"));
+    expect(refunds).toContain("not_yet_due");
+  });
+
+  it("does not pick a nearby order when the customer's time reference matches none", () => {
+    const orders = prompt.slice(prompt.indexOf("# Orders"), prompt.indexOf("# Subscription"));
+    expect(orders).toContain("If no order matches that time");
+    expect(orders).toContain("do NOT pick a nearby one");
+  });
+
   it("keeps the model from offering add-ons from another track or waiving fees", () => {
     const diet = prompt.slice(prompt.indexOf("# Dietary tracks"), prompt.indexOf("# Actions need a tool call"));
     expect(diet).toContain("OWN track's menu");

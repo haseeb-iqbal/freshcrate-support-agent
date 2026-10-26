@@ -1,10 +1,11 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "../../db";
 import { orders } from "../../db/schema";
-import { evaluateRefund } from "../guardrails/refund-policy";
+import { evaluateRefund, notYetDue } from "../guardrails/refund-policy";
 import { latestRefundAt, refundAmountCents } from "./orders";
 import { toIsoDate } from "../date";
 import { money } from "../money";
+import { namesOrder, timeWindow } from "./time-window";
 import type { Tool } from "./types";
 
 /**
@@ -43,6 +44,26 @@ export const issueRefund: Tool = {
       return { ok: false, summary: `No order ${orderNumber} found for this customer` };
     }
 
+    // The customer pinned the order to a time ("my order from last week") and
+    // this one is not from then: don't refund a nearby order on a guess. A named
+    // order number in the message overrides the time reference.
+    const window = ctx.customerMessage ? timeWindow(ctx.customerMessage, ctx.now) : null;
+    if (window && !namesOrder(ctx.customerMessage!, orderNumber)) {
+      const inWindow = (d: string | null) => !!d && d >= window.from && d <= window.to;
+      if (!inWindow(order.deliveryDate) && !inWindow(toIsoDate(order.placedAt))) {
+        return {
+          ok: true,
+          summary: `Order ${orderNumber} is not from ${window.phrase} - no refund proposed`,
+          data: {
+            status: "not_in_window",
+            order_number: orderNumber,
+            delivery_date: order.deliveryDate,
+            message: `The customer said ${window.phrase}, but order ${orderNumber} was delivered or due on ${order.deliveryDate}. Do NOT propose a refund for it. Tell them no order matches ${window.phrase}, give that order's date, and ask whether they mean it or want to name the order number.`,
+          },
+        };
+      }
+    }
+
     // Refund = the meal's list (undiscounted) price + add-ons, even for a free
     // subscription meal.
     const refundCents = refundAmountCents(order);
@@ -58,6 +79,21 @@ export const issueRefund: Tool = {
           order_number: orderNumber,
           message:
             "This order has already been refunded once. A second refund cannot be issued automatically. Tell the customer it needs a human specialist and call escalate_to_human. Do not propose another refund for it.",
+        },
+      };
+    }
+
+    // A box still on its way is only refundable once it is more than 24 hours
+    // late (KB: refunds). Before that there is nothing to refund yet.
+    if (notYetDue(order, ctx.now)) {
+      return {
+        ok: true,
+        summary: `Order ${orderNumber} is not late yet - no refund to propose`,
+        data: {
+          status: "not_yet_due",
+          order_number: orderNumber,
+          expected_delivery_date: order.deliveryDate,
+          message: `This order is ${order.status}${order.deliveryDate ? ` and expected on ${order.deliveryDate}` : ""}, so it is not late and cannot be refunded yet. Tell the customer when it is due and that if it hasn't arrived more than 24 hours after that, they can ask again. Do not propose a refund or escalate.`,
         },
       };
     }

@@ -40,6 +40,8 @@ export const lookupOrder: Tool = {
         kind: { type: "string", enum: [...ORDER_KINDS], description: "subscription (plan meal) or extra." },
         status: { type: "string", enum: [...ORDER_STATUSES], description: "Filter to this status." },
         date: { type: "string", description: "A day the customer named, as YYYY-MM-DD - matches an order delivered or placed that day. Use the # Today date to resolve phrases like 'yesterday' or '25th July'." },
+        from_date: { type: "string", description: "Start of a range the customer named ('last week'), YYYY-MM-DD, inclusive. Use with to_date." },
+        to_date: { type: "string", description: "End of that range, YYYY-MM-DD, inclusive." },
       },
       additionalProperties: false,
     },
@@ -51,13 +53,16 @@ export const lookupOrder: Tool = {
       .where(eq(orders.customerId, ctx.customerId))
       .orderBy(desc(orders.placedAt));
 
+    const isoDay = (v: unknown) => (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : undefined);
     const posRaw = args.position;
     const sel: OrderSelector = {
       orderNumber: args.order_number ? String(args.order_number).trim() : undefined,
       position: posRaw === undefined || posRaw === null ? undefined : Number(posRaw),
       kind: (ORDER_KINDS as readonly string[]).includes(String(args.kind)) ? (args.kind as OrderKind) : undefined,
       status: (ORDER_STATUSES as readonly string[]).includes(String(args.status)) ? (args.status as OrderStatus) : undefined,
-      date: typeof args.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(args.date) ? args.date : undefined,
+      date: isoDay(args.date),
+      dateFrom: isoDay(args.from_date),
+      dateTo: isoDay(args.to_date),
     };
 
     const focus = selectOrder(all as unknown as SelectableOrder[], sel) as OrderRow | null;

@@ -1,4 +1,18 @@
+import { addDaysIso, toIsoDate } from "../date";
+
 const DEFAULT_CEILING_CENTS = 2000; // $20 — overridden by REFUND_CEILING_CENTS
+
+/**
+ * A box still on its way (processing or shipped) is refundable only once it is
+ * more than 24 hours late (KB: refunds). Used by both the issue_refund tool and
+ * the write endpoint. Fails closed: with no delivery date there is no way to
+ * show it is late, so it is not refundable yet.
+ */
+export function notYetDue(order: { status: string; deliveryDate: string | null }, now: Date): boolean {
+  if (order.status !== "processing" && order.status !== "shipped") return false;
+  if (!order.deliveryDate) return true;
+  return toIsoDate(now) <= addDaysIso(1, new Date(`${order.deliveryDate}T12:00:00`));
+}
 
 /** A customer may self-serve at most one refund per this many days. */
 export const REFUND_COOLDOWN_DAYS = 14;

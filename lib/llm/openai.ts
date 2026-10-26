@@ -67,6 +67,8 @@ export class OpenAIChatProvider implements ChatProvider {
         max_tokens: opts.maxTokens ?? Number(process.env.MAX_OUTPUT_TOKENS ?? 1024),
         temperature: opts.temperature ?? 0.2,
         stream: true,
+        // The final chunk then carries the call's token counts (no choices).
+        stream_options: { include_usage: true },
       },
       { signal: opts.signal },
     );
@@ -74,7 +76,11 @@ export class OpenAIChatProvider implements ChatProvider {
     // Tool-call fragments arrive across many chunks keyed by index; accumulate.
     const acc = new Map<number, { id: string; name: string; arguments: string }>();
 
+    let usage: AgentStreamEvent | null = null;
     for await (const chunk of stream) {
+      if (chunk.usage) {
+        usage = { type: "usage", value: { promptTokens: chunk.usage.prompt_tokens, completionTokens: chunk.usage.completion_tokens } };
+      }
       const delta = chunk.choices[0]?.delta;
       if (!delta) continue;
 
@@ -94,5 +100,6 @@ export class OpenAIChatProvider implements ChatProvider {
     if (acc.size > 0) {
       yield { type: "tool_calls", value: [...acc.values()] };
     }
+    if (usage) yield usage;
   }
 }

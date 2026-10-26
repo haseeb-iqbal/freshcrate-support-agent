@@ -18,6 +18,8 @@ export interface ToolContext {
    * agrees on the date. Comes from lib/clock, never from `new Date()`.
    */
   now: Date;
+  /** The customer's latest message, so a tool can check what they pinned an order to ("last week"). */
+  customerMessage?: string;
 }
 
 export interface Tool {

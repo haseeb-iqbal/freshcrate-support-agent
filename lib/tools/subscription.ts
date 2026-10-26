@@ -22,7 +22,7 @@ export const getSubscription: Tool = {
   definition: {
     name: "get_subscription",
     description:
-      "Get the current customer's LIVE subscription details: status (active/paused/cancelled), plan, dietary track, next billing date, how long/when it resumes if paused, and the money on their next monthly bill (plan_monthly_cents, any deferred billing_adjustment_cents, and the resulting next_bill_cents). ALWAYS call this to answer any question about the customer's current status, plan, dietary track, billing date, pause length, or how much their next bill will be; never answer those from earlier conversation.",
+      "Get the current customer's LIVE subscription details: status (active/paused/cancelled), plan, dietary track, next billing date, how long/when it resumes if paused, and the money on their next monthly bill (plan_monthly_cents, any deferred billing_adjustment_cents, and the resulting next_bill_cents). For a PAUSED subscription it also returns resume_quote: what resuming would charge (charge_cents) and the next bill after resuming (next_bill_cents). ALWAYS call this to answer any question about the customer's current status, plan, dietary track, billing date, pause length, or how much their next bill will be; never answer those from earlier conversation.",
     parameters: { type: "object", properties: {}, additionalProperties: false },
   },
   async handler(ctx) {
@@ -63,6 +63,14 @@ export const getSubscription: Tool = {
         : { amount_cents: nextBill, monthly_cents: monthly, pause_fee_per_week_cents: PAUSE_FEE_CENTS, paused_weeks_billed: pausedWeeks };
     const note = nextBill === null || monthly === null ? undefined : nextBillNote(nextBill, monthly, weekly, pausedWeeks, adjustment);
 
+    // What resuming would cost - the same quote the resume prompt shows. Without
+    // it the model answers "what will I pay when I resume?" with the stay-paused
+    // next bill, which is a different (lower) number.
+    const resumeQuote =
+      paused && plan
+        ? quoteResume({ currentPlan: customer.plan, billingDate: customer.billingDate, plan, billingAdjustmentCents: adjustment, now: ctx.now })
+        : null;
+
     return {
       ok: true,
       summary: `Status ${customer.subscriptionStatus}, ${customer.plan}${nextBill === null ? "" : `, next bill ${money(nextBill)}`}`,
@@ -72,6 +80,12 @@ export const getSubscription: Tool = {
         dietary_track: customer.dietaryTrack,
         billing_date: customer.billingDate,
         pause,
+        resume_quote: resumeQuote && {
+          charge_cents: resumeQuote.charge_cents,
+          next_bill_cents: resumeQuote.next_bill_cents,
+          weeks_to_billing: resumeQuote.weeks_to_billing,
+          note: `If they resume, ${money(resumeQuote.charge_cents)} is added to their next bill for the ${resumeQuote.weeks_to_billing} weeks left until billing, so the next bill after resuming is ${money(resumeQuote.next_bill_cents)}. Quote only these two figures for resuming; the next_bill figures describe staying paused.`,
+        },
         plan_monthly_cents: monthly,
         billing_adjustment_cents: adjustment,
         next_bill_cents: nextBill,

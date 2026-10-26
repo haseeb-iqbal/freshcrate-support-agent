@@ -377,8 +377,6 @@ export const CASES: EvalCase[] = [
   {
     id: "refund-not-arrived-yet",
     customer: "ava",
-    knownFailing: true,
-    note: "Proposes a $17.50 refund for FC1001, which is shipped and due in 2 days (not yet late).",
     // FC1001 shipped, due in 2 days: nothing to refund yet.
     steps: [{ say: "my order FC1001 hasn't arrived, refund it", expect: { noCards: true } }],
   },
@@ -549,15 +547,11 @@ export const CASES: EvalCase[] = [
   {
     id: "resume-cost-question",
     customer: "sara",
-    knownFailing: true,
-    note: "Answers with the stay-paused next bill ($100) instead of what resuming costs (a $68 charge, so a $168 next bill).",
     steps: [{ say: "what will I pay when I resume?", expect: { noCards: true, facts: [/\$68\b/], banned: ["$100"] } }],
   },
   {
     id: "refund-last-week-mismatch",
     customer: "marcus",
-    knownFailing: true,
-    note: "Proposes FC1006 (delivered about 2 weeks ago) without saying it wasn't delivered last week.",
-    steps: [{ say: "my order from last week was damaged, can I get a refund?", expect: { noCards: true } }],
+    steps: [{ say: "my order from last week was damaged, can I get a refund?", expect: { noCards: true, asks: true } }],
   },
 ];

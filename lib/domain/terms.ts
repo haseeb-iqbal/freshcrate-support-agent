@@ -21,6 +21,9 @@ export interface OrderSelector {
   status?: OrderStatus;
   /** ISO YYYY-MM-DD; matches an order delivered or placed on that day. */
   date?: string;
+  /** ISO YYYY-MM-DD bounds (inclusive) for a range like "last week"; matches an order delivered or placed inside it. */
+  dateFrom?: string;
+  dateTo?: string;
 }
 
 /** Canonical rule sentences reused verbatim by the system prompt, so wording

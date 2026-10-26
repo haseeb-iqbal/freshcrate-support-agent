@@ -223,7 +223,7 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
 
         const tool = registry[call.name];
         const result: ToolResult = tool
-          ? await tool.handler({ customerId, now: turnNow }, args).catch((err) => ({
+          ? await tool.handler({ customerId, now: turnNow, customerMessage: lastUser?.content }, args).catch((err) => ({
               ok: false,
               summary: `Tool error: ${err instanceof Error ? err.message : "unknown"}`,
             }))

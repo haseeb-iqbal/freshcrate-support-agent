@@ -24,10 +24,14 @@ export function selectOrder<T extends SelectableOrder>(orders: T[], sel: OrderSe
   let pool = orders;
   if (sel.kind) pool = pool.filter((o) => o.kind === sel.kind);
   if (sel.status) pool = pool.filter((o) => o.status === sel.status);
+  const placedDay = (o: T) =>
+    `${o.placedAt.getFullYear()}-${String(o.placedAt.getMonth() + 1).padStart(2, "0")}-${String(o.placedAt.getDate()).padStart(2, "0")}`;
   if (sel.date) {
-    const placedDay = (o: T) =>
-      `${o.placedAt.getFullYear()}-${String(o.placedAt.getMonth() + 1).padStart(2, "0")}-${String(o.placedAt.getDate()).padStart(2, "0")}`;
     pool = pool.filter((o) => o.deliveryDate === sel.date || placedDay(o) === sel.date);
+  }
+  if (sel.dateFrom || sel.dateTo) {
+    const inRange = (d: string | null | undefined) => !!d && (!sel.dateFrom || d >= sel.dateFrom) && (!sel.dateTo || d <= sel.dateTo);
+    pool = pool.filter((o) => inRange(o.deliveryDate) || inRange(placedDay(o)));
   }
   const sorted = [...pool].sort((a, b) => b.placedAt.getTime() - a.placedAt.getTime());
   const pos = sel.position ?? 1;

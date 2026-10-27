@@ -153,6 +153,32 @@ describe("runAgent", () => {
     expect(events.filter((e) => e.event === "delta").map((e) => e.data)).toEqual(["I can't waive the sign-up fee, sorry."]);
   });
 
+  it("offers no action tools for a question about an action, and all of them for a request", async () => {
+    // "how much does pausing cost?" once drew a pause call that the loop dropped,
+    // and the model then talked about pausing instead of answering. With the
+    // action tools withheld it can only search and answer.
+    const defs = ["search_knowledge_base", "get_subscription", "pause_subscription", "issue_refund"].map((name) => ({ name, description: "", parameters: {} }));
+    const offered = async (content: string) => {
+      const seen: string[][] = [];
+      const provider: ChatProvider = {
+        defaultModel: "fake",
+        async *streamAgentTurn({ tools }) {
+          seen.push((tools ?? []).map((t) => t.name));
+          yield { type: "text", value: "ok" };
+        },
+      };
+      await runAgent({ customerId: "x", history: [{ role: "user", content }], emit: () => {} }, { provider, toolByName: {}, toolDefinitions: defs });
+      return seen[0];
+    };
+
+    for (const q of ["how much does pausing cost?", "how do refunds work?", "how does pausing work?"]) {
+      expect(await offered(q), q).toEqual(["search_knowledge_base", "get_subscription"]);
+    }
+    for (const r of ["pause my subscription for 2 weeks", "refund my order FC1008", "can you pause my subscription?"]) {
+      expect(await offered(r), r).toEqual(["search_knowledge_base", "get_subscription", "pause_subscription", "issue_refund"]);
+    }
+  });
+
   it("leaves a turn that shows no card exactly as the model wrote it", async () => {
     const events: { event: string; data: unknown }[] = [];
     const deps: AgentDeps = {

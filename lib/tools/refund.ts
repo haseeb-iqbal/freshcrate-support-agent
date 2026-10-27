@@ -1,4 +1,5 @@
 import { and, eq } from "drizzle-orm";
+import { refundLeadIn } from "./lead-ins";
 import { db } from "../../db";
 import { orders } from "../../db/schema";
 import { evaluateRefund, notYetDue } from "../guardrails/refund-policy";
@@ -137,6 +138,7 @@ export const issueRefund: Tool = {
       summary: `Proposed refund of ${amount} for order ${orderNumber} — awaiting approval`,
       data: {
         status: "needs_confirmation",
+        lead_in: refundLeadIn({ order_number: orderNumber, amount_cents: refundCents }),
         proposal: {
           order_number: orderNumber,
           amount_cents: refundCents,

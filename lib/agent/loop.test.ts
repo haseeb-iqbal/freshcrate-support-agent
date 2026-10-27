@@ -77,6 +77,94 @@ describe("runAgent", () => {
     expect(events.at(-1)?.event).toBe("done");
   });
 
+  it("shows the tool's fixed lead-in beside a card and drops the model's own text", async () => {
+    // The model rewrote "Here's the pause - confirm below" into "I've initiated
+    // your pause" before anything happened. On a card turn the customer now sees
+    // only the tool's sentence; the model's text never streams.
+    const events: { event: string; data: unknown }[] = [];
+    const leadIn = "Here's a 2-week pause from next week. Confirm below to go ahead.";
+    const deps: AgentDeps = {
+      provider: fakeProvider([toolTurn("pause_subscription", "Sure! "), textTurn("I've initiated your pause, all done!")]),
+      toolByName: okTool("pause_subscription", { status: "needs_confirmation", proposal: { weeks: 2 }, lead_in: leadIn }),
+      toolDefinitions: [],
+    };
+    await runAgent({ customerId: "x", history: [{ role: "user", content: "pause my subscription for 2 weeks" }], emit: (e, d) => events.push({ event: e, data: d }) }, deps);
+
+    const afterLastReset = events.slice(events.map((e) => e.event).lastIndexOf("reset") + 1);
+    const visible = afterLastReset.filter((e) => e.event === "delta").map((e) => e.data).join("");
+    expect(visible).toBe(leadIn);
+    expect(events.some((e) => e.event === "delta" && String(e.data).includes("initiated"))).toBe(false);
+    expect(events.some((e) => e.event === "pause_proposal")).toBe(true);
+    expect(events.at(-1)?.event).toBe("done");
+  });
+
+  it("joins the lead-ins when one turn shows two cards", async () => {
+    const events: { event: string; data: unknown }[] = [];
+    const turns: AgentStreamEvent[][] = [
+      [
+        {
+          type: "tool_calls",
+          value: [
+            { id: "a", name: "issue_refund", arguments: '{"order_number":"FC1008"}' },
+            { id: "b", name: "pause_subscription", arguments: '{"weeks":2}' },
+          ],
+        },
+      ],
+      textTurn("Done and done."),
+    ];
+    const deps: AgentDeps = {
+      provider: fakeProvider(turns),
+      toolByName: {
+        ...okTool("issue_refund", { status: "needs_confirmation", proposal: { order_number: "FC1008" }, lead_in: "Refund lead-in." }),
+        ...okTool("pause_subscription", { status: "needs_confirmation", proposal: { weeks: 2 }, lead_in: "Pause lead-in." }),
+      },
+      toolDefinitions: [],
+    };
+    await runAgent({ customerId: "x", history: [{ role: "user", content: "refund FC1008 and pause 2 weeks" }], emit: (e, d) => events.push({ event: e, data: d }) }, deps);
+
+    const deltas = events.filter((e) => e.event === "delta").map((e) => e.data);
+    expect(deltas).toEqual(["Refund lead-in.\n\nPause lead-in."]);
+  });
+
+  it("keeps the model's words when it re-proposes a card already on screen", async () => {
+    // "That $40 fee is outrageous, waive it": the model re-called reactivate and
+    // explained it can't waive the fee. The card is the one already shown, so
+    // its fixed lead-in would hide the actual answer.
+    const events: { event: string; data: unknown }[] = [];
+    const deps: AgentDeps = {
+      provider: fakeProvider([toolTurn("reactivate_subscription"), textTurn("I can't waive the sign-up fee, sorry.")]),
+      toolByName: okTool("reactivate_subscription", { status: "needs_confirmation", proposal: { plan: "3 meals/week" }, lead_in: "Fixed lead-in." }),
+      toolDefinitions: [],
+    };
+    await runAgent(
+      {
+        customerId: "x",
+        history: [
+          { role: "user", content: "reactivate on the 3 meals/week plan" },
+          { role: "assistant", content: "Fixed lead-in." },
+          { role: "user", content: "that $40 fee is outrageous, waive it" },
+        ],
+        decisions: [{ kind: "reactivate", outcome: "declined" }],
+        emit: (e, d) => events.push({ event: e, data: d }),
+      },
+      deps,
+    );
+
+    expect(events.filter((e) => e.event === "delta").map((e) => e.data)).toEqual(["I can't waive the sign-up fee, sorry."]);
+  });
+
+  it("leaves a turn that shows no card exactly as the model wrote it", async () => {
+    const events: { event: string; data: unknown }[] = [];
+    const deps: AgentDeps = {
+      provider: fakeProvider([toolTurn("get_subscription"), textTurn("Your next bill is $120.")]),
+      toolByName: okTool("get_subscription", { status: "active", lead_in: "never shown" }),
+      toolDefinitions: [],
+    };
+    await runAgent({ customerId: "x", history: [{ role: "user", content: "what's my next bill?" }], emit: (e, d) => events.push({ event: e, data: d }) }, deps);
+
+    expect(events.filter((e) => e.event === "delta").map((e) => e.data)).toEqual(["Your next bill is $120."]);
+  });
+
   it("nudges once when an action was requested but no tool was called", async () => {
     const events: { event: string; data: unknown }[] = [];
     const deps: AgentDeps = {

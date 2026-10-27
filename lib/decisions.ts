@@ -35,22 +35,12 @@ export interface Decision {
 /** Mirrors app/chat.tsx's ProposalState. lib/ must not import from app/. */
 export type ProposalState = "pending" | "submitting" | "locked" | "approved" | "declined" | "error";
 
-/** Structural view of a chat message - only the fields decisions care about. */
+/** One confirmation prompt the chat showed, and where it stands. */
 export interface DecisionSource {
-  proposal?: { order_number?: string };
-  proposalState?: ProposalState;
-  pauseProposal?: unknown;
-  pauseState?: ProposalState;
-  resumeProposal?: unknown;
-  resumeState?: ProposalState;
-  reactivateProposal?: unknown;
-  reactivateState?: ProposalState;
-  planProposal?: unknown;
-  planState?: ProposalState;
-  cancelProposal?: unknown;
-  cancelState?: ProposalState;
-  dietProposal?: unknown;
-  dietState?: ProposalState;
+  kind: DecisionKind;
+  state: ProposalState;
+  /** Refunds only - the order the prompt was about. */
+  orderNumber?: string;
 }
 
 const OUTCOME_OF: Record<ProposalState, DecisionOutcome> = {
@@ -69,25 +59,13 @@ const OUTCOME_OF: Record<ProposalState, DecisionOutcome> = {
 const MAX_DECISIONS = 20;
 const ORDER_NUMBER = /^FC\d{1,12}$/;
 
-/** Walk the transcript into one Decision per confirmation prompt shown. */
-export function collectDecisions(messages: DecisionSource[]): Decision[] {
-  const out: Decision[] = [];
-  for (const m of messages) {
-    if (m.proposal) {
-      const d: Decision = { kind: "refund", outcome: OUTCOME_OF[m.proposalState ?? "pending"] };
-      if (m.proposal.order_number) d.orderNumber = m.proposal.order_number;
-      out.push(d);
-    }
-    if (m.pauseProposal) out.push({ kind: "pause", outcome: OUTCOME_OF[m.pauseState ?? "pending"] });
-    if (m.resumeProposal) out.push({ kind: "resume", outcome: OUTCOME_OF[m.resumeState ?? "pending"] });
-    if (m.reactivateProposal) {
-      out.push({ kind: "reactivate", outcome: OUTCOME_OF[m.reactivateState ?? "pending"] });
-    }
-    if (m.planProposal) out.push({ kind: "plan_change", outcome: OUTCOME_OF[m.planState ?? "pending"] });
-    if (m.cancelProposal) out.push({ kind: "cancel", outcome: OUTCOME_OF[m.cancelState ?? "pending"] });
-    if (m.dietProposal) out.push({ kind: "dietary_track", outcome: OUTCOME_OF[m.dietState ?? "pending"] });
-  }
-  return out;
+/** One Decision per confirmation prompt shown, its state translated to an outcome. */
+export function collectDecisions(sources: DecisionSource[]): Decision[] {
+  return sources.map(({ kind, state, orderNumber }) => {
+    const d: Decision = { kind, outcome: OUTCOME_OF[state] };
+    if (orderNumber) d.orderNumber = orderNumber;
+    return d;
+  });
 }
 
 /**

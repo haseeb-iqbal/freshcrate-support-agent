@@ -1,3 +1,4 @@
+import type { DecisionKind } from "@/lib/decisions";
 import type { ToolCall } from "@/lib/llm/types";
 import type { ToolResult } from "@/lib/tools/types";
 
@@ -14,6 +15,17 @@ export const PROPOSAL_EVENTS: Record<string, string> = {
   change_plan: "plan_change_proposal",
   cancel_subscription: "cancel_proposal",
   change_dietary_track: "diet_change_proposal",
+};
+
+/** propose tool → the kind lib/decisions logs its card under. */
+export const PROPOSAL_DECISION_KINDS: Record<string, DecisionKind> = {
+  issue_refund: "refund",
+  pause_subscription: "pause",
+  resume_subscription: "resume",
+  reactivate_subscription: "reactivate",
+  change_plan: "plan_change",
+  cancel_subscription: "cancel",
+  change_dietary_track: "dietary_track",
 };
 
 export interface DispatchState {
@@ -73,7 +85,6 @@ export function dispatchTool(call: ToolCall, result: ToolResult, state: Dispatch
 
   // needs_confirmation results surface an action card — but only once.
   let duplicateProposal = false;
-  let freshProposal = false;
   if (result.ok && data?.status === "needs_confirmation" && PROPOSAL_EVENTS[call.name]) {
     const key = proposalKey(call);
     if (state.shownProposals.has(key)) {
@@ -81,7 +92,6 @@ export function dispatchTool(call: ToolCall, result: ToolResult, state: Dispatch
     } else {
       state.shownProposals.add(key);
       events.push({ event: PROPOSAL_EVENTS[call.name], data: data.proposal });
-      freshProposal = true;
     }
   }
 
@@ -111,14 +121,6 @@ export function dispatchTool(call: ToolCall, result: ToolResult, state: Dispatch
     modelContent = JSON.stringify({
       order: data.order,
       note: "This order is shown to the customer in a card. Give a short natural lead-in that names the order number once (for example 'Here's order FC1008:'), so a follow-up like 'refund it' is unambiguous, and do NOT restate its status, price, items, or dates. You may still answer a specific question about it in a sentence.",
-    });
-  } else if (freshProposal) {
-    // Sits right beside the proposal the model is about to describe, where the
-    // system prompt's version of this rule was too far away to stick.
-    modelContent = JSON.stringify({
-      ...data,
-      reply_style:
-        "Nothing has changed yet - the customer must confirm the prompt first. Open your reply with \"Here's\" and what the prompt does, then ask them to confirm below - e.g. \"Here's the cancellation - confirm below if you'd like to go ahead.\" Describe it as waiting on them, never as already started.",
     });
   } else {
     modelContent = JSON.stringify(result.data ?? { ok: result.ok, summary: result.summary });

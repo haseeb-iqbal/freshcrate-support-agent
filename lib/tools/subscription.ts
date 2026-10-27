@@ -6,6 +6,7 @@ import { getPlan } from "../billing/plans";
 import { quotePause, quoteReactivate, quoteResume } from "../billing/quotes";
 import { computeReconciliation, type SubStatus } from "../billing/reconcile";
 import { money } from "../money";
+import { cancelLeadIn, pauseLeadIn, reactivateLeadIn, resumeLeadIn } from "./lead-ins";
 import type { Tool } from "./types";
 
 /** The pause fee as it is written for humans and for the model, e.g. "$8/week".
@@ -233,6 +234,7 @@ export const pauseSubscription: Tool = {
       data: {
         status: "needs_confirmation",
         proposal,
+        lead_in: pauseLeadIn(proposal),
         message:
           `A confirmation prompt is shown. Nothing is charged now. Tell the customer plainly that each paused week is billed at the ${PAUSE_FEE_PER_WEEK} pause fee instead of their usual weekly rate, until it resumes - there is NO separate credit. The plan pauses from next week (this week's box still ships) and they can resume early. Keep your reply to a short lead-in and ask them to confirm. Do NOT say it's paused until they confirm.`,
       },
@@ -293,6 +295,7 @@ export const resumeSubscription: Tool = {
       data: {
         status: "needs_confirmation",
         proposal,
+        lead_in: resumeLeadIn(proposal),
         message:
           `A confirmation prompt shows the resume. Nothing is charged now: resuming returns the weeks left until billing to the normal weekly rate (they stop billing at the ${PAUSE_FEE_PER_WEEK} pause fee), which adds ${charge}, so their next monthly bill will be exactly ${nextBill}. The plan resumes from next week. The card shows the exact ${nextBill} figure - do NOT state a different amount in your reply; keep it to a short lead-in and ask them to confirm. Do NOT say it's resumed until they confirm.`,
       },
@@ -358,6 +361,7 @@ export const reactivateSubscription: Tool = {
       data: {
         status: "needs_confirmation",
         proposal,
+        lead_in: reactivateLeadIn(proposal),
         message: free
           ? "The customer is within their billing period on the same plan, so reactivation is FREE (no charge). Ask them to confirm; do NOT say it's done until they confirm."
           : "A confirmation prompt shows the first charge (plan price plus sign-up fee where it applies). Ask them to confirm before it's charged; do NOT say it's reactivated until they confirm.",
@@ -387,6 +391,7 @@ export const cancelSubscription: Tool = {
       data: {
         status: "needs_confirmation",
         proposal: { billing_date: customer.billingDate, signup_fee_cents: SIGNUP_FEE_CENTS },
+        lead_in: cancelLeadIn({ billing_date: customer.billingDate, signup_fee_cents: SIGNUP_FEE_CENTS }),
         message:
           "A cancellation prompt is shown. The month is already paid, so boxes keep arriving until the billing date and nothing more is charged after it. Resubscribing after the billing date costs a sign-up fee plus the first month (before then, same plan, is free). Briefly relay that and ask them to confirm. Do NOT say it's cancelled until they confirm.",
       },

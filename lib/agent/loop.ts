@@ -5,7 +5,7 @@ import type { AgentMessage, ChatProvider, TokenUsage, ToolCall, ToolDefinition }
 import { toolByName as realToolByName, toolDefinitions as realToolDefinitions, type Tool, type ToolResult } from "@/lib/tools";
 import { buildAgentMessages } from "./messages";
 import { buildSystemPrompt } from "./prompt";
-import { dispatchTool, PROPOSAL_EVENTS, type DispatchState } from "./dispatch";
+import { dispatchTool, PROPOSAL_DECISION_KINDS, PROPOSAL_EVENTS, type DispatchState } from "./dispatch";
 import { ORDER_CARD_TOOLS, shouldNudge, shouldNudgeOrderCard } from "./nudge";
 import { isPureDecline } from "./decline";
 import { isActionQuestion, isAddRequest, isCompanyTopicQuestion, mentionsDietaryTrack } from "./question";
@@ -93,6 +93,20 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
   const controller = new AbortController();
   const deadline = setTimeout(() => controller.abort(), deps.timeoutMs ?? DEFAULT_TIMEOUT_MS);
   let anyStreamedText = false;
+  // The fixed lead-in of every card shown this turn. Once a card is up, the
+  // model's own text is no longer streamed: the customer sees these sentences
+  // instead, so the reply beside a card can never claim the action is done.
+  const leadIns: string[] = [];
+  // A card of a kind already shown and not confirmed is a re-proposal, usually
+  // the model answering a follow-up about it ("waive that fee"). The card is the
+  // one already on screen, so the model's words are the answer and stay visible.
+  const reProposal = (tool: string, args: Record<string, unknown>) =>
+    (decisions ?? []).some(
+      (d) =>
+        d.kind === PROPOSAL_DECISION_KINDS[tool] &&
+        d.outcome !== "confirmed" &&
+        (d.kind !== "refund" || d.orderNumber === String(args.order_number ?? "")),
+    );
   // Tokens across every model call this turn, reported once as it ends (evals
   // price runs from it). Nothing is emitted when the provider reports none.
   const usage: TokenUsage = { promptTokens: 0, completionTokens: 0 };
@@ -110,7 +124,7 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
       for await (const ev of provider.streamAgentTurn({ messages, tools: definitions, signal: controller.signal })) {
         if (ev.type === "text") {
           text += ev.value;
-          if (ev.value) {
+          if (ev.value && leadIns.length === 0) {
             emit("delta", ev.value);
             streamedText = true;
             anyStreamedText = true;
@@ -159,6 +173,7 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
           });
           continue;
         }
+        if (leadIns.length) emit("delta", leadIns.join("\n\n"));
         finish({});
         return;
       }
@@ -243,11 +258,17 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
 
         const { events, modelContent } = dispatchTool(call, result, state);
         for (const e of events) emit(e.event, e.data);
+        // A card actually went up (not a duplicate the dispatcher swallowed):
+        // its tool's lead-in becomes the visible reply for this turn.
+        const leadIn = (result.data as { lead_in?: unknown } | undefined)?.lead_in;
+        if (typeof leadIn === "string" && events.some((e) => e.event === PROPOSAL_EVENTS[call.name]) && !reProposal(call.name, args)) {
+          leadIns.push(leadIn);
+        }
         messages.push({ role: "tool", toolCallId: call.id, content: modelContent });
       }
     }
 
-    emit("delta", "\n\nI'm having trouble completing that — let me connect you with a human specialist.");
+    emit("delta", leadIns.length ? leadIns.join("\n\n") : "\n\nI'm having trouble completing that — let me connect you with a human specialist.");
     finish({ truncated: true });
   } catch (err) {
     // The turn ran past its budget: abort the preamble and close on a calm note

@@ -23,7 +23,7 @@ export const getSubscription: Tool = {
   definition: {
     name: "get_subscription",
     description:
-      "Get the current customer's LIVE subscription details: status (active/paused/cancelled), plan, dietary track, next billing date, how long/when it resumes if paused, and the money on their next monthly bill (plan_monthly_cents, any deferred billing_adjustment_cents, and the resulting next_bill_cents). For a PAUSED subscription it also returns resume_quote: what resuming would charge (charge_cents) and the next bill after resuming (next_bill_cents). ALWAYS call this to answer any question about the customer's current status, plan, dietary track, billing date, pause length, or how much their next bill will be; never answer those from earlier conversation.",
+      "Get the current customer's LIVE subscription details: status (active/paused/cancelled), plan, dietary track, next billing date, how long/when it resumes if paused, and the money on their next monthly bill (plan_monthly_cents, any deferred billing_adjustment_cents, and the resulting next_bill_cents). For a PAUSED subscription it also returns resume_quote: what resuming would charge (charge_cents) and the next bill after resuming (next_bill_cents). When a paused customer asks what they'll pay if or when they resume, answer from resume_quote, not the stay-paused next_bill_cents, and don't call resume_subscription for a question. ALWAYS call this to answer any question about the customer's current status, plan, dietary track, billing date, pause length, or how much their next bill will be; never answer those from earlier conversation.",
     parameters: { type: "object", properties: {}, additionalProperties: false },
   },
   async handler(ctx) {

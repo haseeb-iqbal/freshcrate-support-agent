@@ -179,6 +179,22 @@ describe("runAgent", () => {
     }
   });
 
+  it("tells the model which customer is signed in", async () => {
+    let system = "";
+    const provider: ChatProvider = {
+      defaultModel: "fake",
+      async *streamAgentTurn({ messages }) {
+        system = messages[0].content as string;
+        yield { type: "text", value: "Hi" };
+      },
+    };
+    await runAgent(
+      { customerId: "x", customerLabel: "Ava Chen (active, 2 meals/week)", history: [{ role: "user", content: "hi" }], emit: () => {} },
+      { provider, toolByName: {}, toolDefinitions: [] },
+    );
+    expect(system).toContain("Signed-in customer: Ava Chen (active, 2 meals/week).");
+  });
+
   it("leaves a turn that shows no card exactly as the model wrote it", async () => {
     const events: { event: string; data: unknown }[] = [];
     const deps: AgentDeps = {

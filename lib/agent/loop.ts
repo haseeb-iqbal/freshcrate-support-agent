@@ -72,6 +72,10 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
   // knowledge base, not a request: drop any proposal made for it and make sure
   // the knowledge base was searched (see the tool loop and the nudge below).
   const askingAboutAction = !!lastUser && isActionQuestion(lastUser.content);
+  // ...and on such a turn the action tools are not offered at all, so the model
+  // can only search and answer. Dropping a proposal after the fact left it
+  // talking about the action instead ("I can't proceed with pausing right now").
+  const offeredTools = askingAboutAction ? definitions.filter((d) => !PROPOSAL_EVENTS[d.name]) : definitions;
   // "can I add a Mango Lassi?" is a menu question too, but only when the model
   // answered it without calling any tool at all.
   // The same goes for a discount, storage or moving question the scope rule
@@ -121,7 +125,7 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
       let toolCalls: ToolCall[] = [];
       let streamedText = false;
 
-      for await (const ev of provider.streamAgentTurn({ messages, tools: definitions, signal: controller.signal })) {
+      for await (const ev of provider.streamAgentTurn({ messages, tools: offeredTools, signal: controller.signal })) {
         if (ev.type === "text") {
           text += ev.value;
           if (ev.value && leadIns.length === 0) {

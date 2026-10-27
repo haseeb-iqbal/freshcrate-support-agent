@@ -24,6 +24,10 @@ describe("isActionQuestion", () => {
       "what's the $8 fee for?",
       "how much does it cost to reactivate after cancelling?",
       "is there a charge to resume?",
+      "how do refunds work?",
+      "how does pausing work?",
+      "How would cancelling work for me?",
+      "what's your refund policy?",
     ]) {
       expect(isActionQuestion(t)).toBe(true);
     }
@@ -36,6 +40,11 @@ describe("isActionQuestion", () => {
       "if you could pause my plan that'd be great",
       "cancel my subscription",
       "that $40 fee is outrageous, waive it",
+      "refund my order",
+      "can you refund my order FC1008?",
+      "I want to pause",
+      "can I pause for 2 weeks?",
+      "please cancel, I don't want it to work like this anymore",
     ]) {
       expect(isActionQuestion(t)).toBe(false);
     }

@@ -21,6 +21,10 @@ const PATTERNS = [
   /\bhow much\b[^?.!]*\b(?:cost|fee|charge|paus\w*|cancel\w*|reactivat\w*|resum\w*)\b/i,
   // "what's the pause fee?", "is there a charge to reactivate?"
   /\b(?:what(?:'s|’s| is| are)|is there)\b[^?.!]*\b(?:fee|charge|cost)\b/i,
+  // How an action works: "how do refunds work?", "how does pausing work?"
+  /\bhow (?:do|does|would)\b[^?.!]*\b(?:refund\w*|paus\w*|cancel\w*|reactivat\w*|resum\w*)\b[^?.!]*\bwork\b/i,
+  // The policy itself: "what's your refund policy?"
+  /\b(?:refund|cancell?ation|pause|pausing)s? polic(?:y|ies)\b/i,
 ];
 
 export function isActionQuestion(text: string): boolean {

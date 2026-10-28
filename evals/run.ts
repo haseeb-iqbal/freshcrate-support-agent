@@ -1,4 +1,6 @@
 import "dotenv/config";
+// Evals replay scripted chats; keep them out of the traces log the dashboard reads.
+process.env.TRACES_DISABLED = "1";
 import { spawnSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import type { NextRequest } from "next/server";
@@ -13,6 +15,7 @@ import { POST as reactivatePOST } from "@/app/api/actions/reactivate/route";
 import { POST as changePlanPOST } from "@/app/api/actions/change-plan/route";
 import { POST as cancelPOST } from "@/app/api/actions/cancel/route";
 import { POST as dietPOST } from "@/app/api/actions/dietary-track/route";
+import { estimateCostUsd } from "@/lib/llm/pricing";
 import { CASES as BASE_CASES } from "./cases";
 import { GAP_CASES } from "./cases-gaps";
 import { excerptsFor, judge } from "./judge";
@@ -43,8 +46,6 @@ const CUSTOMER_IDS: Record<CustomerKey, string> = {
   jamal: "11111111-1111-1111-1111-111111110010",
 };
 
-/** gpt-4o-mini list prices, USD per 1M tokens. */
-const PRICE_PER_M = { input: 0.15, output: 0.6 };
 /** A full run costs about $0.20; past this the remaining cases are skipped. */
 const BUDGET_USD = 0.4;
 /** Claims an action happened before the customer confirmed anything. */
@@ -107,7 +108,8 @@ interface CaseResult {
   ms: number;
 }
 
-const usd = (prompt: number, completion: number) => (prompt * PRICE_PER_M.input + completion * PRICE_PER_M.output) / 1_000_000;
+/** Both the chat and the judge run on gpt-4o-mini. */
+const usd = (prompt: number, completion: number) => estimateCostUsd("gpt-4o-mini", prompt, completion);
 
 function seed() {
   const r = spawnSync("npm run db:seed", { shell: true, encoding: "utf8" });

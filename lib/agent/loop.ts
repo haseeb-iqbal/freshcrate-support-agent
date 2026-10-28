@@ -32,6 +32,19 @@ export interface AgentDeps {
 
 const MAX_ITERATIONS = Number(process.env.MAX_LOOP_ITERATIONS ?? 6);
 
+/** What one turn did, for the traces log. */
+export interface TurnSummary {
+  model: string;
+  promptTokens: number;
+  completionTokens: number;
+  /** Tools that actually ran, in order (a guard-skipped call is not listed). */
+  tools: string[];
+  /** Guards that stepped in: "nudge", "kb_nudge", "order_nudge", "decline", "action_question", "track_guard", "repeat_refund". */
+  guards: string[];
+  /** "answered", or how the turn was cut short: "step_cap" or "deadline". */
+  end: "answered" | "step_cap" | "deadline";
+}
+
 /** The model occasionally stalls mid-generation; cap the whole turn so a stuck
  *  request can never leave the customer watching a spinner forever. */
 const DEFAULT_TIMEOUT_MS = Number(process.env.AGENT_TIMEOUT_MS ?? 45_000);
@@ -41,7 +54,7 @@ const DEFAULT_TIMEOUT_MS = Number(process.env.AGENT_TIMEOUT_MS ?? 45_000);
  * user; any earlier turn that streamed text (because it made tool calls or is
  * about to be nudged) emits `reset` to clear that preamble.
  */
-export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Promise<void> {
+export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Promise<TurnSummary> {
   const { customerId, customerLabel, history, decisions, emit } = opts;
   const provider = deps.provider ?? getChatProvider();
   const registry = deps.toolByName ?? realToolByName;
@@ -114,6 +127,9 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
   // Tokens across every model call this turn, reported once as it ends (evals
   // price runs from it). Nothing is emitted when the provider reports none.
   const usage: TokenUsage = { promptTokens: 0, completionTokens: 0 };
+  const toolsRun: string[] = [];
+  const guards: string[] = [];
+  const summary = (end: TurnSummary["end"]): TurnSummary => ({ model: provider.defaultModel, ...usage, tools: toolsRun, guards, end });
   const finish = (data: Record<string, unknown>) => {
     if (usage.promptTokens || usage.completionTokens) emit("usage", usage);
     emit("done", data);
@@ -146,6 +162,7 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
         // It has its own flag so the generic nudge below can't use up the one retry.
         if (!kbNudged && !searchedKb && (askingAboutAction || (askingToAdd && !anyToolCalled))) {
           kbNudged = true;
+          guards.push("kb_nudge");
           if (streamedText) emit("reset", {});
           if (text) messages.push({ role: "assistant", content: text });
           messages.push({
@@ -157,6 +174,7 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
         }
         if (shouldNudge({ assistantText: text, actionToolCallCount: actionToolCallsMade, alreadyNudged: nudged })) {
           nudged = true;
+          guards.push("nudge");
           if (streamedText) emit("reset", {}); // discard the pre-nudge preamble
           if (text) messages.push({ role: "assistant", content: text });
           messages.push({
@@ -168,6 +186,7 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
         }
         if (shouldNudgeOrderCard({ assistantText: text, orderToolCallCount: orderToolCallsMade, alreadyNudged: nudged })) {
           nudged = true;
+          guards.push("order_nudge");
           if (streamedText) emit("reset", {});
           if (text) messages.push({ role: "assistant", content: text });
           messages.push({
@@ -179,7 +198,7 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
         }
         if (leadIns.length) emit("delta", leadIns.join("\n\n"));
         finish({});
-        return;
+        return summary("answered");
       }
 
       // A tool turn is never the final answer — clear any preamble it streamed.
@@ -190,6 +209,7 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
 
       for (const call of toolCalls) {
         if (declining && PROPOSAL_EVENTS[call.name]) {
+          guards.push("decline");
           // Customer's message was only a decline, yet the model tried to
           // (re-)propose. Skip it whole — no tool_call step, no card — and steer
           // the model to just acknowledge. A tool message keeps the transcript
@@ -212,6 +232,7 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
               ? "The customer has not asked to change their dietary track, so no switch has been proposed or shown. Answer what they asked with search_knowledge_base. If they asked for a meal or add-on from another track, say it isn't on their own track's menu, name the track it belongs to, and offer to switch tracks if they want."
               : "");
         if (notAnAction) {
+          guards.push(askingAboutAction ? "action_question" : "track_guard");
           messages.push({
             role: "tool",
             toolCallId: call.id,
@@ -230,6 +251,7 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
         }
 
         if (call.name === "issue_refund" && refundedThisChat.has(String(args.order_number ?? ""))) {
+          guards.push("repeat_refund");
           // The customer already confirmed this order's refund in this chat, so
           // a further refund request ("another order") is about a different
           // one. gpt-4o-mini re-calls issue_refund for the same order, gets
@@ -245,6 +267,7 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
         }
 
         emit("tool_call", { name: call.name, args });
+        toolsRun.push(call.name);
 
         const tool = registry[call.name];
         const result: ToolResult = tool
@@ -274,6 +297,7 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
 
     emit("delta", leadIns.length ? leadIns.join("\n\n") : "\n\nI'm having trouble completing that — let me connect you with a human specialist.");
     finish({ truncated: true });
+    return summary("step_cap");
   } catch (err) {
     // The turn ran past its budget: abort the preamble and close on a calm note
     // rather than a spinner that never ends.
@@ -281,7 +305,7 @@ export async function runAgent(opts: RunAgentOptions, deps: AgentDeps = {}): Pro
       if (anyStreamedText) emit("reset", {});
       emit("delta", "Sorry — that's taking longer than usual on my end. Please try again in a moment.");
       finish({ timedOut: true });
-      return;
+      return summary("deadline");
     }
     throw err;
   } finally {

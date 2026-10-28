@@ -17,6 +17,8 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
   const [customers, setCustomers] = useState(initialCustomers);
   const [customerId, setCustomerId] = useState(initialCustomers[0]?.id ?? "");
   const [messages, setMessages] = useState<Message[]>([]);
+  // One id per chat session, so the traces log can group a conversation's turns.
+  const [conversationId, setConversationId] = useState(() => crypto.randomUUID());
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [showAccount, setShowAccount] = useState(false);
@@ -32,6 +34,7 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
     setMessages([]);
     setInput("");
     setShowAccount(false);
+    setConversationId(crypto.randomUUID());
   }
 
   function switchCustomer(id: string) {
@@ -39,6 +42,7 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
     setCustomerId(id);
     setMessages([]);
     setInput("");
+    setConversationId(crypto.randomUUID());
   }
 
   async function refreshCustomers() {
@@ -140,6 +144,7 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           customerId,
+          conversationId,
           messages: history.map(({ role, content }) => ({ role, content })),
           decisions: collectDecisions(lockedMessages.flatMap(toDecisionSources)),
         }),

@@ -87,6 +87,7 @@ export const kbChunks = pgTable("kb_chunks", {
 export const traces = pgTable("traces", {
   id: uuid("id").primaryKey().defaultRandom(),
   conversationId: uuid("conversation_id").notNull(),
+  customerId: uuid("customer_id"),
   turnIndex: integer("turn_index").notNull(),
   userMessage: text("user_message"),
   modelUsed: text("model_used"),
@@ -96,6 +97,8 @@ export const traces = pgTable("traces", {
   outputTokens: integer("output_tokens"),
   estCostUsd: numeric("est_cost_usd"),
   latencyMs: integer("latency_ms"),
+  guards: jsonb("guards"), // guard names that stepped in, e.g. ["nudge", "decline"]
+  endReason: text("end_reason"), // answered | step_cap | deadline | error
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

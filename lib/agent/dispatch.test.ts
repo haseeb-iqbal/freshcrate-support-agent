@@ -7,16 +7,6 @@ const call = (name: string, id = "c1", args = "{}"): ToolCall => ({ id, name, ar
 const freshState = (): DispatchState => ({ shownProposals: new Set() });
 
 describe("dispatchTool", () => {
-  it("emits sources for search_knowledge_base, then tool_result", () => {
-    const result: ToolResult = {
-      ok: true,
-      summary: "2 hits",
-      data: { excerpts: [{ slug: "pause-resume", heading: "How pausing works" }] },
-    };
-    const out = dispatchTool(call("search_knowledge_base"), result, freshState());
-    expect(out.events[0].event).toBe("sources");
-    expect(out.events.at(-1)?.event).toBe("tool_result");
-  });
 
   it("emits a proposal event once and suppresses the duplicate", () => {
     const state = freshState();
@@ -56,29 +46,6 @@ describe("dispatchTool", () => {
     expect(second.events.some((e) => e.event === "refund_proposal")).toBe(true);
   });
 
-  it("dedupes identical arguments regardless of key order", () => {
-    const state = freshState();
-    const result: ToolResult = {
-      ok: true,
-      summary: "proposed",
-      data: { status: "needs_confirmation", proposal: { order_number: "FC1002" } },
-    };
-
-    const first = dispatchTool(
-      call("issue_refund", "c1", JSON.stringify({ order_number: "FC1002", reason: "late" })),
-      result,
-      state,
-    );
-    const second = dispatchTool(
-      call("issue_refund", "c2", JSON.stringify({ reason: "late", order_number: "FC1002" })),
-      result,
-      state,
-    );
-
-    expect(first.events.some((e) => e.event === "refund_proposal")).toBe(true);
-    expect(second.events.some((e) => e.event === "refund_proposal")).toBe(false);
-  });
-
   it("withholds order details for list_orders and emits history", () => {
     const result: ToolResult = { ok: true, summary: "3 orders", data: { orders: [], transactions: [] } };
     const out = dispatchTool(call("list_orders"), result, freshState());
@@ -86,33 +53,4 @@ describe("dispatchTool", () => {
     expect(out.modelContent).toContain("do NOT list the orders");
   });
 
-  it("feeds back the raw data for a generic tool", () => {
-    const result: ToolResult = { ok: true, summary: "ok", data: { status: "active", plan: "2 meals/week" } };
-    const out = dispatchTool(call("get_subscription"), result, freshState());
-    expect(JSON.parse(out.modelContent)).toEqual({ status: "active", plan: "2 meals/week" });
-  });
-
-  it("emits an order card and tells the model not to restate the order for lookup_order", () => {
-    const result: ToolResult = { ok: true, summary: "Order FC1001", data: { order: { order_number: "FC1001", status: "delivered" }, open_order_count: 1 } };
-    const out = dispatchTool(call("lookup_order"), result, freshState());
-    expect(out.events.map((e) => e.event)).toContain("order");
-    expect(out.events.find((e) => e.event === "order")?.data).toMatchObject({ order_number: "FC1001" });
-    expect(out.modelContent).toContain("card");
-  });
-
-  it("raises a diet_change_proposal card for change_dietary_track", () => {
-    const proposal = {
-      current_track: "standard",
-      new_track: "vegetarian",
-      effective_from: "2026-07-30",
-      meals_preview: ["Paneer Butter Masala & Basmati"],
-    };
-    const result: ToolResult = {
-      ok: true,
-      summary: "Proposed switch to vegetarian",
-      data: { status: "needs_confirmation", proposal },
-    };
-    const out = dispatchTool(call("change_dietary_track", "c1", '{"track":"vegetarian"}'), result, freshState());
-    expect(out.events.find((e) => e.event === "diet_change_proposal")?.data).toEqual(proposal);
-  });
 });

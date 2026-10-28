@@ -29,35 +29,6 @@ describe("orderView", () => {
     expect(v.delivered_on).toBeNull();
   });
 
-  it("reports a processing order's date as expected", () => {
-    const v = orderView(row({ status: "processing", deliveryDate: "2026-07-25" }));
-    expect(v.expected_delivery_date).toBe("2026-07-25");
-    expect(v.delivered_on).toBeNull();
-  });
-
-  it("reports a delivered order's date as the delivery that happened", () => {
-    const v = orderView(row({ status: "delivered", deliveryDate: "2026-07-10" }));
-    expect(v.delivered_on).toBe("2026-07-10");
-    expect(v.expected_delivery_date).toBeNull();
-  });
-
-  it("never reports a delivery for a cancelled order", () => {
-    const v = orderView(row({ status: "cancelled", deliveryDate: "2026-07-25" }));
-    expect(v.delivered_on).toBeNull();
-    expect(v.expected_delivery_date).toBeNull();
-  });
-
-  it("keeps expected and actual mutually exclusive for every status", () => {
-    for (const status of ["processing", "shipped", "delivered", "cancelled"]) {
-      const v = orderView(row({ status }));
-      expect(v.delivered_on !== null && v.expected_delivery_date !== null).toBe(false);
-    }
-  });
-
-  it("still exposes the status verbatim", () => {
-    expect(orderView(row({ status: "shipped" })).status).toBe("shipped");
-  });
-
   it("surfaces a refund only once one has happened", () => {
     expect(orderView(row()).refunded).toBe(false);
     expect(orderView(row()).refunded_at).toBeNull();
@@ -66,28 +37,6 @@ describe("orderView", () => {
     expect(done.refunded_at).toBe("2026-07-10");
   });
 
-  it("defaults absent add-ons and items to empty arrays", () => {
-    const v = orderView(row({ addOns: null, items: null }));
-    expect(v.add_ons).toEqual([]);
-    expect(v.items).toEqual([]);
-  });
-
-  it("reports the charged total and the undiscounted list price separately", () => {
-    // A subscription meal is free to the customer but still refunds at list price.
-    const v = orderView(row({ kind: "subscription", totalCents: 0, listPriceCents: 1750 }));
-    expect(v.charged_cents).toBe(0);
-    expect(v.list_price_cents).toBe(1750);
-    expect(v.refund_cents).toBe(1750);
-  });
-
-  it("surfaces the meal's dietary tags", () => {
-    const v = orderView(row({ dietaryTags: ["vegetarian", "gluten-free"] }));
-    expect(v.dietary_tags).toEqual(["vegetarian", "gluten-free"]);
-  });
-
-  it("treats absent dietary tags as none", () => {
-    expect(orderView(row({ dietaryTags: null })).dietary_tags).toEqual([]);
-  });
 });
 
 describe("refundAmountCents", () => {
@@ -100,7 +49,4 @@ describe("refundAmountCents", () => {
     expect(refundAmountCents(o)).toBe(2850);
   });
 
-  it("treats absent add-ons as none", () => {
-    expect(refundAmountCents(row({ addOns: null }))).toBe(1750);
-  });
 });

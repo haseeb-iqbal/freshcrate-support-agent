@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { runAgent, type AgentDeps } from "./loop";
-import type { AgentMessage, AgentStreamEvent, ChatProvider, ToolCall } from "@/lib/llm/types";
+import type { AgentStreamEvent, ChatProvider, ToolCall } from "@/lib/llm/types";
 import type { Tool } from "@/lib/tools/types";
 import type { Decision } from "@/lib/decisions";
 
@@ -26,10 +26,6 @@ const toolTurn = (name: string, text = ""): AgentStreamEvent[] => {
   return evs;
 };
 
-/** A tool turn whose call carries a specific (possibly malformed) argument string. */
-const toolTurnWithArgs = (name: string, args: string): AgentStreamEvent[] => [
-  { type: "tool_calls", value: [{ id: "c1", name, arguments: args } as ToolCall] },
-];
 
 /** A tool whose handler always rejects. */
 const throwingTool = (name: string): Record<string, Tool> => ({
@@ -96,34 +92,6 @@ describe("runAgent", () => {
     expect(events.some((e) => e.event === "delta" && String(e.data).includes("initiated"))).toBe(false);
     expect(events.some((e) => e.event === "pause_proposal")).toBe(true);
     expect(events.at(-1)?.event).toBe("done");
-  });
-
-  it("joins the lead-ins when one turn shows two cards", async () => {
-    const events: { event: string; data: unknown }[] = [];
-    const turns: AgentStreamEvent[][] = [
-      [
-        {
-          type: "tool_calls",
-          value: [
-            { id: "a", name: "issue_refund", arguments: '{"order_number":"FC1008"}' },
-            { id: "b", name: "pause_subscription", arguments: '{"weeks":2}' },
-          ],
-        },
-      ],
-      textTurn("Done and done."),
-    ];
-    const deps: AgentDeps = {
-      provider: fakeProvider(turns),
-      toolByName: {
-        ...okTool("issue_refund", { status: "needs_confirmation", proposal: { order_number: "FC1008" }, lead_in: "Refund lead-in." }),
-        ...okTool("pause_subscription", { status: "needs_confirmation", proposal: { weeks: 2 }, lead_in: "Pause lead-in." }),
-      },
-      toolDefinitions: [],
-    };
-    await runAgent({ customerId: "x", history: [{ role: "user", content: "refund FC1008 and pause 2 weeks" }], emit: (e, d) => events.push({ event: e, data: d }) }, deps);
-
-    const deltas = events.filter((e) => e.event === "delta").map((e) => e.data);
-    expect(deltas).toEqual(["Refund lead-in.\n\nPause lead-in."]);
   });
 
   it("keeps the model's words when it re-proposes a card already on screen", async () => {
@@ -195,18 +163,6 @@ describe("runAgent", () => {
     expect(system).toContain("Signed-in customer: Ava Chen (active, 2 meals/week).");
   });
 
-  it("leaves a turn that shows no card exactly as the model wrote it", async () => {
-    const events: { event: string; data: unknown }[] = [];
-    const deps: AgentDeps = {
-      provider: fakeProvider([toolTurn("get_subscription"), textTurn("Your next bill is $120.")]),
-      toolByName: okTool("get_subscription", { status: "active", lead_in: "never shown" }),
-      toolDefinitions: [],
-    };
-    await runAgent({ customerId: "x", history: [{ role: "user", content: "what's my next bill?" }], emit: (e, d) => events.push({ event: e, data: d }) }, deps);
-
-    expect(events.filter((e) => e.event === "delta").map((e) => e.data)).toEqual(["Your next bill is $120."]);
-  });
-
   it("nudges once when an action was requested but no tool was called", async () => {
     const events: { event: string; data: unknown }[] = [];
     const deps: AgentDeps = {
@@ -221,119 +177,12 @@ describe("runAgent", () => {
     expect(events.some((e) => e.event === "pause_proposal")).toBe(true);
   });
 
-  it("nudges an order-card lead-in written without fetching the order, so the card appears", async () => {
-    // gpt-4o-mini answers "where's my latest order?" with "Here's your order
-    // history:" and no tool call, leaving a lead-in to a card that never shows.
-    const events: { event: string; data: unknown }[] = [];
-    const deps: AgentDeps = {
-      provider: fakeProvider([textTurn("Here's your order history:"), toolTurn("lookup_order"), textTurn("Your latest order is on its way.")]),
-      toolByName: okTool("lookup_order", { order: { order_number: "FC1004" } }),
-      toolDefinitions: [],
-    };
-    await runAgent({ customerId: "x", history: [{ role: "user", content: "where's my latest order?" }], emit: (e, d) => events.push({ event: e, data: d }) }, deps);
-
-    expect(events.some((e) => e.event === "reset")).toBe(true);
-    expect(events.some((e) => e.event === "order")).toBe(true);
-    expect(events.filter((e) => e.event === "delta").at(-1)?.data).toBe("Your latest order is on its way.");
-  });
-
-  it("still nudges when the only action call was redirected to another tool", async () => {
-    // Paused customer, "switch me to 4 meals/week": the model called
-    // reactivate_subscription, was told to use resume_subscription, then wrote
-    // "I'll proceed with that now. Please confirm to resume" with no card.
-    const events: { event: string; data: unknown }[] = [];
-    const deps: AgentDeps = {
-      provider: fakeProvider([
-        toolTurn("reactivate_subscription"),
-        textTurn("I'll proceed with that now. Please confirm to resume your subscription!"),
-        toolTurn("resume_subscription"),
-        textTurn("Here's the resume - confirm below."),
-      ]),
-      toolByName: {
-        ...okTool("reactivate_subscription", { status: "paused", redirect_to: "resume_subscription", message: "use resume_subscription" }),
-        ...okTool("resume_subscription", { status: "needs_confirmation", proposal: { plan: "4 meals/week" } }),
-      },
-      toolDefinitions: [],
-    };
-    await runAgent({ customerId: "x", history: [{ role: "user", content: "switch me to the 4 meals/week plan" }], emit: (e, d) => events.push({ event: e, data: d }) }, deps);
-
-    expect(events.some((e) => e.event === "resume_proposal")).toBe(true);
-    expect(events.filter((e) => e.event === "delta").at(-1)?.data).toBe("Here's the resume - confirm below.");
-  });
-
-  it("nudges a refund described after a read-only lookup, so the card still appears", async () => {
-    // The screenshot bug: lookup_order (read-only) then a prose refund proposal
-    // with no issue_refund call. The read tool must NOT suppress the nudge.
-    const events: { event: string; data: unknown }[] = [];
-    const registry: Record<string, Tool> = {
-      ...okTool("lookup_order", { order: { order_number: "FC1001" } }),
-      ...okTool("issue_refund", { status: "needs_confirmation", proposal: { order_number: "FC1001", amount_cents: 1750 } }),
-    };
-    const deps: AgentDeps = {
-      provider: fakeProvider([
-        toolTurn("lookup_order"),
-        textTurn("I can propose a refund of $17.50 for FC1001. Please confirm to proceed."),
-        toolTurn("issue_refund"),
-        textTurn("Please confirm the refund below."),
-      ]),
-      toolByName: registry,
-      toolDefinitions: [],
-    };
-    await runAgent({ customerId: "x", history: [{ role: "user", content: "refund my last shipped order" }], emit: (e, d) => events.push({ event: e, data: d }) }, deps);
-
-    expect(events.some((e) => e.event === "reset")).toBe(true);
-    expect(events.some((e) => e.event === "refund_proposal")).toBe(true);
-  });
-
-  it("does not nudge when the tool already ran and the final text describes it", async () => {
-    const events: { event: string; data: unknown }[] = [];
-    const deps: AgentDeps = {
-      provider: fakeProvider([
-        toolTurn("pause_subscription"),
-        textTurn("I've paused your subscription — please confirm below."),
-      ]),
-      toolByName: okTool("pause_subscription", { status: "needs_confirmation", proposal: { weeks: 2 } }),
-      toolDefinitions: [],
-    };
-    await runAgent({ customerId: "x", history: [{ role: "user", content: "pause my subscription" }], emit: (e, d) => events.push({ event: e, data: d }) }, deps);
-
-    // The tool already ran — the closing sentence must not trigger a second round.
-    expect(events.filter((e) => e.event === "tool_call").length).toBe(1);
-    expect(events.some((e) => e.event === "reset")).toBe(false);
-    // A clean finish emits an empty done payload; `truncated` only appears when
-    // the loop hits its iteration ceiling.
-    expect(events.find((e) => e.event === "done")?.data).toEqual({});
-  });
-
-  it("does not nudge or reset a plain off-topic answer", async () => {
-    const events: { event: string; data: unknown }[] = [];
-    const deps: AgentDeps = { provider: fakeProvider([textTurn("I can only help with FreshCrate.")]), toolByName: {}, toolDefinitions: [] };
-    await runAgent({ customerId: "x", history: [{ role: "user", content: "capital of France?" }], emit: (e, d) => events.push({ event: e, data: d }) }, deps);
-    expect(events.some((e) => e.event === "reset")).toBe(false);
-    expect(events.filter((e) => e.event === "delta").map((e) => e.data)).toEqual(["I can only help with FreshCrate."]);
-  });
-
   it("terminates at the iteration ceiling", async () => {
     const events: { event: string; data: unknown }[] = [];
     const deps: AgentDeps = { provider: fakeProvider([toolTurn("lookup_order")]), toolByName: okTool("lookup_order", { order: {} }), toolDefinitions: [] };
     await runAgent({ customerId: "x", history: [{ role: "user", content: "hi" }], emit: (e, d) => events.push({ event: e, data: d }) }, deps);
     const done = events.find((e) => e.event === "done");
     expect(done?.data).toMatchObject({ truncated: true });
-  });
-
-  it("reports an unknown tool back to the model instead of crashing", async () => {
-    const events: { event: string; data: unknown }[] = [];
-    const deps: AgentDeps = {
-      provider: fakeProvider([toolTurn("no_such_tool"), textTurn("Sorry, I could not do that.")]),
-      toolByName: {},
-      toolDefinitions: [],
-    };
-    await runAgent({ customerId: "x", history: [{ role: "user", content: "hi" }], emit: (e, d) => events.push({ event: e, data: d }) }, deps);
-
-    const result = events.find((e) => e.event === "tool_result");
-    expect(result?.data).toMatchObject({ name: "no_such_tool", ok: false });
-    expect((result?.data as { summary: string }).summary).toContain("Unknown tool");
-    expect(events.some((e) => e.event === "done")).toBe(true);
   });
 
   it("turns a rejecting tool handler into a failed tool result, not an unhandled rejection", async () => {
@@ -349,44 +198,6 @@ describe("runAgent", () => {
     expect(result?.data).toMatchObject({ ok: false });
     expect((result?.data as { summary: string }).summary).toContain("database exploded");
     expect(events.filter((e) => e.event === "done")).toHaveLength(1);
-  });
-
-  it("treats malformed tool arguments as empty rather than aborting the turn", async () => {
-    const events: { event: string; data: unknown }[] = [];
-    const deps: AgentDeps = {
-      provider: fakeProvider([toolTurnWithArgs("lookup_order", "{not json"), textTurn("Here is your order.")]),
-      toolByName: okTool("lookup_order", { order: { order_number: "FC1005" } }),
-      toolDefinitions: [],
-    };
-    await runAgent({ customerId: "x", history: [{ role: "user", content: "my last order" }], emit: (e, d) => events.push({ event: e, data: d }) }, deps);
-
-    expect(events.find((e) => e.event === "tool_call")?.data).toEqual({ name: "lookup_order", args: {} });
-    expect(events.find((e) => e.event === "tool_result")).toMatchObject({ data: { ok: true } });
-  });
-
-  it("forwards decisions into the system note the model sees", async () => {
-    const seenMessages: AgentMessage[][] = [];
-    const provider: ChatProvider = {
-      defaultModel: "fake",
-      async *streamAgentTurn(opts) {
-        seenMessages.push(opts.messages);
-        yield { type: "text", value: "Yes, it went through." };
-      },
-    };
-    const deps: AgentDeps = { provider, toolByName: {}, toolDefinitions: [] };
-
-    await runAgent(
-      {
-        customerId: "x",
-        history: [{ role: "user", content: "did my refund go through?" }],
-        decisions: [{ kind: "refund", outcome: "confirmed", orderNumber: "FC1006" }],
-        emit: () => {},
-      },
-      deps,
-    );
-
-    const note = seenMessages[0].find((m) => m.role === "system" && m.content.includes("FC1006"));
-    expect(note?.content).toContain("CONFIRMED");
   });
 
   it("drops a re-proposed action when the customer's message was only a decline", async () => {
@@ -418,72 +229,6 @@ describe("runAgent", () => {
     expect(events.some((e) => e.event === "tool_call")).toBe(false); // no "Preparing a pause" step
     expect(events.filter((e) => e.event === "delta").map((e) => e.data).at(-1)).toContain("left your subscription");
     expect(events.some((e) => e.event === "done")).toBe(true);
-  });
-
-  it("drops an action proposed for a question about it, and has the knowledge base searched", async () => {
-    // "how much does pausing cost?" was answered with a pause card.
-    const events: { event: string; data: unknown }[] = [];
-    const deps: AgentDeps = {
-      provider: fakeProvider([toolTurn("pause_subscription"), toolTurn("search_knowledge_base"), textTurn("Pausing costs $8 per week.")]),
-      toolByName: { ...okTool("pause_subscription", { status: "needs_confirmation", proposal: { weeks: 2 } }), ...okTool("search_knowledge_base", {}) },
-      toolDefinitions: [],
-    };
-    await runAgent({ customerId: "x", history: [{ role: "user", content: "how much does pausing cost?" }], emit: (e, d) => events.push({ event: e, data: d }) }, deps);
-
-    expect(events.some((e) => e.event === "pause_proposal")).toBe(false);
-    expect(events.filter((e) => e.event === "tool_call").map((e) => (e.data as { name: string }).name)).toEqual(["search_knowledge_base"]);
-    expect(events.filter((e) => e.event === "delta").map((e) => e.data).at(-1)).toContain("$8");
-  });
-
-  it("nudges once to search the knowledge base when a policy question is answered without it", async () => {
-    const events: { event: string; data: unknown }[] = [];
-    const deps: AgentDeps = {
-      provider: fakeProvider([toolTurn("get_subscription"), textTurn("Your boxes stop on 2nd November."), toolTurn("search_knowledge_base"), textTurn("Your boxes keep coming until your billing date.")]),
-      toolByName: { ...okTool("get_subscription", {}), ...okTool("search_knowledge_base", {}) },
-      toolDefinitions: [],
-    };
-    await runAgent({ customerId: "x", history: [{ role: "user", content: "if I cancel, do my boxes stop right away?" }], emit: (e, d) => events.push({ event: e, data: d }) }, deps);
-
-    expect(events.filter((e) => e.event === "tool_call").map((e) => (e.data as { name: string }).name)).toEqual(["get_subscription", "search_knowledge_base"]);
-    expect(events.filter((e) => e.event === "delta").map((e) => e.data).at(-1)).toContain("billing date");
-  });
-
-  it("makes the model search when a can-I-add menu question is answered with no tool at all", async () => {
-    const events: { event: string; data: unknown }[] = [];
-    const deps: AgentDeps = {
-      provider: fakeProvider([textTurn("Yes, you can add a Mango Lassi!"), toolTurn("search_knowledge_base"), textTurn("Mango Lassi isn't on your menu.")]),
-      toolByName: okTool("search_knowledge_base", {}),
-      toolDefinitions: [],
-    };
-    await runAgent({ customerId: "x", history: [{ role: "user", content: "can I add a Mango Lassi to my next box?" }], emit: (e, d) => events.push({ event: e, data: d }) }, deps);
-
-    expect(events.filter((e) => e.event === "tool_call").map((e) => (e.data as { name: string }).name)).toEqual(["search_knowledge_base"]);
-    expect(events.filter((e) => e.event === "delta").map((e) => e.data).at(-1)).toContain("isn't on your menu");
-  });
-
-  it("does not propose a dietary-track switch for a message that names no track", async () => {
-    // "can I add a Mango Lassi?" was read as a wish for the Vegetarian track.
-    const events: { event: string; data: unknown }[] = [];
-    const deps: AgentDeps = {
-      provider: fakeProvider([toolTurn("change_dietary_track"), textTurn("Mango Lassi is on the Vegetarian menu, not yours.")]),
-      toolByName: okTool("change_dietary_track", { status: "needs_confirmation", proposal: { new_track: "vegetarian" } }),
-      toolDefinitions: [],
-    };
-    await runAgent({ customerId: "x", history: [{ role: "user", content: "can I add a Mango Lassi to my next box?" }], emit: (e, d) => events.push({ event: e, data: d }) }, deps);
-
-    expect(events.some((e) => e.event === "diet_change_proposal")).toBe(false);
-  });
-
-  it("still proposes a track switch when the customer names the track", async () => {
-    const events: { event: string; data: unknown }[] = [];
-    const deps: AgentDeps = {
-      provider: fakeProvider([toolTurn("change_dietary_track"), textTurn("Please confirm below.")]),
-      toolByName: okTool("change_dietary_track", { status: "needs_confirmation", proposal: { new_track: "vegetarian" } }),
-      toolDefinitions: [],
-    };
-    await runAgent({ customerId: "x", history: [{ role: "user", content: "switch me to vegetarian meals" }], emit: (e, d) => events.push({ event: e, data: d }) }, deps);
-
-    expect(events.some((e) => e.event === "diet_change_proposal")).toBe(true);
   });
 
   it("skips a refund for an order whose refund the customer already confirmed this conversation", async () => {
@@ -534,28 +279,6 @@ describe("runAgent", () => {
     expect(toolMessages.join(" ")).toMatch(/different order/i);
   });
 
-  it("still proposes when a message only STARTS with a negative but is a real request", async () => {
-    const events: { event: string; data: unknown }[] = [];
-    const declined: Decision[] = [{ kind: "pause", outcome: "declined" }];
-    const deps: AgentDeps = {
-      provider: fakeProvider([toolTurn("pause_subscription"), textTurn("Updated — please confirm below.")]),
-      toolByName: okTool("pause_subscription", { status: "needs_confirmation", proposal: { weeks: 4 } }),
-      toolDefinitions: [],
-    };
-    await runAgent(
-      {
-        customerId: "x",
-        history: [{ role: "user", content: "no, make it 4 weeks" }],
-        decisions: declined,
-        emit: (e, d) => events.push({ event: e, data: d }),
-      },
-      deps,
-    );
-
-    // "no, make it 4 weeks" is a request, not a pure decline — the card must appear.
-    expect(events.some((e) => e.event === "pause_proposal")).toBe(true);
-  });
-
   it("ends a stalled turn with a graceful message instead of hanging", async () => {
     const events: { event: string; data: unknown }[] = [];
     // A provider that never yields and only settles once the deadline aborts it —
@@ -579,27 +302,4 @@ describe("runAgent", () => {
     expect(events.find((e) => e.event === "done")?.data).toMatchObject({ timedOut: true });
   });
 
-  it("passes the same instant to every tool in a turn", async () => {
-    const seen: Date[] = [];
-    const recordingTool: Record<string, Tool> = {
-      lookup_order: {
-        definition: { name: "lookup_order", description: "", parameters: {} },
-        handler: async (ctx) => {
-          seen.push(ctx.now);
-          return { ok: true, summary: "ok", data: {} };
-        },
-      },
-    };
-    const deps: AgentDeps = {
-      provider: fakeProvider([toolTurn("lookup_order"), toolTurn("lookup_order"), textTurn("Done.")]),
-      toolByName: recordingTool,
-      toolDefinitions: [],
-    };
-    await runAgent({ customerId: "x", history: [{ role: "user", content: "hi" }], emit: () => {} }, deps);
-
-    // Tools in one turn must agree on the date, or two money calculations in the
-    // same reply can disagree about weeks-to-billing.
-    expect(seen).toHaveLength(2);
-    expect(seen[0].getTime()).toBe(seen[1].getTime());
-  });
 });

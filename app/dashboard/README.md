@@ -6,4 +6,4 @@
 - Turns per day for the last 14 days, tool usage, and which guards stepped in.
 - The slowest turns and the 20 most recent. Click a time to see that conversation's turns in order (`/dashboard?conversation=<id>`).
 
-Costs are estimates at the list prices in `lib/llm/pricing.ts`. Evals don't write traces (`TRACES_DISABLED=1`). Like the rest of the demo, the page has no login.
+Costs are estimates at the list prices in `lib/llm/pricing.ts`. Evals don't write traces (`TRACES_DISABLED=1`). Like the rest of the demo, the page has no login, so it never shows what customers typed: the message is stored in `traces.user_message` for debugging from the database, but the page doesn't read it.

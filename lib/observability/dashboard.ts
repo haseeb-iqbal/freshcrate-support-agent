@@ -1,7 +1,13 @@
 import { client } from "@/db";
 import { PROPOSAL_EVENTS } from "@/lib/agent/dispatch";
 
-/** Read-only queries behind the /dashboard page, over the traces table. */
+/**
+ * Read-only queries behind the /dashboard page, over the traces table.
+ *
+ * The page is public (a portfolio demo, no login), so it never reads the
+ * customer's message: traces.user_message is stored for debugging from the
+ * database, but no query here selects it.
+ */
 
 export interface Totals {
   conversations: number;
@@ -24,7 +30,6 @@ export interface TraceView {
   conversationId: string;
   turnIndex: number;
   customerName: string | null;
-  userMessage: string | null;
   tools: string[];
   guards: string[];
   endReason: string | null;
@@ -97,14 +102,14 @@ export async function listTraces(opts: { order: "recent" | "slowest"; limit: num
   const rows =
     "conversationId" in opts
       ? await client`
-          select t.*, c.name as customer_name from traces t left join customers c on c.id = t.customer_id
+          select t.id, t.created_at, t.conversation_id, t.turn_index, t.tools_called, t.guards, t.end_reason, t.input_tokens, t.output_tokens, t.est_cost_usd, t.latency_ms, c.name as customer_name from traces t left join customers c on c.id = t.customer_id
           where t.conversation_id = ${opts.conversationId} order by t.turn_index, t.created_at`
       : opts.order === "slowest"
         ? await client`
-            select t.*, c.name as customer_name from traces t left join customers c on c.id = t.customer_id
+            select t.id, t.created_at, t.conversation_id, t.turn_index, t.tools_called, t.guards, t.end_reason, t.input_tokens, t.output_tokens, t.est_cost_usd, t.latency_ms, c.name as customer_name from traces t left join customers c on c.id = t.customer_id
             order by t.latency_ms desc nulls last limit ${opts.limit}`
         : await client`
-            select t.*, c.name as customer_name from traces t left join customers c on c.id = t.customer_id
+            select t.id, t.created_at, t.conversation_id, t.turn_index, t.tools_called, t.guards, t.end_reason, t.input_tokens, t.output_tokens, t.est_cost_usd, t.latency_ms, c.name as customer_name from traces t left join customers c on c.id = t.customer_id
             order by t.created_at desc limit ${opts.limit}`;
   return rows.map((r) => ({
     id: r.id,
@@ -112,7 +117,6 @@ export async function listTraces(opts: { order: "recent" | "slowest"; limit: num
     conversationId: r.conversation_id,
     turnIndex: r.turn_index,
     customerName: r.customer_name,
-    userMessage: r.user_message,
     tools: (r.tools_called as string[] | null) ?? [],
     guards: (r.guards as string[] | null) ?? [],
     endReason: r.end_reason,

@@ -14,7 +14,9 @@ const secs = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
 /**
  * Observability for the demo: what chat turns cost, how long they take, which
  * tools run and how often a guard has to step in. Reads the traces table, one
- * row per chat turn. Read-only, and like the rest of the demo it has no login.
+ * row per chat turn. Read-only, and like the rest of the demo it has no login,
+ * so it shows no message text: what customers typed is stored in the row for
+ * debugging but never displayed here.
  */
 export default async function Dashboard({ searchParams }: { searchParams: { conversation?: string } }) {
   const conversation = searchParams.conversation && UUID.test(searchParams.conversation) ? searchParams.conversation : null;
@@ -171,7 +173,6 @@ function TraceTable({ rows, showConversationLink = true }: { rows: TraceView[]; 
           <tr className="border-b border-slate-200">
             <th className="py-1.5 pr-3 font-medium">{showConversationLink ? "Time" : "Turn"}</th>
             <th className="py-1.5 pr-3 font-medium">Customer</th>
-            <th className="py-1.5 pr-3 font-medium">Message</th>
             <th className="py-1.5 pr-3 font-medium">Tools</th>
             <th className="py-1.5 pr-3 font-medium">Guards / end</th>
             <th className="py-1.5 pr-3 text-right font-medium">Tokens in/out</th>
@@ -192,9 +193,6 @@ function TraceTable({ rows, showConversationLink = true }: { rows: TraceView[]; 
                 )}
               </td>
               <td className="whitespace-nowrap py-1.5 pr-3">{r.customerName ?? "-"}</td>
-              <td className="max-w-[16rem] py-1.5 pr-3" title={r.userMessage ?? ""}>
-                <span className="line-clamp-2">{r.userMessage ?? "-"}</span>
-              </td>
               <td className="py-1.5 pr-3 font-mono text-[11px]">{r.tools.join(", ") || "-"}</td>
               <td className="py-1.5 pr-3">
                 {r.guards.length > 0 && <span className="mr-1 rounded bg-amber-100 px-1 text-amber-800">{r.guards.join(", ")}</span>}

@@ -2,10 +2,11 @@ import type { NextRequest } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { customers } from "@/db/schema";
-import { runAgent } from "@/lib/agent/loop";
+import { runAgent, type TurnSummary } from "@/lib/agent/loop";
 import { reconcile } from "@/lib/billing/reconcile";
 import { now } from "@/lib/clock";
 import { parseDecisions } from "@/lib/decisions";
+import { recordTrace } from "@/lib/observability/traces";
 
 // postgres.js and the OpenAI SDK need the Node runtime (not edge).
 export const runtime = "nodejs";
@@ -16,7 +17,11 @@ interface ChatRequestBody {
   customerId?: string;
   /** Enum-only log of what the customer did with each confirmation prompt. */
   decisions?: unknown;
+  /** The chat session this turn belongs to, for the traces log. */
+  conversationId?: string;
 }
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const MAX_INPUT_CHARS = 2000; // reject oversized input before any model call
 
@@ -60,6 +65,12 @@ export async function POST(req: NextRequest) {
   }
   const customerLabel = `${customer.name} (${customer.subscriptionStatus}, ${customer.plan})`;
 
+  // The browser sends one id per chat session; anything else gets a fresh one,
+  // so a bad id can never land in the traces table.
+  const conversationId = body.conversationId && UUID.test(body.conversationId) ? body.conversationId : crypto.randomUUID();
+  const turnIndex = messages.filter((m) => m.role === "user").length - 1;
+  const started = Date.now();
+
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -68,8 +79,9 @@ export async function POST(req: NextRequest) {
           encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`),
         );
       };
+      let summary: TurnSummary | null = null;
       try {
-        await runAgent({
+        summary = await runAgent({
           customerId: customer.id,
           customerLabel,
           history: messages,
@@ -80,6 +92,8 @@ export async function POST(req: NextRequest) {
         emit("error", { message: err instanceof Error ? err.message : "agent error" });
       } finally {
         controller.close();
+        // After the response has finished, so the customer never waits on it.
+        void recordTrace({ conversationId, customerId: customer.id, turnIndex, userMessage: last.content, latencyMs: Date.now() - started, summary });
       }
     },
   });

@@ -43,6 +43,7 @@ export async function recordTrace(t: TraceInput): Promise<void> {
   try {
     await db.insert(traces).values(traceRow(t));
   } catch (err) {
-    console.warn("trace write failed:", err instanceof Error ? err.message : err);
+    // Only the error's code: a driver message can quote the row, customer text included.
+    console.warn("trace write failed:", (err as { code?: string } | null)?.code ?? "unknown error");
   }
 }

@@ -8,7 +8,7 @@ import type { AccountData, CustomerOption, Step } from "./types";
 export function Welcome({ customer }: { customer?: CustomerOption }) {
   return (
     <div className="max-w-[62ch]">
-      <h2 className="font-display text-xl font-bold tracking-tight">
+      <h2 className="font-display text-[17px] font-bold tracking-tight">
         Hi{customer ? `, ${customer.name.split(" ")[0]}` : ""}. I&apos;m Cratelyn.
       </h2>
       <p className="mt-1.5 text-[15px] leading-relaxed text-muted">

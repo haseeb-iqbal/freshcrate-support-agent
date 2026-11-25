@@ -84,7 +84,7 @@ export default async function ArticlePage({ params }: { params: { slug: string }
       <Link href="/kb" className="text-sm text-brand hover:underline">
         ← All help articles
       </Link>
-      <h1 className="mt-4 text-2xl font-bold text-slate-900">{article.title}</h1>
+      <h1 className="mt-4 text-lg font-bold text-slate-900">{article.title}</h1>
 
       <div className="mt-6 space-y-6">
         {article.sections.map((s) => (

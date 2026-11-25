@@ -34,7 +34,7 @@ export function HeaderShell({ brand, children }: { brand: ReactNode; children: R
 
   return (
     <header ref={ref} className="relative border-b border-mist bg-paper">
-      <div className="mx-auto flex max-w-[1280px] items-center justify-between gap-x-8 px-4 py-3 sm:px-6 md:flex-wrap md:py-4">
+      <div className="mx-auto flex max-w-[1280px] items-center justify-between gap-x-8 px-4 py-2 sm:px-6 md:flex-wrap md:py-2.5">
         {brand}
         <button
           ref={buttonRef}

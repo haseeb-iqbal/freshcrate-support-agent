@@ -1,6 +1,6 @@
 /**
  * The things-to-try prompts, defined once for the home page's try-it panel and
- * the /tour page.
+ * the /about page.
  *
  * Each prompt names the sample customer it is written for (a full name from
  * db/seed.ts), because most of them only make sense for one account: Diego is
@@ -25,7 +25,7 @@ export interface DemoPrompt {
 
 export interface Starter extends DemoPrompt {
   title: string;
-  /** What the viewer should see happen, for the /tour page. */
+  /** What the viewer should see happen, for the /about page. */
   expect: string;
 }
 
@@ -152,46 +152,14 @@ export function promptById(id: string): DemoPrompt | undefined {
   return ALL_PROMPTS.find((p) => p.id === id);
 }
 
-/** The eight feature cards on /tour. Each example is a prompt id from above. */
+/** The eight feature cards on /about. Each example is a prompt id from above. */
 export const TOUR_FEATURES: { title: string; body: string; promptId: string }[] = [
-  {
-    title: "Orders",
-    body: "Track any order and see your full history. It always names the order number, so a follow-up like \"refund it\" hits the right box.",
-    promptId: "latest-order",
-  },
-  {
-    title: "Account and billing",
-    body: "Your status, plan, billing date and next bill, with the bill explained line by line from your actual account.",
-    promptId: "next-bill",
-  },
-  {
-    title: "Pause, cancel and come back",
-    body: "Pause for 1 to 52 weeks or indefinitely, at $8 a week while paused. Cancelling keeps boxes coming until the billing date. Coming back is free on the same plan before then, otherwise it's $40 plus the first month.",
-    promptId: "pause-two-weeks",
-  },
-  {
-    title: "Plan changes",
-    body: "Switch between 2, 3 and 4 meals a week, with the price difference prorated. Works while paused too, and the new rate starts when you resume.",
-    promptId: "switch-three",
-  },
-  {
-    title: "Dietary tracks and menu",
-    body: "Four tracks: Standard, Gluten-Free, Vegetarian and Dairy-Free. See any menu with ingredients, allergens and nutrition, and switch track for free from next week.",
-    promptId: "vegetarian-nutrition",
-  },
-  {
-    title: "Refunds",
-    body: "Damaged or missing meals are refunded at list price plus add-ons. Up to $20, once every 14 days, you confirm it in chat. Anything bigger goes to a person.",
-    promptId: "refund-damaged",
-  },
-  {
-    title: "Help center answers",
-    body: "Policy questions are answered from 14 help articles, with the sources linked under each reply. It won't make things up or answer off-topic.",
-    promptId: "pause-cost",
-  },
-  {
-    title: "Safety built in",
-    body: "Nothing changes without your click. Every figure is re-checked on the server, it can't see other customers' data, it ignores \"ignore your instructions\", and it hands off to a person when asked.",
-    promptId: "human",
-  },
+  { title: "Orders", body: "Track any order and see your full history.", promptId: "latest-order" },
+  { title: "Account and billing", body: "Your plan, billing date and next bill, explained line by line.", promptId: "next-bill" },
+  { title: "Pause, cancel and come back", body: "Pause at $8 a week, cancel, or come back later.", promptId: "pause-two-weeks" },
+  { title: "Plan changes", body: "Switch between 2, 3 and 4 meals a week, prorated.", promptId: "switch-three" },
+  { title: "Dietary tracks and menu", body: "Four menus with allergens and nutrition, free to switch.", promptId: "vegetarian-nutrition" },
+  { title: "Refunds", body: "Up to $20 in chat. Anything bigger goes to a person.", promptId: "refund-damaged" },
+  { title: "Help center answers", body: "Answers from 14 help articles, with the sources linked.", promptId: "pause-cost" },
+  { title: "Safety built in", body: "Nothing changes without your click, and it stays on topic.", promptId: "human" },
 ];

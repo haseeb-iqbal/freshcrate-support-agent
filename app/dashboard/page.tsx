@@ -40,7 +40,7 @@ export default async function Dashboard({ searchParams }: { searchParams: { conv
       <Link href="/" className="text-sm text-brand hover:underline">
         ← Back to chat
       </Link>
-      <h1 className="mt-4 text-2xl font-bold text-slate-900">Dashboard</h1>
+      <h1 className="mt-4 text-lg font-bold text-slate-900">Dashboard</h1>
       <p className="mt-1 text-sm text-slate-500">
         Every chat turn, logged after it finishes. Costs are estimates at gpt-4o-mini list prices. Evals are not logged.
       </p>
@@ -116,7 +116,7 @@ async function ConversationView({ id }: { id: string }) {
       <Link href="/dashboard" className="text-sm text-brand hover:underline">
         ← Back to dashboard
       </Link>
-      <h1 className="mt-4 text-2xl font-bold text-slate-900">Conversation</h1>
+      <h1 className="mt-4 text-lg font-bold text-slate-900">Conversation</h1>
       <p className="mt-1 font-mono text-xs text-slate-500">{id}</p>
       <p className="mt-2 text-sm text-slate-600">
         {rows[0]?.customerName ?? "Unknown customer"} · {rows.length} turn{rows.length === 1 ? "" : "s"} · {usd(cost)}

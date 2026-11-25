@@ -6,6 +6,10 @@ const nextConfig = {
     // skipped the seed, the test suites and the Cypress specs.
     dirs: ["app", "lib", "db", "tests", "cypress", "scripts", "kb", "evals"],
   },
+  async redirects() {
+    // The guided tour page was renamed About.
+    return [{ source: "/tour", destination: "/about", permanent: true }];
+  },
   experimental: {
     // postgres + the OpenAI SDK are server-only; keep them out of the bundle.
     serverComponentsExternalPackages: ["postgres"],

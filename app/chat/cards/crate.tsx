@@ -47,7 +47,7 @@ export function CrateCard({
             <path d="M12 11v10" />
           </svg>
         )}
-        <h3 className="font-display text-lg font-bold tracking-tight">{title}</h3>
+        <h3 className="font-display text-[15px] font-bold tracking-tight">{title}</h3>
       </div>
       <div className="px-4 pb-3.5 pt-3 text-sm leading-relaxed">{children}</div>
     </section>

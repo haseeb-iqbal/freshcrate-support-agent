@@ -270,10 +270,10 @@ export default function Chat({
 
       <main className="home-grid mx-auto min-h-0 w-full max-w-[1280px] flex-1 px-4 pb-3 pt-3 sm:px-6 lg:pb-4 lg:pt-4">
         <div className="[grid-area:intro]">
-          <h1 className="font-display text-[22px] font-extrabold leading-[1.05] tracking-[-0.03em] sm:text-[26px] lg:text-[30px]">
+          <h1 className="font-display text-[18px] font-extrabold leading-[1.15] tracking-[-0.02em] sm:text-[20px] lg:text-[22px]">
             Meal-kit support, all in one chat
           </h1>
-          <p className="mt-1.5 max-w-[75ch] text-sm leading-[1.45] text-muted">
+          <p className="mt-1 max-w-[75ch] text-sm leading-[1.45] text-muted">
             A portfolio project by Haseeb Iqbal. Ask about orders, refunds or your plan, and nothing changes until you
             confirm. FreshCrate is made up and every customer is sample data, so try anything.
             <span className="hidden lg:inline"> Ideas to try are on the right.</span>

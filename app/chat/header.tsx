@@ -33,7 +33,7 @@ export function ChatHeader({
         <button
           onClick={onNewChat}
           title="Back to start"
-          className="whitespace-nowrap rounded text-left font-display text-[19px] font-extrabold tracking-tight text-brand transition hover:text-brand-dark sm:text-[21px]"
+          className="whitespace-nowrap rounded text-left font-display text-[17px] font-extrabold tracking-tight text-brand transition hover:text-brand-dark sm:text-[18px]"
         >
           FreshCrate support
         </button>

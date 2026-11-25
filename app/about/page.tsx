@@ -45,10 +45,10 @@ export default function AboutPage() {
       <main className="mx-auto max-w-[1280px] px-4 sm:px-6">
         <section className="grid items-start gap-6 py-5 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-10 lg:py-6">
           <div>
-            <h1 className="font-display text-[26px] font-extrabold leading-[1.05] tracking-[-0.03em] sm:text-[30px] lg:text-[36px]">
+            <h1 className="font-display text-[22px] font-extrabold leading-[1.1] tracking-[-0.02em] lg:text-[26px]">
               FreshCrate Support Agent
             </h1>
-            <p className="mt-1.5 font-display text-[17px] font-bold tracking-tight text-brand lg:text-[19px]">
+            <p className="mt-1 font-display text-[15px] font-bold tracking-tight text-brand">
               An agent for all your meal-kit needs
             </p>
             <p className="mt-2.5 max-w-[60ch] text-base leading-[1.45] text-muted">

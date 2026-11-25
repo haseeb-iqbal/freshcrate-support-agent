@@ -1,6 +1,6 @@
 # FreshCrate Support Agent
 
-A support agent that asks before it acts.
+Meal-kit support, all in one chat.
 
 FreshCrate is a made-up meal-kit subscription company. Its assistant, Cratelyn, answers policy questions from a 14-article help center with the sources linked, looks up a customer's orders and bill, and proposes real account changes: pauses, plan and dietary-track switches, cancellations, reactivations and refunds. The model never changes anything itself. It proposes, a card shows the exact figures, and the change only happens when you click confirm.
 
@@ -10,7 +10,14 @@ This is a portfolio project by Haseeb Iqbal. Every customer, order and payment i
 
 ## A 2-minute tour
 
-There's no sign-up. The "Signed in as" menu stands in for a login, and each sample customer is set up for a different story. In the running app, the Try it panel beside the chat does the switching for you: pick an idea and it signs in as the right customer and fills in the message. `/tour` walks through the same list, and `/?try=<id>` opens the chat with one ready to send.
+There's no sign-up. The "Signed in as" menu stands in for a login, and each sample customer is set up for a different story. In the running app, the Try it panel beside the chat does the switching for you: pick an idea and it signs in as the right customer and fills in the message. Nothing is sent until you click Send.
+
+The app has two pages:
+
+- `/` is the chat, with the Try it panel on the right (behind a "Things to try" button on a phone).
+- `/about` introduces the project in three tabs: Try it (three steps and the starters below), What it does (the eight features) and How it's built (how a turn works, the figures and the limitations). Clicking "FreshCrate support" in the header opens it, `/about#built` links straight to a tab, and the old `/tour` address redirects there.
+
+`/?try=<id>` opens the chat with one of the prompts ready to send, as the right customer.
 
 | Try | Sign in as | Say | What you should see |
 |---|---|---|---|

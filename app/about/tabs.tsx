@@ -28,7 +28,7 @@ export function AboutTabs({ tabs }: { tabs: AboutTab[] }) {
       if (scroll) listRef.current?.scrollIntoView({ block: "start" });
     };
     fromHash(false);
-    // In-page links such as the hero's "Take the 3-minute tour" change the hash.
+    // In-page links to #try, #features or #built change the hash.
     const onHash = () => fromHash(true);
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
@@ -55,13 +55,13 @@ export function AboutTabs({ tabs }: { tabs: AboutTab[] }) {
   }
 
   return (
-    <div className="border-t border-mist pt-4">
+    <div className="pt-2">
       <div
         ref={listRef}
         role="tablist"
         aria-label="About this demo"
         onKeyDown={onKeyDown}
-        className="-mx-4 flex scroll-mt-4 gap-1 overflow-x-auto overflow-y-hidden border-b border-mist px-4 sm:mx-0 sm:px-0"
+        className="-mx-4 flex scroll-mt-4 gap-6 overflow-x-auto overflow-y-hidden border-b border-mist px-4 sm:mx-0 sm:px-0"
       >
         {tabs.map((t) => {
           const isSelected = t.id === selected;
@@ -79,8 +79,8 @@ export function AboutTabs({ tabs }: { tabs: AboutTab[] }) {
               tabIndex={isSelected ? 0 : -1}
               onClick={() => select(t.id)}
               className={
-                "-mb-px whitespace-nowrap rounded-t-lg border-b-2 px-3 py-2.5 font-display text-[15px] font-bold transition " +
-                (isSelected ? "border-brand text-brand" : "border-transparent text-muted hover:text-ink")
+                "-mb-px whitespace-nowrap border-b-2 py-2.5 text-sm transition " +
+                (isSelected ? "border-brand font-bold text-ink" : "border-transparent text-muted hover:text-ink")
               }
             >
               {t.label}

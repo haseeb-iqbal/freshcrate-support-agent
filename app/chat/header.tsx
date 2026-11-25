@@ -2,12 +2,11 @@
 
 import { HeaderShell } from "../header-shell";
 import { SiteNav } from "../site-nav";
-import { useEffect, useRef, useState } from "react";
 import type { CustomerOption } from "./types";
 
 /**
- * The home page's top bar: title with the preview note, the page links, the
- * account toggle, "New chat", and the signed-in customer picker.
+ * The home page's top bar: the title, the page links, the account toggle,
+ * "New chat", and the signed-in customer picker.
  */
 export function ChatHeader({
   customers,
@@ -28,94 +27,16 @@ export function ChatHeader({
   onNewChat: () => void;
   onSwitchCustomer: (id: string) => void;
 }) {
-  const [pinnedPreview, setPinnedPreview] = useState(false);
-  const [hoveredPreview, setHoveredPreview] = useState(false);
-  const [focusedPreview, setFocusedPreview] = useState(false);
-  const previewRef = useRef<HTMLDivElement>(null);
-
-  // The note opens on hover, on keyboard focus, or on a deliberate click. The
-  // three signals are tracked separately so hovering away cannot dismiss a note
-  // the customer clicked open, and so a click while it is already showing can
-  // close it - with one shared flag, focus from the click itself held it open.
-  const showPreviewNote = pinnedPreview || hoveredPreview || focusedPreview;
-
-  const closePreview = () => {
-    setPinnedPreview(false);
-    setHoveredPreview(false);
-    setFocusedPreview(false);
-  };
-
-  // Dismiss the preview note on outside-click or Escape, however it was opened.
-  useEffect(() => {
-    if (!showPreviewNote) return;
-    function onPointer(e: MouseEvent) {
-      if (previewRef.current && !previewRef.current.contains(e.target as Node)) {
-        closePreview();
-      }
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") closePreview();
-    }
-    document.addEventListener("mousedown", onPointer);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onPointer);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [showPreviewNote]);
-
   return (
     <HeaderShell
       brand={
-          <div className="flex items-center gap-2">
-            <button
-              onClick={onNewChat}
-              title="Back to start"
-              className="whitespace-nowrap rounded text-left font-display text-[19px] font-extrabold tracking-tight text-brand transition hover:text-brand-dark sm:text-[21px]"
-            >
-              FreshCrate support
-            </button>
-            <div
-              ref={previewRef}
-              className="relative"
-              onMouseEnter={() => setHoveredPreview(true)}
-              onMouseLeave={() => setHoveredPreview(false)}
-            >
-              <button
-                type="button"
-                // Keyed on pinnedPreview, not showPreviewNote: hover and focus
-                // both commit before the click fires, so reading the combined
-                // flag here made the very first click close the note it was
-                // meant to pin. Only a click can change pinnedPreview, so this
-                // cannot race them.
-                onClick={() => (pinnedPreview ? closePreview() : setPinnedPreview(true))}
-                onFocus={() => setFocusedPreview(true)}
-                onBlur={() => setFocusedPreview(false)}
-                aria-expanded={showPreviewNote}
-                aria-describedby={showPreviewNote ? "preview-note" : undefined}
-                className={
-                  "flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition " +
-                  (showPreviewNote
-                    ? "border-brand bg-brand/5 text-brand"
-                    : "border-mist bg-white text-muted hover:border-brand hover:text-brand")
-                }
-              >
-                <span aria-hidden className="text-[12px] leading-none">ⓘ</span>
-                <span className="sr-only sm:not-sr-only">Preview</span>
-              </button>
-              {showPreviewNote && (
-                <div
-                  id="preview-note"
-                  role="tooltip"
-                  data-testid="preview-note"
-                  className="absolute left-0 top-full z-10 mt-1.5 w-64 rounded-lg border border-mist bg-white p-3 text-xs leading-relaxed text-muted shadow-lg"
-                >
-                  An evolving demo - some features are still on the way, so you
-                  may spot the occasional rough edge.
-                </div>
-              )}
-            </div>
-          </div>
+        <button
+          onClick={onNewChat}
+          title="Back to start"
+          className="whitespace-nowrap rounded text-left font-display text-[19px] font-extrabold tracking-tight text-brand transition hover:text-brand-dark sm:text-[21px]"
+        >
+          FreshCrate support
+        </button>
       }
     >
           <SiteNav current="home" />

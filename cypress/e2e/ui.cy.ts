@@ -4,59 +4,6 @@
 // Read-only - nothing here sends a message or clicks a Confirm button.
 
 describe("FreshCrate chrome", () => {
-  it("opens the preview note on hover and closes it on mouse-out", () => {
-    cy.visit("/");
-    cy.get('[data-testid="preview-note"]').should("not.exist");
-    cy.contains("button", "Preview").trigger("mouseover");
-    cy.get('[data-testid="preview-note"]').should("be.visible");
-    // React's onMouseLeave is synthesized from the native, bubbling "mouseout"
-    // event, not from the non-bubbling native "mouseleave" event, so the
-    // trigger must target "mouseout" for the handler to fire.
-    cy.contains("button", "Preview").parent().trigger("mouseout");
-    cy.get('[data-testid="preview-note"]').should("not.exist");
-  });
-
-  // The two click specs below hover FIRST and assert before clicking. Cypress
-  // fires mouseover, focus and click in one synchronous burst, so React has not
-  // committed the hover/focus state by the time the click handler runs - which
-  // is exactly the race a real browser does hit. The intervening assertion
-  // forces the commit, so these specs see what a real user sees.
-  // They also clear hover and focus before the final assertion, so only the
-  // pinned state can hold the note open.
-
-  it("keeps the preview note open once it is clicked", () => {
-    cy.visit("/");
-    cy.contains("button", "Preview").trigger("mouseover");
-    cy.get('[data-testid="preview-note"]').should("be.visible");
-    cy.contains("button", "Preview").click();
-    cy.contains("button", "Preview").parent().trigger("mouseout");
-    cy.contains("button", "Preview").blur();
-    cy.get('[data-testid="preview-note"]').should("be.visible");
-  });
-
-  it("closes the preview note on a second click", () => {
-    cy.visit("/");
-    cy.contains("button", "Preview").trigger("mouseover");
-    cy.get('[data-testid="preview-note"]').should("be.visible");
-    cy.contains("button", "Preview").click();
-    cy.get('[data-testid="preview-note"]').should("be.visible");
-    cy.contains("button", "Preview").click();
-    cy.contains("button", "Preview").parent().trigger("mouseout");
-    cy.contains("button", "Preview").blur();
-    cy.get('[data-testid="preview-note"]').should("not.exist");
-  });
-
-  it("closes a keyboard-opened preview note on Escape", () => {
-    cy.visit("/");
-    cy.contains("button", "Preview").focus();
-    cy.get('[data-testid="preview-note"]').should("be.visible");
-    // Typed into the focused button, not the body: typing into body makes
-    // Cypress click it first, which trips the outside-mousedown handler and
-    // would close the note even with the Escape branch deleted.
-    cy.focused().type("{esc}");
-    cy.get('[data-testid="preview-note"]').should("not.exist");
-  });
-
   it("labels the account toggle My Account", () => {
     cy.visit("/");
     cy.contains("button", "My Account").should("exist");

@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { STARTERS, TOUR_FEATURES, promptById } from "@/lib/demo-prompts";
-import { CrateCard, CrateFacts } from "../chat/cards/crate";
 import { HeaderShell } from "../header-shell";
 import { AboutTabs } from "./tabs";
 import { GITHUB_URL, SiteNav } from "../site-nav";
@@ -13,18 +12,9 @@ const tryHref = (id: string) => `/?try=${id}`;
 const link = "rounded text-brand underline underline-offset-4 hover:text-brand-dark";
 
 const STEPS = [
-  {
-    title: "Pick a customer",
-    body: "Each sample customer is set up for a different story: active, paused, cancelled, or with a damaged box. Switch any time from Signed in as.",
-  },
-  {
-    title: "Ask in plain words",
-    body: "Policy questions are answered from the help center, with the articles linked underneath. Account questions use that customer's live data.",
-  },
-  {
-    title: "Confirm or decline",
-    body: "Anything that changes the account shows a card with the exact figures. Click yes to apply it, or say \"actually no\" and nothing happens.",
-  },
+  { title: "Pick a customer", body: "Each sample customer has a different story, from active to cancelled." },
+  { title: "Ask in plain words", body: "Policy answers cite the help center; account answers use live data." },
+  { title: "Confirm or say no", body: "Changes show a card with exact figures and wait for your click." },
 ];
 
 const LIMITATIONS = [
@@ -51,53 +41,20 @@ export default function AboutPage() {
       </HeaderShell>
 
       <main className="mx-auto max-w-[1280px] px-4 sm:px-6">
-        <section className="grid items-start gap-6 py-5 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-10 lg:py-6">
-          <div>
-            <h1 className="font-display text-[22px] font-extrabold leading-[1.1] tracking-[-0.02em] lg:text-[26px]">
-              FreshCrate Support Agent
-            </h1>
-            <p className="mt-1 font-display text-[15px] font-bold tracking-tight text-brand">
-              An agent for all your meal-kit needs
-            </p>
-            <p className="mt-2.5 max-w-[60ch] text-base leading-[1.45] text-muted">
-              A portfolio project by Haseeb Iqbal. FreshCrate is a made-up meal-kit company. Its assistant answers from a
-              help center, looks up orders, and proposes real account changes, like pauses, refunds and plan switches,
-              that only happen when you confirm. Everything runs on sample data, so try anything.
-            </p>
-            <div className="mt-4 flex flex-wrap gap-3">
-              <a href="#try" className="btn btn-primary">
-                Take the 3-minute tour
-              </a>
-              <Link href="/" className="btn btn-secondary font-bold">
-                Go straight to the demo
-              </Link>
-            </div>
-          </div>
-
-          <figure aria-label="Example: the assistant proposing a pause" className="rounded-[18px] border border-mist bg-white p-4">
-            <div className="flex justify-end">
-              <p className="max-w-[80%] rounded-2xl rounded-br-[4px] bg-brand px-3.5 py-2 text-[15px] text-white">pause my subscription for 2 weeks</p>
-            </div>
-            <CrateCard title="Pause your subscription" state="pending">
-              <CrateFacts
-                rows={[
-                  ["Pauses", "from next week, for 2 weeks"],
-                  ["While paused", "$8 a week instead of your plan price"],
-                  ["Charged now", "nothing"],
-                ]}
-              />
-              <div aria-hidden className="mt-3 flex flex-wrap items-center gap-2">
-                <span className="btn btn-primary">Yes, pause it</span>
-                <span className="btn btn-secondary">Not now</span>
-              </div>
-            </CrateCard>
-            <figcaption className="mt-3 text-sm text-muted">
-              Nothing changes until you click yes.{" "}
-              <Link href={tryHref("pause-two-weeks")} className={link}>
-                Try this one
-              </Link>
-            </figcaption>
-          </figure>
+        <section className="max-w-[70ch] py-5 lg:py-6">
+          <h1 className="font-display text-[22px] font-extrabold leading-[1.1] tracking-[-0.02em] lg:text-[26px]">
+            FreshCrate Support Agent
+          </h1>
+          <p className="mt-1 font-display text-[15px] font-bold tracking-tight text-brand">
+            An agent for all your meal-kit needs
+          </p>
+          <p className="mt-2 leading-[1.45] text-muted">
+            A portfolio project by Haseeb Iqbal: a support chat for a made-up meal-kit company that answers questions and
+            changes accounts only when you confirm. Everything is sample data, so try anything.
+          </p>
+          <Link href="/" className="btn btn-primary mt-4">
+            Open the chat
+          </Link>
         </section>
 
         <AboutTabs
@@ -111,15 +68,25 @@ export default function AboutPage() {
                     <h2 id="steps-title" className="font-display text-[19px] font-extrabold tracking-tight">
                       Test it in 3 steps
                     </h2>
-                    <p className="mt-1 text-muted">No sign-up. Pick a sample customer, ask something, and decide.</p>
-                    <ol className="mt-4 grid gap-6 md:grid-cols-3">
+                    <ol className="mt-4 grid gap-4 md:grid-cols-3 md:gap-0">
                       {STEPS.map((s, i) => (
-                        <li key={s.title} className="max-w-[48ch]">
-                          <span aria-hidden className="flex h-10 w-10 items-center justify-center rounded-full bg-citrus font-display text-lg font-extrabold">
+                        <li key={s.title} className="relative flex gap-3 md:block md:pr-6">
+                          {i < STEPS.length - 1 && (
+                            <span
+                              aria-hidden
+                              className="absolute left-[11px] top-7 h-[calc(100%-12px)] w-px bg-mist md:left-7 md:right-0 md:top-[11px] md:h-px md:w-auto"
+                            />
+                          )}
+                          <span
+                            aria-hidden
+                            className="relative flex h-6 w-6 flex-none items-center justify-center rounded-full border-2 border-brand bg-paper text-[12px] font-bold text-brand"
+                          >
                             {i + 1}
                           </span>
-                          <h3 className="mt-2.5 font-display text-[15px] font-bold tracking-tight">{s.title}</h3>
-                          <p className="mt-1.5 leading-[1.45] text-muted">{s.body}</p>
+                          <div className="md:mt-2">
+                            <h3 className="text-sm font-bold">{s.title}</h3>
+                            <p className="mt-0.5 max-w-[40ch] text-sm leading-[1.45] text-muted">{s.body}</p>
+                          </div>
                         </li>
                       ))}
                     </ol>

@@ -22,7 +22,7 @@ export function Composer({
         e.preventDefault();
         onSend(input);
       }}
-      className="flex items-end gap-2.5 border-t border-mist p-3.5"
+      className="flex items-end gap-2 border-t border-mist p-3"
     >
       <textarea
         ref={inputRef}
@@ -37,12 +37,12 @@ export function Composer({
         rows={1}
         aria-label="Message"
         placeholder="Ask Cratelyn anything"
-        className="min-h-[48px] min-w-0 flex-1 resize-none rounded-[10px] border border-[#C9D6CE] px-3.5 py-3 text-[15px] text-ink placeholder:text-[#6B7B73] focus:border-brand"
+        className="min-h-[40px] min-w-0 flex-1 resize-none rounded-lg border border-[#C9D6CE] px-3 py-2 text-sm text-ink placeholder:text-[#6B7B73] focus:border-brand"
       />
       <button
         type="submit"
         disabled={busy || !input.trim()}
-        className="h-[48px] rounded-[10px] bg-brand px-5 text-[15px] font-bold text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
+        className="btn btn-primary h-[40px] px-4"
       >
         {busy ? "…" : "Send"}
       </button>

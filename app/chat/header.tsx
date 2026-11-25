@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { HeaderShell } from "../header-shell";
 import { SiteNav } from "../site-nav";
 import type { CustomerOption } from "./types";
@@ -30,13 +31,13 @@ export function ChatHeader({
   return (
     <HeaderShell
       brand={
-        <button
-          onClick={onNewChat}
-          title="Back to start"
-          className="whitespace-nowrap rounded text-left font-display text-[19px] font-extrabold tracking-tight text-brand transition hover:text-brand-dark sm:text-[21px]"
+        <Link
+          href="/about"
+          title="About this demo"
+          className="whitespace-nowrap rounded text-left font-display text-[17px] font-extrabold tracking-tight text-brand transition hover:text-brand-dark sm:text-[18px]"
         >
           FreshCrate support
-        </button>
+        </Link>
       }
     >
           <SiteNav current="home" />

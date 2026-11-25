@@ -34,7 +34,7 @@ export function CrateCard({
       aria-label={title}
       className={`mt-3 max-w-md rounded-md border-2 bg-white text-ink transition-[border-color,box-shadow] duration-300 ease-out motion-reduce:transition-none ${frame}`}
     >
-      <div className="flex items-center gap-2.5 border-b-2 border-dashed border-inherit px-4 py-2.5">
+      <div className="flex items-center gap-2.5 border-b-2 border-dashed border-inherit px-3.5 py-2">
         {approved ? (
           <svg aria-hidden width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="flex-none text-brand">
             <circle cx="12" cy="12" r="9" />
@@ -49,7 +49,7 @@ export function CrateCard({
         )}
         <h3 className="font-display text-[15px] font-bold tracking-tight">{title}</h3>
       </div>
-      <div className="px-4 pb-3.5 pt-3 text-sm leading-relaxed">{children}</div>
+      <div className="px-3.5 pb-3 pt-2.5 text-sm leading-[1.45]">{children}</div>
     </section>
   );
 }
@@ -72,7 +72,7 @@ export function CrateFacts({ rows }: { rows: [string, ReactNode][] }) {
 export function CrateOutcome({ tone, children }: { tone: "done" | "neutral" | "error"; children: ReactNode }) {
   const color = tone === "done" ? "text-brand" : tone === "error" ? "text-red-700" : "text-muted";
   return (
-    <p role="status" className={`mt-3 font-bold ${color}`}>
+    <p role="status" className={`mt-2.5 font-bold ${color}`}>
       {children}
     </p>
   );

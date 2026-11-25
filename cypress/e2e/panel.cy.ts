@@ -111,6 +111,12 @@ describe("About page", () => {
     cy.get("textarea").should("have.value", STARTERS[0].text);
   });
 
+  it("opens from the FreshCrate support name in the header", () => {
+    cy.visit("/");
+    cy.get("header").contains("a", "FreshCrate support").click();
+    cy.location("pathname").should("eq", "/about");
+  });
+
   it("redirects the old /tour address to /about", () => {
     cy.visit("/tour");
     cy.location("pathname").should("eq", "/about");

@@ -39,8 +39,8 @@ export function MessageBubble({
       <div
         className={
           isUser
-            ? "max-w-[80%] rounded-2xl rounded-br-[4px] bg-brand px-4 py-2.5 text-[15px] text-white"
-            : "w-full max-w-[62ch] text-[15px] leading-relaxed text-ink"
+            ? "max-w-[80%] rounded-2xl rounded-br-[4px] bg-brand px-3.5 py-2 text-sm leading-[1.45] text-white"
+            : "w-full max-w-[65ch] text-sm leading-[1.45] text-ink"
         }
       >
         {showThinking && <Thinking />}

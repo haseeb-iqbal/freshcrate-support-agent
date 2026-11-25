@@ -18,6 +18,7 @@
     "db:seed": "tsx db/seed.ts",
     "db:check": "tsx db/freshness.ts",
     "db:reset": "npm run db:enable-vector && drizzle-kit push && npm run db:seed",
+    "db:push:remote": "dotenv -e .env.remote -- npm run db:push",
     "db:check:remote": "dotenv -e .env.remote -- npm run db:check",
     "db:seed:remote": "dotenv -e .env.remote -- npm run db:seed",
     "db:reset:remote": "dotenv -e .env.remote -- npm run db:reset",

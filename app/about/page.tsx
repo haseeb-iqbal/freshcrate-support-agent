@@ -21,7 +21,7 @@ const LIMITATIONS = [
   "gpt-4o-mini isn't fully consistent: a few test conversations fail now and then in a full run.",
   "Everyone shares one sample database, and confirmed changes stay until it is reseeded.",
   "There's no real login and no real money, and hand-offs to a person are simulated.",
-  "There's no per-visitor rate limit yet.",
+  "Chat is capped at 30 messages an hour per visitor and 1,500 a day overall, to protect the model budget.",
 ];
 
 const TURN = ["You send a message", "It calls tools: orders, help center, billing", "It shows a card with exact figures", "You confirm, and the server applies it"];

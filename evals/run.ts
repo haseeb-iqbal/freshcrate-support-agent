@@ -1,6 +1,8 @@
 import "dotenv/config";
 // Evals replay scripted chats; keep them out of the traces log the dashboard reads.
 process.env.TRACES_DISABLED = "1";
+// The evals play ~90 real turns from one process, well over the per-visitor limit.
+process.env.RATE_LIMIT_DISABLED = "1";
 import { spawnSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import type { NextRequest } from "next/server";

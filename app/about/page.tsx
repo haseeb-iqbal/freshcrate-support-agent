@@ -43,7 +43,7 @@ export default function AboutPage() {
       </HeaderShell>
 
       <main className="mx-auto max-w-[1280px] px-4 sm:px-6">
-        <section className="grid items-start gap-6 py-6 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-10 lg:py-8">
+        <section className="grid items-start gap-6 py-5 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-10 lg:py-6">
           <div>
             <h1 className="font-display text-[26px] font-extrabold leading-[1.05] tracking-[-0.03em] sm:text-[30px] lg:text-[36px]">
               FreshCrate Support Agent
@@ -51,7 +51,7 @@ export default function AboutPage() {
             <p className="mt-1.5 font-display text-[17px] font-bold tracking-tight text-brand lg:text-[19px]">
               An agent for all your meal-kit needs
             </p>
-            <p className="mt-2.5 max-w-[60ch] text-base leading-relaxed text-muted">
+            <p className="mt-2.5 max-w-[60ch] text-base leading-[1.45] text-muted">
               A portfolio project by Haseeb Iqbal. FreshCrate is a made-up meal-kit company. Its assistant answers from a
               help center, looks up orders, and proposes real account changes, like pauses, refunds and plan switches,
               that only happen when you confirm. Everything runs on sample data, so try anything.
@@ -92,38 +92,38 @@ export default function AboutPage() {
           </figure>
         </section>
 
-        <section id="steps" aria-labelledby="steps-title" className="scroll-mt-6 border-t border-mist py-9">
+        <section id="steps" aria-labelledby="steps-title" className="scroll-mt-6 border-t border-mist py-6">
           <h2 id="steps-title" className="font-display text-[19px] font-extrabold tracking-tight">
             Test it in 3 steps
           </h2>
-          <p className="mt-2 text-muted">No sign-up. Pick a sample customer, ask something, and decide.</p>
-          <ol className="mt-5 grid gap-6 md:grid-cols-3">
+          <p className="mt-1 text-muted">No sign-up. Pick a sample customer, ask something, and decide.</p>
+          <ol className="mt-4 grid gap-6 md:grid-cols-3">
             {STEPS.map((s, i) => (
               <li key={s.title} className="max-w-[48ch]">
                 <span aria-hidden className="flex h-10 w-10 items-center justify-center rounded-full bg-citrus font-display text-lg font-extrabold">
                   {i + 1}
                 </span>
                 <h3 className="mt-2.5 font-display text-[15px] font-bold tracking-tight">{s.title}</h3>
-                <p className="mt-1.5 leading-relaxed text-muted">{s.body}</p>
+                <p className="mt-1.5 leading-[1.45] text-muted">{s.body}</p>
               </li>
             ))}
           </ol>
         </section>
 
-        <section aria-labelledby="try-title" className="border-t border-mist py-9">
+        <section aria-labelledby="try-title" className="border-t border-mist py-6">
           <h2 id="try-title" className="font-display text-[19px] font-extrabold tracking-tight">
             Things to try
           </h2>
-          <p className="mt-2 text-muted">Each one opens the demo as the right customer, with the message ready to send.</p>
-          <ul className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <p className="mt-1 text-muted">Each one opens the demo as the right customer, with the message ready to send.</p>
+          <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {STARTERS.map((s) => (
-              <li key={s.id} className="flex flex-col rounded-2xl border border-mist bg-white p-5">
+              <li key={s.id} className="flex flex-col rounded-2xl border border-mist bg-white p-4">
                 <div className="flex items-baseline justify-between gap-3">
                   <h3 className="font-display text-[15px] font-bold tracking-tight">{s.title}</h3>
                   <span className="whitespace-nowrap text-[13px] text-muted">as {firstName(s.customer)}</span>
                 </div>
                 <p className="mt-2 font-bold">&ldquo;{s.text}&rdquo;</p>
-                <p className="mt-1.5 flex-1 text-[15px] leading-relaxed text-muted">{s.expect}</p>
+                <p className="mt-1.5 flex-1 text-[15px] leading-[1.45] text-muted">{s.expect}</p>
                 <Link href={tryHref(s.id)} className={`${link} mt-4 self-start font-bold`}>
                   Try it
                 </Link>
@@ -132,21 +132,21 @@ export default function AboutPage() {
           </ul>
         </section>
 
-        <section aria-labelledby="features-title" className="border-t border-mist py-9">
+        <section aria-labelledby="features-title" className="border-t border-mist py-6">
           <h2 id="features-title" className="font-display text-[19px] font-extrabold tracking-tight">
             What it can do
           </h2>
-          <p className="mt-2 max-w-[70ch] text-muted">
+          <p className="mt-1 max-w-[70ch] text-muted">
             Everything below works in the demo. Policies come from the help center, and anything that changes an account
             asks you first.
           </p>
-          <ul className="mt-5 grid gap-x-6 gap-y-6 sm:grid-cols-2 lg:grid-cols-4">
+          <ul className="mt-4 grid gap-x-6 gap-y-6 sm:grid-cols-2 lg:grid-cols-4">
             {TOUR_FEATURES.map((f) => {
               const p = promptById(f.promptId);
               return (
                 <li key={f.title} className="border-t-2 border-ink pt-4">
                   <h3 className="font-display text-[15px] font-bold tracking-tight">{f.title}</h3>
-                  <p className="mt-1.5 text-[15px] leading-relaxed text-muted">{f.body}</p>
+                  <p className="mt-1.5 text-[15px] leading-[1.45] text-muted">{f.body}</p>
                   {p && (
                     <p className="mt-3 text-[15px]">
                       Try:{" "}
@@ -161,12 +161,12 @@ export default function AboutPage() {
           </ul>
         </section>
 
-        <section aria-labelledby="hood-title" className="grid gap-8 border-t border-mist py-9 lg:grid-cols-2">
+        <section aria-labelledby="hood-title" className="grid gap-8 border-t border-mist py-6 lg:grid-cols-2">
           <div>
             <h2 id="hood-title" className="font-display text-[19px] font-extrabold tracking-tight">
               Under the hood
             </h2>
-            <p className="mt-2 max-w-[60ch] leading-relaxed text-muted">
+            <p className="mt-1 max-w-[60ch] leading-[1.45] text-muted">
               The model never changes an account by itself. It calls tools, the server re-checks every figure, and the
               card is the only way a change happens.
             </p>
@@ -185,7 +185,7 @@ export default function AboutPage() {
             <Stat label="Required test conversations passing" value="91 of 92" note="Run against the real model" />
             <Stat label="Cost per chat turn" value="about $0.0016" />
             <Stat label="Model" value="gpt-4o-mini" />
-            <div className="bg-white p-5">
+            <div className="bg-white p-4">
               <dt className="text-sm text-muted">Live cost and latency</dt>
               <dd className="mt-1.5">
                 <Link href="/dashboard" className={`${link} font-bold`}>
@@ -216,7 +216,7 @@ export default function AboutPage() {
 
 function Stat({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
-    <div className="bg-white p-5">
+    <div className="bg-white p-4">
       <dt className="text-sm text-muted">{label}</dt>
       <dd className="mt-1 font-display text-[18px] font-extrabold tracking-tight">{value}</dd>
       {note && <dd className="text-[13px] text-muted">{note}</dd>}

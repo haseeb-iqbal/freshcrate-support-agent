@@ -8,14 +8,14 @@ import type { AccountData, CustomerOption, Step } from "./types";
 export function Welcome({ customer }: { customer?: CustomerOption }) {
   return (
     <div className="max-w-[62ch]">
-      <h2 className="font-display text-[17px] font-bold tracking-tight">
+      <h2 className="font-display text-base font-bold tracking-tight">
         Hi{customer ? `, ${customer.name.split(" ")[0]}` : ""}. I&apos;m Cratelyn.
       </h2>
-      <p className="mt-1.5 text-[15px] leading-relaxed text-muted">
+      <p className="mt-1 text-sm leading-[1.45] text-muted">
         I answer FreshCrate policy questions, with sources, and take actions on your account: look up orders, pause or
         resume your plan, issue refunds, or hand you to a person. Type a question, or pick one from things to try.
       </p>
-      <p className="mt-3 rounded-lg bg-paper px-3 py-2 text-[13px] leading-relaxed text-muted">
+      <p className="mt-2.5 rounded-lg bg-paper px-3 py-2 text-[13px] leading-[1.45] text-muted">
         Actions run against sample data. Hand-offs to a person are simulated: nobody will reply, but you can keep
         chatting with the assistant.
       </p>

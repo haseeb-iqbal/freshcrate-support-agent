@@ -36,7 +36,7 @@ export function PromptActions({
   const submitting = state === "submitting";
   const disabled = submitting || state === "locked";
   return (
-    <div className="mt-3.5 flex flex-wrap items-center gap-2.5">
+    <div className="mt-3 flex flex-wrap items-center gap-2">
       <button
         onClick={onConfirm}
         disabled={disabled}

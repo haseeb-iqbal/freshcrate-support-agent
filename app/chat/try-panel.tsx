@@ -42,7 +42,7 @@ export function TryPanel({
         onClick={() => setPhoneOpen((v) => !v)}
         aria-expanded={phoneOpen}
         aria-controls="try-panel-body"
-        className="flex min-h-[52px] w-full items-center justify-between rounded-2xl border border-mist bg-white px-4 text-left font-bold lg:hidden"
+        className="flex min-h-[44px] w-full items-center justify-between rounded-xl border border-mist bg-white px-3.5 text-left text-sm font-bold lg:hidden"
       >
         <span>
           Things to try, {triedCount} of {total} tried
@@ -53,17 +53,17 @@ export function TryPanel({
       <div id="try-panel-body" data-testid="try-panel" className={
           // On a phone the panel opens as a scrolling layer over the chat, so
           // the chat keeps its full height. From lg up it is a plain column.
-          `${phoneOpen ? "block" : "hidden"} absolute inset-x-0 top-full z-20 mt-2 max-h-[65dvh] space-y-8 overflow-y-auto rounded-2xl border border-mist bg-paper p-4 shadow-lg ` +
+          `${phoneOpen ? "block" : "hidden"} absolute inset-x-0 top-full z-20 mt-2 max-h-[55dvh] space-y-6 overflow-y-auto rounded-2xl border border-mist bg-paper p-4 shadow-lg ` +
           "lg:static lg:mt-0 lg:block lg:max-h-none lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none"
         }>
         <section aria-labelledby="try-heading">
           <h2 id="try-heading" className="font-display text-[17px] font-extrabold tracking-tight">
             Try it
           </h2>
-          <p className="mt-1.5 text-sm leading-relaxed text-muted">
+          <p className="mt-1 text-[13px] leading-[1.45] text-muted">
             Pick an idea. It signs you in as the right sample customer and fills in the message.
           </p>
-          <div className="mt-3.5 flex items-center gap-2.5">
+          <div className="mt-2.5 flex items-center gap-2.5">
             <div
               role="progressbar"
               aria-label="Ideas tried"
@@ -78,7 +78,7 @@ export function TryPanel({
               {triedCount} of {total}
             </span>
           </div>
-          <ul className="mt-3">
+          <ul className="mt-2">
             {STARTERS.map((s) => {
               const done = tried.has(s.id);
               return (
@@ -89,12 +89,12 @@ export function TryPanel({
                     disabled={disabled}
                     aria-pressed={done}
                     title={`Signs you in as ${s.customer}`}
-                    className="flex min-h-[56px] w-full items-start gap-3 rounded px-0.5 py-2.5 text-left transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+                    className="flex min-h-[44px] w-full items-start gap-2.5 rounded px-0.5 py-2 text-left transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <Tick done={done} />
                     <span className="min-w-0 flex-1">
-                      <span className="block text-[15px] font-bold">{s.title}</span>
-                      <span className="mt-0.5 block text-[13px] text-muted">
+                      <span className="block text-sm font-bold">{s.title}</span>
+                      <span className="block text-[13px] leading-[1.4] text-muted">
                         &ldquo;{s.text}&rdquo;, as {firstName(s.customer)}
                       </span>
                     </span>
@@ -118,7 +118,7 @@ export function TryPanel({
               {allOpen ? "Close all" : "Open all"}
             </button>
           </div>
-          <ul className="mt-1.5 border-t border-mist">
+          <ul className="mt-1 border-t border-mist">
             {FEATURE_GROUPS.map((g) => {
               const isOpen = !!open[g.id];
               const done = g.prompts.filter((p) => tried.has(p.id)).length;
@@ -130,7 +130,7 @@ export function TryPanel({
                       onClick={() => setOpen((o) => ({ ...o, [g.id]: !o[g.id] }))}
                       aria-expanded={isOpen}
                       aria-controls={`group-${g.id}`}
-                      className="flex min-h-[48px] w-full items-center gap-2.5 rounded px-0.5 py-2.5 text-left text-[15px] font-bold"
+                      className="flex min-h-[44px] w-full items-center gap-2.5 rounded px-0.5 py-2 text-left text-sm font-bold"
                     >
                       <Chevron open={isOpen} />
                       <span className="flex-1">{g.title}</span>
@@ -140,9 +140,9 @@ export function TryPanel({
                     </button>
                   </h3>
                   {isOpen && (
-                    <div id={`group-${g.id}`} className="pb-3.5 pl-7 pr-0.5">
-                      <p className="mb-2.5 text-sm leading-relaxed text-muted">{g.body}</p>
-                      <div className="flex flex-wrap gap-2">
+                    <div id={`group-${g.id}`} className="pb-3 pl-7 pr-0.5">
+                      <p className="mb-2 text-[13px] leading-[1.45] text-muted">{g.body}</p>
+                      <div className="flex flex-wrap gap-1.5">
                         {g.prompts.map((p) => {
                           const pDone = tried.has(p.id);
                           return (
@@ -154,7 +154,7 @@ export function TryPanel({
                               aria-pressed={pDone}
                               title={`Signs you in as ${p.customer}`}
                               className={
-                                "min-h-[40px] rounded-full border px-3.5 py-2 text-left text-sm transition hover:border-brand disabled:cursor-not-allowed disabled:opacity-60 " +
+                                "relative min-h-[32px] rounded-full border px-3 py-1.5 text-left text-[13px] leading-[1.35] transition after:absolute after:inset-x-0 after:-inset-y-1.5 after:content-[''] [@media(pointer:fine)]:after:hidden hover:border-brand disabled:cursor-not-allowed disabled:opacity-60 " +
                                 (pDone ? "border-citrus-dark bg-citrus-light" : "border-mist bg-white")
                               }
                             >
@@ -185,7 +185,7 @@ export function TryPanel({
             Reset demo
           </button>
         </div>
-        <p className="border-t border-mist pt-4 text-[13px] leading-relaxed text-muted">
+        <p className="border-t border-mist pt-3 text-[13px] leading-[1.45] text-muted">
           Built by Haseeb Iqbal. 91 of 92 required test conversations pass with the real model, and a chat turn costs
           about $0.0016.{" "}
           <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className="rounded text-brand underline underline-offset-4 hover:text-brand-dark">

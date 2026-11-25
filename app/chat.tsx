@@ -268,12 +268,12 @@ export default function Chat({
         onSwitchCustomer={switchCustomer}
       />
 
-      <main className="home-grid mx-auto min-h-0 w-full max-w-[1280px] flex-1 px-4 pb-4 pt-4 sm:px-6 lg:pb-6 lg:pt-6">
+      <main className="home-grid mx-auto min-h-0 w-full max-w-[1280px] flex-1 px-4 pb-3 pt-3 sm:px-6 lg:pb-4 lg:pt-4">
         <div className="[grid-area:intro]">
           <h1 className="font-display text-[22px] font-extrabold leading-[1.05] tracking-[-0.03em] sm:text-[26px] lg:text-[30px]">
             Meal-kit support, all in one chat
           </h1>
-          <p className="mt-2 max-w-[70ch] text-[15px] leading-relaxed text-muted lg:text-base">
+          <p className="mt-1.5 max-w-[75ch] text-sm leading-[1.45] text-muted">
             A portfolio project by Haseeb Iqbal. Ask about orders, refunds or your plan, and nothing changes until you
             confirm. FreshCrate is made up and every customer is sample data, so try anything.
             <span className="hidden lg:inline"> Ideas to try are on the right.</span>
@@ -284,7 +284,7 @@ export default function Chat({
           aria-label="Chat"
           className="flex min-h-0 flex-col rounded-[18px] border border-mist bg-white [grid-area:chat]"
         >
-          <div ref={scrollRef} className="flex-1 space-y-5 overflow-y-auto p-4 sm:p-6">
+          <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto p-4">
             {showAccount ? (
               <AccountPanel account={account} />
             ) : (

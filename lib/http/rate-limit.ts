@@ -88,55 +88,55 @@ export type RateDecision =
  * allowed. A denied turn is not recorded, so retrying doesn't push the wait out.
  */
 export async function takeChatTurn(visitor: string, at: Date, limits: RateLimits): Promise<RateDecision> {
-  // Housekeeping outside the lock: nothing older than a day is ever counted.
-  await db.delete(chatRateEvents).where(lt(chatRateEvents.createdAt, new Date(at.getTime() - DAY_MS)));
-
-  // Check-then-insert runs under a transaction-scoped advisory lock for this
-  // visitor only, so one visitor's concurrent turns are counted one at a time
-  // and can't slip past their hourly limit, while different visitors never wait
-  // on each other. The daily cap can therefore overshoot by at most the turns
-  // that arrive in the same instant, which is fine for a spend backstop. A lock
-  // wait over 3 seconds errors out instead of piling up connections.
-  return db.transaction(async (tx) => {
-    await tx.execute(sql`set local lock_timeout = '3s'`);
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${visitor}))`);
-    return check(tx, visitor, at, limits);
-  });
-}
-
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
-
-async function check(db: Tx, visitor: string, at: Date, limits: RateLimits): Promise<RateDecision> {
   const hourAgo = new Date(at.getTime() - HOUR_MS);
   const dayAgo = new Date(at.getTime() - DAY_MS);
 
-  const mine = and(eq(chatRateEvents.visitor, visitor), gte(chatRateEvents.createdAt, hourAgo));
-  const [{ n: visitorTurns }] = await db.select({ n: count() }).from(chatRateEvents).where(mine);
-  if (visitorTurns >= limits.perVisitorPerHour) {
-    const [oldest] = await db
-      .select({ at: chatRateEvents.createdAt })
-      .from(chatRateEvents)
-      .where(mine)
-      .orderBy(asc(chatRateEvents.createdAt))
-      .limit(1);
-    return { ok: false, scope: "visitor", limit: limits.perVisitorPerHour, retryAfterSec: secondsUntil(oldest?.at, HOUR_MS, at) };
-  }
+  // Two transaction-scoped advisory locks keep both limits exact under
+  // concurrency. The per-visitor lock serialises one visitor's turns while that
+  // visitor's hourly count is checked, so different visitors don't wait on each
+  // other there. Only a visitor still under their limit then takes the shared
+  // lock, which covers just the daily count and the insert, so concurrent turns
+  // can't overshoot the daily cap either. Waits over 3 seconds error out instead
+  // of piling up connections.
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`set local lock_timeout = '3s'`);
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${visitor}))`);
 
-  const today = gte(chatRateEvents.createdAt, dayAgo);
-  const [{ n: allTurns }] = await db.select({ n: count() }).from(chatRateEvents).where(today);
-  if (allTurns >= limits.globalPerDay) {
-    const [oldest] = await db
-      .select({ at: chatRateEvents.createdAt })
-      .from(chatRateEvents)
-      .where(today)
-      .orderBy(asc(chatRateEvents.createdAt))
-      .limit(1);
-    return { ok: false, scope: "global", limit: limits.globalPerDay, retryAfterSec: secondsUntil(oldest?.at, DAY_MS, at) };
-  }
+    const mine = and(eq(chatRateEvents.visitor, visitor), gte(chatRateEvents.createdAt, hourAgo));
+    const [{ n: visitorTurns }] = await tx.select({ n: count() }).from(chatRateEvents).where(mine);
+    if (visitorTurns >= limits.perVisitorPerHour) {
+      const [oldest] = await tx
+        .select({ at: chatRateEvents.createdAt })
+        .from(chatRateEvents)
+        .where(mine)
+        .orderBy(asc(chatRateEvents.createdAt))
+        .limit(1);
+      return { ok: false, scope: "visitor", limit: limits.perVisitorPerHour, retryAfterSec: secondsUntil(oldest?.at, HOUR_MS, at) };
+    }
 
-  await db.insert(chatRateEvents).values({ visitor, createdAt: at });
-  return { ok: true };
+    await tx.execute(sql`select pg_advisory_xact_lock(${GLOBAL_LOCK})`);
+    const today = gte(chatRateEvents.createdAt, dayAgo);
+    const [{ n: allTurns }] = await tx.select({ n: count() }).from(chatRateEvents).where(today);
+    if (allTurns >= limits.globalPerDay) {
+      const [oldest] = await tx
+        .select({ at: chatRateEvents.createdAt })
+        .from(chatRateEvents)
+        .where(today)
+        .orderBy(asc(chatRateEvents.createdAt))
+        .limit(1);
+      return { ok: false, scope: "global", limit: limits.globalPerDay, retryAfterSec: secondsUntil(oldest?.at, DAY_MS, at) };
+    }
+
+    await tx.insert(chatRateEvents).values({ visitor, createdAt: at });
+    // Housekeeping only on an admitted turn, so a refused request can't trigger
+    // writes: nothing older than a day is ever counted. Indexed on created_at.
+    await tx.delete(chatRateEvents).where(lt(chatRateEvents.createdAt, dayAgo));
+    return { ok: true };
+  });
 }
+
+/** Arbitrary constant naming the shared advisory lock for the daily cap. */
+const GLOBAL_LOCK = 7_310_201;
 
 /** Seconds until the oldest counted turn leaves its window, at least 1. */
 function secondsUntil(oldest: Date | undefined, windowMs: number, at: Date): number {

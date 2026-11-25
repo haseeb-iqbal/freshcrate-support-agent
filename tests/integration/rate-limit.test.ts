@@ -44,6 +44,13 @@ describe("chat rate limit", () => {
     if (!d.ok) expect(limitMessage(d)).toContain("limit of 5 messages a day");
   });
 
+  it("never lets concurrent turns from different visitors overshoot the daily cap", async () => {
+    const visitors = Array.from({ length: 12 }, (_, i) => `v${i}`);
+    const results = await Promise.all(visitors.map((v) => takeChatTurn(v, minutes(1), LIMITS)));
+    expect(results.filter((r) => r.ok)).toHaveLength(5);
+    expect(await db.select().from(chatRateEvents)).toHaveLength(5);
+  });
+
   it("forgets turns older than a day", async () => {
     for (const v of ["a", "b", "c", "d", "e"]) await takeChatTurn(v, minutes(0), LIMITS);
     expect(await takeChatTurn("f", minutes(24 * 60 + 1), LIMITS)).toEqual({ ok: true });

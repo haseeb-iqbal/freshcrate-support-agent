@@ -1,4 +1,5 @@
 import {
+  index,
   integer,
   jsonb,
   numeric,
@@ -101,6 +102,24 @@ export const traces = pgTable("traces", {
   endReason: text("end_reason"), // answered | step_cap | deadline | error
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// --- chat rate limit -----------------------------------------------------------
+// One row per chat turn the limiter let through, so the limit holds across
+// serverless instances. `visitor` is an HMAC of the visitor's IP address keyed
+// with a server-side secret: the raw IP is never stored. Rows older than a day
+// are deleted as new turns arrive. See lib/http/rate-limit.ts.
+export const chatRateEvents = pgTable(
+  "chat_rate_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    visitor: text("visitor").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  },
+  (t) => ({
+    byVisitor: index("chat_rate_events_visitor_idx").on(t.visitor, t.createdAt),
+    byTime: index("chat_rate_events_created_idx").on(t.createdAt),
+  }),
+);
 
 // --- plans (subscription pricing reference) ---
 export const plans = pgTable("plans", {

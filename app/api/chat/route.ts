@@ -6,6 +6,7 @@ import { runAgent, type TurnSummary } from "@/lib/agent/loop";
 import { reconcile } from "@/lib/billing/reconcile";
 import { now } from "@/lib/clock";
 import { parseDecisions } from "@/lib/decisions";
+import { limitMessage, limitsFromEnv, rateLimitEnabled, takeChatTurn, visitorId } from "@/lib/http/rate-limit";
 import { recordTrace } from "@/lib/observability/traces";
 
 // postgres.js and the OpenAI SDK need the Node runtime (not edge).
@@ -48,6 +49,17 @@ export async function POST(req: NextRequest) {
   }
   // Enum-only by construction, so there is no client-supplied text to fence.
   const decisions = parseDecisions(body.decisions);
+
+  // Per-visitor and global caps on model spend, checked before any model call.
+  if (rateLimitEnabled()) {
+    const decision = await takeChatTurn(visitorId(req.headers), now(), limitsFromEnv());
+    if (!decision.ok) {
+      return new Response(limitMessage(decision), {
+        status: 429,
+        headers: { "Retry-After": String(decision.retryAfterSec), "Content-Type": "text/plain; charset=utf-8" },
+      });
+    }
+  }
 
   // Bring the subscription up to date (billing, pause fees, auto-resume) before
   // the turn sees its state.

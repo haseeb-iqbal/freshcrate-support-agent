@@ -59,6 +59,7 @@ PostgreSQL + pgvector (Drizzle), one traces row per chat turn -> /dashboard
 
 - **Propose, then confirm.** Write tools return a proposal, not a change. The card's confirm button calls a separate `/api/actions/*` route that re-validates the request against the database before writing, so a wrong figure from the model can't become a wrong charge.
 - **Customer scoping.** Every tool is bound to the server-side customer id for the turn. There is no general SQL tool, and a request for another customer's data is refused.
+- **Rate limit.** Before any model call, the chat route checks two limits stored in Postgres (so they hold across serverless instances): turns per visitor per hour and turns per day overall. A refused turn gets a 429 with a `Retry-After` header, and the chat shows when to try again. Card confirmations go to `/api/actions/*`, which the limit never touches.
 - **Guards in code, not just in the prompt.** The loop has a step cap, a time limit and output limits. It also has guards that catch the model describing an action instead of calling the tool, re-proposing a refund it already offered, and similar slips. Fixed card wording comes from the tool, not the model.
 - **Help-center answers are grounded.** Searching the help center is a tool the agent chooses to call. Answers cite article and section, and if the articles don't say, it says so.
 - **Billing is kept current on read.** Every route first brings the subscription up to date (billing rollover, monthly pause fees, auto-resume), so figures on cards match what the account will actually do.
@@ -111,6 +112,10 @@ npm run dev              # http://localhost:3000
 | `REFUND_CEILING_CENTS` | no | Largest refund the customer can confirm in chat, default 2000 ($20). |
 | `SIGNUP_FEE_CENTS` | no | Fee to come back after the billing date, default 4000 ($40). |
 | `MAX_LOOP_ITERATIONS`, `MAX_OUTPUT_TOKENS`, `AGENT_TIMEOUT_MS` | no | Agent loop limits: 6 steps, 1024 tokens, 45 seconds by default. |
+| `RATE_LIMIT_PER_HOUR` | no | Chat turns one visitor may send in any rolling hour, default 30. |
+| `RATE_LIMIT_PER_DAY` | no | Chat turns all visitors together may send in any rolling 24 hours, default 1500. |
+| `RATE_LIMIT_SECRET` | no | Key for hashing visitors' IP addresses, which are never stored raw. Defaults to `OPENAI_API_KEY`. |
+| `RATE_LIMIT_DISABLED` | no | Set to `1` to turn the chat limit off. The evals set it; it's also off whenever `MOCK_LLM=1`. |
 | `TRACES_DISABLED` | no | Set to `1` to stop logging chat turns. The evals set it. |
 | `MOCK_LLM` | no | Set to `1` for the scripted model. `npm run dev:mock` sets it. |
 
@@ -149,7 +154,7 @@ Latest full run: **91 of 92 required cases pass** on `gpt-4o-mini`. A chat turn 
 - **No real login.** "Signed in as" is a picker, not authentication.
 - **Nothing is real money.** Refunds, fees and charges are database rows. Hand-offs to a person are simulated, and nobody replies.
 - **The dashboard is public and has no login.** It never shows message text, but the text customers type is stored in the `traces` table for debugging.
-- **No rate limiting yet.** The chat route caps message length (2,000 characters), and the loop caps steps, output tokens and time, but there's no per-visitor rate limit. `RATE_LIMIT_PER_MIN` in `.env.example` isn't wired up. A spend cap on the OpenAI account is the backstop.
+- **Chat is rate limited.** Each visitor can send 30 messages an hour, and all visitors together 1,500 a day; past that the chat says when to try again. Visitors are told apart by a hash of their IP address, so people behind one shared network share a limit. Confirming a card is never limited. A spend cap on the OpenAI account is still worth setting as a backstop.
 
 ---
 

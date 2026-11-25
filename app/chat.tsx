@@ -220,7 +220,8 @@ export default function Chat({
 
       if (!res.ok || !res.body) {
         const msg = await res.text().catch(() => "Request failed");
-        patchLast({ content: `Sorry — ${msg || "something went wrong"}.` });
+        // A rate-limit refusal is already a full sentence for the visitor.
+        patchLast({ content: res.status === 429 && msg ? msg : `Sorry — ${msg || "something went wrong"}.` });
         return;
       }
 

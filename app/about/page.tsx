@@ -45,9 +45,12 @@ export default function AboutPage() {
       <main className="mx-auto max-w-[1280px] px-4 sm:px-6">
         <section className="grid items-start gap-6 py-6 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-10 lg:py-8">
           <div>
-            <h1 className="font-display text-[30px] font-extrabold leading-[1.05] tracking-[-0.03em] sm:text-[36px] lg:text-[44px]">
+            <h1 className="font-display text-[26px] font-extrabold leading-[1.05] tracking-[-0.03em] sm:text-[30px] lg:text-[36px]">
               FreshCrate Support Agent
             </h1>
+            <p className="mt-1.5 font-display text-[17px] font-bold tracking-tight text-brand lg:text-[19px]">
+              An agent for all your meal-kit needs
+            </p>
             <p className="mt-2.5 max-w-[60ch] text-base leading-relaxed text-muted">
               A portfolio project by Haseeb Iqbal. FreshCrate is a made-up meal-kit company. Its assistant answers from a
               help center, looks up orders, and proposes real account changes, like pauses, refunds and plan switches,
@@ -90,7 +93,7 @@ export default function AboutPage() {
         </section>
 
         <section id="steps" aria-labelledby="steps-title" className="scroll-mt-6 border-t border-mist py-9">
-          <h2 id="steps-title" className="font-display text-[24px] font-extrabold tracking-tight">
+          <h2 id="steps-title" className="font-display text-[19px] font-extrabold tracking-tight">
             Test it in 3 steps
           </h2>
           <p className="mt-2 text-muted">No sign-up. Pick a sample customer, ask something, and decide.</p>
@@ -100,7 +103,7 @@ export default function AboutPage() {
                 <span aria-hidden className="flex h-10 w-10 items-center justify-center rounded-full bg-citrus font-display text-lg font-extrabold">
                   {i + 1}
                 </span>
-                <h3 className="mt-2.5 font-display text-[17px] font-bold tracking-tight">{s.title}</h3>
+                <h3 className="mt-2.5 font-display text-[15px] font-bold tracking-tight">{s.title}</h3>
                 <p className="mt-1.5 leading-relaxed text-muted">{s.body}</p>
               </li>
             ))}
@@ -108,7 +111,7 @@ export default function AboutPage() {
         </section>
 
         <section aria-labelledby="try-title" className="border-t border-mist py-9">
-          <h2 id="try-title" className="font-display text-[24px] font-extrabold tracking-tight">
+          <h2 id="try-title" className="font-display text-[19px] font-extrabold tracking-tight">
             Things to try
           </h2>
           <p className="mt-2 text-muted">Each one opens the demo as the right customer, with the message ready to send.</p>
@@ -116,7 +119,7 @@ export default function AboutPage() {
             {STARTERS.map((s) => (
               <li key={s.id} className="flex flex-col rounded-2xl border border-mist bg-white p-5">
                 <div className="flex items-baseline justify-between gap-3">
-                  <h3 className="font-display text-base font-bold tracking-tight">{s.title}</h3>
+                  <h3 className="font-display text-[15px] font-bold tracking-tight">{s.title}</h3>
                   <span className="whitespace-nowrap text-[13px] text-muted">as {firstName(s.customer)}</span>
                 </div>
                 <p className="mt-2 font-bold">&ldquo;{s.text}&rdquo;</p>
@@ -130,7 +133,7 @@ export default function AboutPage() {
         </section>
 
         <section aria-labelledby="features-title" className="border-t border-mist py-9">
-          <h2 id="features-title" className="font-display text-[24px] font-extrabold tracking-tight">
+          <h2 id="features-title" className="font-display text-[19px] font-extrabold tracking-tight">
             What it can do
           </h2>
           <p className="mt-2 max-w-[70ch] text-muted">
@@ -142,7 +145,7 @@ export default function AboutPage() {
               const p = promptById(f.promptId);
               return (
                 <li key={f.title} className="border-t-2 border-ink pt-4">
-                  <h3 className="font-display text-base font-bold tracking-tight">{f.title}</h3>
+                  <h3 className="font-display text-[15px] font-bold tracking-tight">{f.title}</h3>
                   <p className="mt-1.5 text-[15px] leading-relaxed text-muted">{f.body}</p>
                   {p && (
                     <p className="mt-3 text-[15px]">
@@ -160,7 +163,7 @@ export default function AboutPage() {
 
         <section aria-labelledby="hood-title" className="grid gap-8 border-t border-mist py-9 lg:grid-cols-2">
           <div>
-            <h2 id="hood-title" className="font-display text-[24px] font-extrabold tracking-tight">
+            <h2 id="hood-title" className="font-display text-[19px] font-extrabold tracking-tight">
               Under the hood
             </h2>
             <p className="mt-2 max-w-[60ch] leading-relaxed text-muted">
@@ -215,7 +218,7 @@ function Stat({ label, value, note }: { label: string; value: string; note?: str
   return (
     <div className="bg-white p-5">
       <dt className="text-sm text-muted">{label}</dt>
-      <dd className="mt-1 font-display text-[22px] font-extrabold tracking-tight">{value}</dd>
+      <dd className="mt-1 font-display text-[18px] font-extrabold tracking-tight">{value}</dd>
       {note && <dd className="text-[13px] text-muted">{note}</dd>}
     </div>
   );

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { GITHUB_URL } from "../site-nav";
 import { ALL_PROMPTS, FEATURE_GROUPS, STARTERS, type DemoPrompt } from "@/lib/demo-prompts";
 
 const firstName = (name: string) => name.split(" ")[0];
@@ -35,7 +36,7 @@ export function TryPanel({
   };
 
   return (
-    <aside aria-label="Things to try" className="[grid-area:panel]">
+    <aside aria-label="Things to try" className="relative [grid-area:panel] lg:min-h-0 lg:overflow-y-auto lg:pr-2">
       <button
         type="button"
         onClick={() => setPhoneOpen((v) => !v)}
@@ -49,7 +50,12 @@ export function TryPanel({
         <Chevron open={phoneOpen} />
       </button>
 
-      <div id="try-panel-body" data-testid="try-panel" className={`${phoneOpen ? "mt-5" : "hidden"} space-y-8 lg:block`}>
+      <div id="try-panel-body" data-testid="try-panel" className={
+          // On a phone the panel opens as a scrolling layer over the chat, so
+          // the chat keeps its full height. From lg up it is a plain column.
+          `${phoneOpen ? "block" : "hidden"} absolute inset-x-0 top-full z-20 mt-2 max-h-[65dvh] space-y-8 overflow-y-auto rounded-2xl border border-mist bg-paper p-4 shadow-lg ` +
+          "lg:static lg:mt-0 lg:block lg:max-h-none lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none"
+        }>
         <section aria-labelledby="try-heading">
           <h2 id="try-heading" className="font-display text-[26px] font-extrabold tracking-tight">
             Try it
@@ -179,6 +185,13 @@ export function TryPanel({
             Reset demo
           </button>
         </div>
+        <p className="border-t border-mist pt-4 text-[13px] leading-relaxed text-muted">
+          Built by Haseeb Iqbal. 91 of 92 required test conversations pass with the real model, and a chat turn costs
+          about $0.0016.{" "}
+          <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className="rounded text-brand underline underline-offset-4 hover:text-brand-dark">
+            Code on GitHub
+          </a>
+        </p>
       </div>
     </aside>
   );

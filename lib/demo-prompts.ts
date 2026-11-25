@@ -1,6 +1,6 @@
 /**
  * The things-to-try prompts, defined once for the home page's try-it panel and
- * the /tour page.
+ * the /about page.
  *
  * Each prompt names the sample customer it is written for (a full name from
  * db/seed.ts), because most of them only make sense for one account: Diego is
@@ -25,7 +25,7 @@ export interface DemoPrompt {
 
 export interface Starter extends DemoPrompt {
   title: string;
-  /** What the viewer should see happen, for the /tour page. */
+  /** What the viewer should see happen, for the /about page. */
   expect: string;
 }
 
@@ -152,7 +152,7 @@ export function promptById(id: string): DemoPrompt | undefined {
   return ALL_PROMPTS.find((p) => p.id === id);
 }
 
-/** The eight feature cards on /tour. Each example is a prompt id from above. */
+/** The eight feature cards on /about. Each example is a prompt id from above. */
 export const TOUR_FEATURES: { title: string; body: string; promptId: string }[] = [
   {
     title: "Orders",

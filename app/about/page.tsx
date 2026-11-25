@@ -4,7 +4,7 @@ import { CrateCard, CrateFacts } from "../chat/cards/crate";
 import { HeaderShell } from "../header-shell";
 import { GITHUB_URL, SiteNav } from "../site-nav";
 
-export const metadata = { title: "Guided tour" };
+export const metadata = { title: "About" };
 
 const firstName = (name: string) => name.split(" ")[0];
 const tryHref = (id: string) => `/?try=${id}`;
@@ -28,8 +28,8 @@ const STEPS = [
 
 const TURN = ["You send a message", "It calls tools: orders, help center, billing", "It shows a card with exact figures", "You confirm, and the server applies it"];
 
-/** The guided tour: how to test the demo, for a first-time visitor. */
-export default function TourPage() {
+/** About the demo, with a short tour of how to test it, for a first-time visitor. */
+export default function AboutPage() {
   return (
     <div className="min-h-screen">
       <HeaderShell
@@ -39,7 +39,7 @@ export default function TourPage() {
           </Link>
         }
       >
-        <SiteNav current="tour" />
+        <SiteNav current="about" />
       </HeaderShell>
 
       <main className="mx-auto max-w-[1280px] px-4 sm:px-6">

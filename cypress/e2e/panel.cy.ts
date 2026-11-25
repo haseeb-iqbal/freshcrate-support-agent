@@ -57,7 +57,7 @@ describe("Try it panel (mock LLM)", () => {
     cy.get('[data-testid="history-card"]').should("exist");
   });
 
-  it("opens with a prompt ready from a /tour link", () => {
+  it("opens with a prompt ready from an /about link", () => {
     cy.visit("/?try=plan-while-paused");
     selectedCustomer().should("contain.text", "Diego Santos");
     cy.get("textarea").should("have.value", promptById("plan-while-paused")!.text);
@@ -92,22 +92,27 @@ describe("Phone header", () => {
     cy.get("header select").should("not.be.visible");
     cy.contains("header button", "Menu").click();
     cy.get("header select").should("be.visible");
-    cy.get("header").contains("a", "Guided tour").should("be.visible");
+    cy.get("header").contains("a", "About").should("be.visible");
     cy.focused().type("{esc}");
     cy.get("header select").should("not.be.visible");
     cy.focused().should("contain.text", "Menu");
   });
 });
 
-describe("Guided tour", () => {
+describe("About page", () => {
   it("is linked from the home header and links back to the demo", () => {
     cy.visit("/");
-    cy.get("header").contains("a", "Guided tour").click();
-    cy.location("pathname").should("eq", "/tour");
-    cy.title().should("eq", "Guided tour · FreshCrate");
+    cy.get("header").contains("a", "About").click();
+    cy.location("pathname").should("eq", "/about");
+    cy.title().should("eq", "About · FreshCrate");
     cy.contains("h1", "asks you first").should("exist");
     cy.contains("a", "Try it").first().click();
     cy.location("pathname").should("eq", "/");
     cy.get("textarea").should("have.value", STARTERS[0].text);
+  });
+
+  it("redirects the old /tour address to /about", () => {
+    cy.visit("/tour");
+    cy.location("pathname").should("eq", "/about");
   });
 });

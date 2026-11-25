@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { collectDecisions } from "@/lib/decisions";
 import { promptById, type DemoPrompt } from "@/lib/demo-prompts";
-import { GITHUB_URL } from "./site-nav";
 import { Composer } from "./chat/composer";
 import { ChatHeader } from "./chat/header";
 import { MessageBubble } from "./chat/message-bubble";
@@ -25,7 +24,7 @@ export default function Chat({
   initialPromptId,
 }: {
   customers: CustomerOption[];
-  /** From /?try=<id>, the /tour page's "Try it" links. */
+  /** From /?try=<id>, the /about page's "Try it" links. */
   initialPromptId?: string;
 }) {
   const [customers, setCustomers] = useState(initialCustomers);
@@ -254,7 +253,10 @@ export default function Chat({
 
 
   return (
-    <div className="min-h-screen">
+    // The page is exactly one screen tall (dvh, so a phone's browser toolbar is
+    // accounted for): the message list scrolls inside the chat card and the
+    // message box always stays on screen.
+    <div className="flex h-dvh flex-col">
       <ChatHeader
         customers={customers}
         customerId={customerId}
@@ -266,20 +268,21 @@ export default function Chat({
         onSwitchCustomer={switchCustomer}
       />
 
-      <main className="home-grid mx-auto max-w-[1280px] px-4 pb-8 pt-8 sm:px-6 lg:pt-10">
+      <main className="home-grid mx-auto min-h-0 w-full max-w-[1280px] flex-1 px-4 pb-4 pt-4 sm:px-6 lg:pb-6 lg:pt-6">
         <div className="[grid-area:intro]">
-          <h1 className="max-w-[15ch] font-display text-[40px] font-extrabold leading-[1.02] tracking-[-0.035em] sm:text-5xl lg:text-[56px]">
-            A support agent that asks before it acts.
+          <h1 className="font-display text-[26px] font-extrabold leading-[1.05] tracking-[-0.03em] sm:text-[32px] lg:text-[38px]">
+            Meal-kit support, all in one chat
           </h1>
-          <p className="mt-4 max-w-[60ch] text-[17px] leading-relaxed text-muted">
-            A portfolio project by Haseeb Iqbal. FreshCrate is a made-up meal-kit company and every customer is sample
-            data, so try anything.<span className="hidden lg:inline"> Ideas to try are on the right.</span>
+          <p className="mt-2 max-w-[70ch] text-[15px] leading-relaxed text-muted lg:text-base">
+            A portfolio project by Haseeb Iqbal. Ask about orders, refunds or your plan, and nothing changes until you
+            confirm. FreshCrate is made up and every customer is sample data, so try anything.
+            <span className="hidden lg:inline"> Ideas to try are on the right.</span>
           </p>
         </div>
 
         <section
           aria-label="Chat"
-          className="flex h-[72vh] min-h-[480px] flex-col self-start rounded-[18px] border border-mist bg-white [grid-area:chat] lg:h-[calc(100vh-5rem)] lg:max-h-[820px]"
+          className="flex min-h-0 flex-col rounded-[18px] border border-mist bg-white [grid-area:chat]"
         >
           <div ref={scrollRef} className="flex-1 space-y-5 overflow-y-auto p-4 sm:p-6">
             {showAccount ? (
@@ -306,16 +309,6 @@ export default function Chat({
 
         <TryPanel tried={tried} disabled={busy} onPick={pickPrompt} onReset={resetDemo} />
       </main>
-
-      <footer className="mx-auto max-w-[1280px] px-4 pb-8 text-sm text-muted sm:px-6">
-        <p>
-          Built by Haseeb Iqbal. 91 of 92 required test conversations pass with the real model, and a chat turn costs
-          about $0.0016.{" "}
-          <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className="rounded text-brand underline underline-offset-4 hover:text-brand-dark">
-            Code on GitHub
-          </a>
-        </p>
-      </footer>
     </div>
   );
 }

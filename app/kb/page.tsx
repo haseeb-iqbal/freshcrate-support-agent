@@ -12,7 +12,7 @@ export default async function HelpCenterIndex() {
       <Link href="/" className="text-sm text-brand hover:underline">
         ← Back to chat
       </Link>
-      <h1 className="mt-4 text-2xl font-bold text-slate-900">FreshCrate Help Center</h1>
+      <h1 className="mt-4 text-xl font-bold text-slate-900">FreshCrate Help Center</h1>
       <p className="mt-1 text-sm text-slate-500">
         The reference articles the assistant grounds its answers in. {articles.length} articles.
       </p>

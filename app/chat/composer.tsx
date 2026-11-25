@@ -36,7 +36,7 @@ export function Composer({
         }}
         rows={1}
         aria-label="Message"
-        placeholder="Ask about an order, a refund or a policy"
+        placeholder="Ask Cratelyn anything"
         className="min-h-[48px] min-w-0 flex-1 resize-none rounded-[10px] border border-[#C9D6CE] px-3.5 py-3 text-[15px] text-ink placeholder:text-[#6B7B73] focus:border-brand"
       />
       <button

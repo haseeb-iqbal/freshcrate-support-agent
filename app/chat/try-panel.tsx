@@ -57,7 +57,7 @@ export function TryPanel({
           "lg:static lg:mt-0 lg:block lg:max-h-none lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none"
         }>
         <section aria-labelledby="try-heading">
-          <h2 id="try-heading" className="font-display text-[26px] font-extrabold tracking-tight">
+          <h2 id="try-heading" className="font-display text-[21px] font-extrabold tracking-tight">
             Try it
           </h2>
           <p className="mt-1.5 text-sm leading-relaxed text-muted">
@@ -107,7 +107,7 @@ export function TryPanel({
 
         <section aria-labelledby="features-heading">
           <div className="flex items-baseline justify-between gap-2">
-            <h2 id="features-heading" className="font-display text-[22px] font-extrabold tracking-tight">
+            <h2 id="features-heading" className="font-display text-[18px] font-extrabold tracking-tight">
               What it can do
             </h2>
             <button

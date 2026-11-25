@@ -105,7 +105,7 @@ describe("About page", () => {
     cy.get("header").contains("a", "About").click();
     cy.location("pathname").should("eq", "/about");
     cy.title().should("eq", "About · FreshCrate");
-    cy.contains("h1", "asks you first").should("exist");
+    cy.contains("h1", "FreshCrate Support Agent").should("exist");
     cy.contains("a", "Try it").first().click();
     cy.location("pathname").should("eq", "/");
     cy.get("textarea").should("have.value", STARTERS[0].text);

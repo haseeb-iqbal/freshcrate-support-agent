@@ -270,7 +270,7 @@ export default function Chat({
 
       <main className="home-grid mx-auto min-h-0 w-full max-w-[1280px] flex-1 px-4 pb-4 pt-4 sm:px-6 lg:pb-6 lg:pt-6">
         <div className="[grid-area:intro]">
-          <h1 className="font-display text-[26px] font-extrabold leading-[1.05] tracking-[-0.03em] sm:text-[32px] lg:text-[38px]">
+          <h1 className="font-display text-[22px] font-extrabold leading-[1.05] tracking-[-0.03em] sm:text-[26px] lg:text-[30px]">
             Meal-kit support, all in one chat
           </h1>
           <p className="mt-2 max-w-[70ch] text-[15px] leading-relaxed text-muted lg:text-base">

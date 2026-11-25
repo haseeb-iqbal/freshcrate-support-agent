@@ -2,6 +2,7 @@ import Link from "next/link";
 import { STARTERS, TOUR_FEATURES, promptById } from "@/lib/demo-prompts";
 import { CrateCard, CrateFacts } from "../chat/cards/crate";
 import { HeaderShell } from "../header-shell";
+import { AboutTabs } from "./tabs";
 import { GITHUB_URL, SiteNav } from "../site-nav";
 
 export const metadata = { title: "About" };
@@ -24,6 +25,13 @@ const STEPS = [
     title: "Confirm or decline",
     body: "Anything that changes the account shows a card with the exact figures. Click yes to apply it, or say \"actually no\" and nothing happens.",
   },
+];
+
+const LIMITATIONS = [
+  "gpt-4o-mini isn't fully consistent: a few test conversations fail now and then in a full run.",
+  "Everyone shares one sample database, and confirmed changes stay until it is reseeded.",
+  "There's no real login and no real money, and hand-offs to a person are simulated.",
+  "There's no per-visitor rate limit yet.",
 ];
 
 const TURN = ["You send a message", "It calls tools: orders, help center, billing", "It shows a card with exact figures", "You confirm, and the server applies it"];
@@ -57,7 +65,7 @@ export default function AboutPage() {
               that only happen when you confirm. Everything runs on sample data, so try anything.
             </p>
             <div className="mt-4 flex flex-wrap gap-3">
-              <a href="#steps" className="btn btn-primary">
+              <a href="#try" className="btn btn-primary">
                 Take the 3-minute tour
               </a>
               <Link href="/" className="btn btn-secondary font-bold">
@@ -92,109 +100,130 @@ export default function AboutPage() {
           </figure>
         </section>
 
-        <section id="steps" aria-labelledby="steps-title" className="scroll-mt-6 border-t border-mist py-6">
-          <h2 id="steps-title" className="font-display text-[19px] font-extrabold tracking-tight">
-            Test it in 3 steps
-          </h2>
-          <p className="mt-1 text-muted">No sign-up. Pick a sample customer, ask something, and decide.</p>
-          <ol className="mt-4 grid gap-6 md:grid-cols-3">
-            {STEPS.map((s, i) => (
-              <li key={s.title} className="max-w-[48ch]">
-                <span aria-hidden className="flex h-10 w-10 items-center justify-center rounded-full bg-citrus font-display text-lg font-extrabold">
-                  {i + 1}
-                </span>
-                <h3 className="mt-2.5 font-display text-[15px] font-bold tracking-tight">{s.title}</h3>
-                <p className="mt-1.5 leading-[1.45] text-muted">{s.body}</p>
-              </li>
-            ))}
-          </ol>
-        </section>
-
-        <section aria-labelledby="try-title" className="border-t border-mist py-6">
-          <h2 id="try-title" className="font-display text-[19px] font-extrabold tracking-tight">
-            Things to try
-          </h2>
-          <p className="mt-1 text-muted">Each one opens the demo as the right customer, with the message ready to send.</p>
-          <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {STARTERS.map((s) => (
-              <li key={s.id} className="flex flex-col rounded-2xl border border-mist bg-white p-4">
-                <div className="flex items-baseline justify-between gap-3">
-                  <h3 className="font-display text-[15px] font-bold tracking-tight">{s.title}</h3>
-                  <span className="whitespace-nowrap text-[13px] text-muted">as {firstName(s.customer)}</span>
-                </div>
-                <p className="mt-2 font-bold">&ldquo;{s.text}&rdquo;</p>
-                <p className="mt-1.5 flex-1 text-[15px] leading-[1.45] text-muted">{s.expect}</p>
-                <Link href={tryHref(s.id)} className={`${link} mt-3 self-start text-[13px] font-bold`}>
-                  Try it
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        <section aria-labelledby="features-title" className="border-t border-mist py-6">
-          <h2 id="features-title" className="font-display text-[19px] font-extrabold tracking-tight">
-            What it can do
-          </h2>
-          <p className="mt-1 max-w-[70ch] text-muted">
-            Everything below works in the demo. Policies come from the help center, and anything that changes an account
-            asks you first.
-          </p>
-          <ul className="mt-4 grid gap-x-6 gap-y-6 sm:grid-cols-2 lg:grid-cols-4">
-            {TOUR_FEATURES.map((f) => {
-              const p = promptById(f.promptId);
-              return (
-                <li key={f.title} className="border-t-2 border-ink pt-4">
-                  <h3 className="font-display text-[15px] font-bold tracking-tight">{f.title}</h3>
-                  <p className="mt-1.5 text-[15px] leading-[1.45] text-muted">{f.body}</p>
-                  {p && (
-                    <p className="mt-3 text-[15px]">
-                      Try:{" "}
-                      <Link href={tryHref(p.id)} className={link}>
-                        &ldquo;{p.text}&rdquo;
-                      </Link>
+        <AboutTabs
+          tabs={[
+            {
+              id: "try",
+              label: "Try it",
+              content: (
+                <>
+                  <section aria-labelledby="steps-title">
+                    <h2 id="steps-title" className="font-display text-[19px] font-extrabold tracking-tight">
+                      Test it in 3 steps
+                    </h2>
+                    <p className="mt-1 text-muted">No sign-up. Pick a sample customer, ask something, and decide.</p>
+                    <ol className="mt-4 grid gap-6 md:grid-cols-3">
+                      {STEPS.map((s, i) => (
+                        <li key={s.title} className="max-w-[48ch]">
+                          <span aria-hidden className="flex h-10 w-10 items-center justify-center rounded-full bg-citrus font-display text-lg font-extrabold">
+                            {i + 1}
+                          </span>
+                          <h3 className="mt-2.5 font-display text-[15px] font-bold tracking-tight">{s.title}</h3>
+                          <p className="mt-1.5 leading-[1.45] text-muted">{s.body}</p>
+                        </li>
+                      ))}
+                    </ol>
+                  </section>
+                  <section aria-labelledby="things-title" className="mt-8">
+                    <h2 id="things-title" className="font-display text-[19px] font-extrabold tracking-tight">
+                      Things to try
+                    </h2>
+                    <p className="mt-1 text-muted">Each one opens the demo as the right customer, with the message ready to send.</p>
+                    <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {STARTERS.map((s) => (
+                        <li key={s.id} className="flex flex-col rounded-2xl border border-mist bg-white p-4">
+                          <div className="flex items-baseline justify-between gap-3">
+                            <h3 className="font-display text-[15px] font-bold tracking-tight">{s.title}</h3>
+                            <span className="whitespace-nowrap text-[13px] text-muted">as {firstName(s.customer)}</span>
+                          </div>
+                          <p className="mt-2 font-bold">&ldquo;{s.text}&rdquo;</p>
+                          <p className="mt-1.5 flex-1 text-[15px] leading-[1.45] text-muted">{s.expect}</p>
+                          <Link href={tryHref(s.id)} className={`${link} mt-3 self-start text-[13px] font-bold`}>
+                            Try it
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                </>
+              ),
+            },
+            {
+              id: "features",
+              label: "What it does",
+              content: (
+                <>
+                  <p className="max-w-[70ch] text-muted">
+                    Everything here works in the demo. Policies come from the help center, and anything that changes an
+                    account asks you first.
+                  </p>
+                  <ul className="mt-4 grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-4">
+                    {TOUR_FEATURES.map((f) => {
+                      const p = promptById(f.promptId);
+                      return (
+                        <li key={f.title} className="border-t-2 border-ink pt-3">
+                          <h3 className="font-display text-[15px] font-bold tracking-tight">{f.title}</h3>
+                          <p className="mt-1 text-[15px] leading-[1.45] text-muted">{f.body}</p>
+                          {p && (
+                            <p className="mt-2 text-[15px]">
+                              Try:{" "}
+                              <Link href={tryHref(p.id)} className={link}>
+                                &ldquo;{p.text}&rdquo;
+                              </Link>
+                            </p>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </>
+              ),
+            },
+            {
+              id: "built",
+              label: "How it's built",
+              content: (
+                <div className="grid gap-8 lg:grid-cols-2">
+                  <div>
+                    <p className="max-w-[60ch] leading-[1.45] text-muted">
+                      The model never changes an account by itself. It calls tools, the server re-checks every figure,
+                      and the card is the only way a change happens.
                     </p>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-
-        <section aria-labelledby="hood-title" className="grid gap-8 border-t border-mist py-6 lg:grid-cols-2">
-          <div>
-            <h2 id="hood-title" className="font-display text-[19px] font-extrabold tracking-tight">
-              Under the hood
-            </h2>
-            <p className="mt-1 max-w-[60ch] leading-[1.45] text-muted">
-              The model never changes an account by itself. It calls tools, the server re-checks every figure, and the
-              card is the only way a change happens.
-            </p>
-            <ol aria-label="How a chat turn works" className="mt-4 space-y-2.5">
-              {TURN.map((t, i) => (
-                <li key={t} className="flex items-center gap-3">
-                  <span aria-hidden className="flex h-7 w-7 flex-none items-center justify-center rounded-full border-2 border-brand text-sm font-bold text-brand">
-                    {i + 1}
-                  </span>
-                  <span>{t}</span>
-                </li>
-              ))}
-            </ol>
-          </div>
-          <dl className="grid gap-px self-start overflow-hidden rounded-2xl border border-mist bg-mist sm:grid-cols-2">
-            <Stat label="Required test conversations passing" value="91 of 92" note="Run against the real model" />
-            <Stat label="Cost per chat turn" value="about $0.0016" />
-            <Stat label="Model" value="gpt-4o-mini" />
-            <div className="bg-white p-4">
-              <dt className="text-sm text-muted">Live cost and latency</dt>
-              <dd className="mt-1.5">
-                <Link href="/dashboard" className={`${link} font-bold`}>
-                  Open the dashboard
-                </Link>
-              </dd>
-            </div>
-          </dl>
-        </section>
+                    <ol aria-label="How a chat turn works" className="mt-4 space-y-2.5">
+                      {TURN.map((t, i) => (
+                        <li key={t} className="flex items-center gap-3">
+                          <span aria-hidden className="flex h-7 w-7 flex-none items-center justify-center rounded-full border-2 border-brand text-sm font-bold text-brand">
+                            {i + 1}
+                          </span>
+                          <span>{t}</span>
+                        </li>
+                      ))}
+                    </ol>
+                    <h2 className="mt-6 font-display text-[19px] font-extrabold tracking-tight">Limitations</h2>
+                    <ul className="mt-2 list-disc space-y-1.5 pl-5 leading-[1.45] text-muted">
+                      {LIMITATIONS.map((l) => (
+                        <li key={l}>{l}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <dl className="grid gap-px self-start overflow-hidden rounded-2xl border border-mist bg-mist sm:grid-cols-2">
+                    <Stat label="Required test conversations passing" value="91 of 92" note="Run against the real model" />
+                    <Stat label="Cost per chat turn" value="about $0.0016" />
+                    <Stat label="Model" value="gpt-4o-mini" />
+                    <div className="bg-white p-4">
+                      <dt className="text-sm text-muted">Live cost and latency</dt>
+                      <dd className="mt-1.5">
+                        <Link href="/dashboard" className={`${link} font-bold`}>
+                          Open the dashboard
+                        </Link>
+                      </dd>
+                    </div>
+                  </dl>
+                </div>
+              ),
+            },
+          ]}
+        />
       </main>
 
       <footer className="border-t border-mist">

@@ -6,7 +6,7 @@ import { runAgent, type TurnSummary } from "@/lib/agent/loop";
 import { reconcile } from "@/lib/billing/reconcile";
 import { now } from "@/lib/clock";
 import { parseDecisions } from "@/lib/decisions";
-import { limitMessage, limitsFromEnv, rateLimitEnabled, takeChatTurn, visitorId } from "@/lib/http/rate-limit";
+import { limitMessage, limitsFromEnv, rateLimitEnabled, rateLimitSecret, takeChatTurn, visitorId } from "@/lib/http/rate-limit";
 import { recordTrace } from "@/lib/observability/traces";
 
 // postgres.js and the OpenAI SDK need the Node runtime (not edge).
@@ -52,7 +52,13 @@ export async function POST(req: NextRequest) {
 
   // Per-visitor and global caps on model spend, checked before any model call.
   if (rateLimitEnabled()) {
-    const decision = await takeChatTurn(visitorId(req.headers), now(), limitsFromEnv());
+    const secret = rateLimitSecret();
+    if (!secret) {
+      // Fail closed: without the secret there is no safe way to tell visitors apart.
+      console.error("[chat] RATE_LIMIT_SECRET is not set; refusing chat turns");
+      return new Response("Chat is temporarily unavailable. Please try again later.", { status: 503 });
+    }
+    const decision = await takeChatTurn(visitorId(req.headers, secret), now(), limitsFromEnv());
     if (!decision.ok) {
       return new Response(limitMessage(decision), {
         status: 429,

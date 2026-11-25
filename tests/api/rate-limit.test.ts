@@ -13,11 +13,13 @@ const ID = "88888888-8888-8888-8888-888888880070";
 const TODAY = new Date(2026, 6, 20, 12);
 const IP = "203.0.113.7";
 
+const SECRET = "test-secret";
+
 const chat = () =>
   chatPOST(
     new Request("http://test.local", {
       method: "POST",
-      headers: { "content-type": "application/json", "x-forwarded-for": IP },
+      headers: { "content-type": "application/json", "x-real-ip": IP },
       body: JSON.stringify({ customerId: ID, messages: [{ role: "user", content: "where's my latest order?" }] }),
     }) as never,
   );
@@ -28,7 +30,12 @@ const chat = () =>
  * reached, so no real model call can happen.
  */
 describe("chat rate limit on the routes", () => {
-  const saved = { mock: process.env.MOCK_LLM, hour: process.env.RATE_LIMIT_PER_HOUR, day: process.env.RATE_LIMIT_PER_DAY };
+  const saved = {
+    mock: process.env.MOCK_LLM,
+    hour: process.env.RATE_LIMIT_PER_HOUR,
+    day: process.env.RATE_LIMIT_PER_DAY,
+    secret: process.env.RATE_LIMIT_SECRET,
+  };
 
   beforeAll(() => createTestCustomer({ id: ID, billingDate: "2026-08-17" }));
   beforeEach(async () => {
@@ -37,6 +44,7 @@ describe("chat rate limit on the routes", () => {
     process.env.MOCK_LLM = "";
     process.env.RATE_LIMIT_PER_HOUR = "2";
     process.env.RATE_LIMIT_PER_DAY = "4";
+    process.env.RATE_LIMIT_SECRET = SECRET;
   });
   // Assigning undefined to process.env stores the string "undefined", so unset.
   const restore = (key: string, value: string | undefined) => {
@@ -48,6 +56,7 @@ describe("chat rate limit on the routes", () => {
     restore("MOCK_LLM", saved.mock);
     restore("RATE_LIMIT_PER_HOUR", saved.hour);
     restore("RATE_LIMIT_PER_DAY", saved.day);
+    restore("RATE_LIMIT_SECRET", saved.secret);
   });
   afterAll(async () => {
     await db.delete(chatRateEvents);
@@ -57,7 +66,7 @@ describe("chat rate limit on the routes", () => {
   const LIMITS = { perVisitorPerHour: 2, globalPerDay: 4 };
 
   it("returns 429 with Retry-After and a readable message once a visitor is over the hourly limit", async () => {
-    const visitor = visitorId(new Headers({ "x-forwarded-for": IP }));
+    const visitor = visitorId(new Headers({ "x-real-ip": IP }), SECRET);
     await takeChatTurn(visitor, new Date(TODAY.getTime() - 30 * 60_000), LIMITS);
     await takeChatTurn(visitor, new Date(TODAY.getTime() - 20 * 60_000), LIMITS);
 

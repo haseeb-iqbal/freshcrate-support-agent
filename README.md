@@ -114,7 +114,7 @@ npm run dev              # http://localhost:3000
 | `MAX_LOOP_ITERATIONS`, `MAX_OUTPUT_TOKENS`, `AGENT_TIMEOUT_MS` | no | Agent loop limits: 6 steps, 1024 tokens, 45 seconds by default. |
 | `RATE_LIMIT_PER_HOUR` | no | Chat turns one visitor may send in any rolling hour, default 30. |
 | `RATE_LIMIT_PER_DAY` | no | Chat turns all visitors together may send in any rolling 24 hours, default 1500. |
-| `RATE_LIMIT_SECRET` | no | Key for hashing visitors' IP addresses, which are never stored raw. Defaults to `OPENAI_API_KEY`. |
+| `RATE_LIMIT_SECRET` | in production | Key for hashing visitors' IP addresses, which are never stored raw. A long random value used for nothing else. Without it, production refuses chat turns; local development uses a fixed key. |
 | `RATE_LIMIT_DISABLED` | no | Set to `1` to turn the chat limit off. The evals set it; it's also off whenever `MOCK_LLM=1`. |
 | `TRACES_DISABLED` | no | Set to `1` to stop logging chat turns. The evals set it. |
 | `MOCK_LLM` | no | Set to `1` for the scripted model. `npm run dev:mock` sets it. |

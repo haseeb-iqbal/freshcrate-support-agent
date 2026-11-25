@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import "dotenv/config";
 import { db } from "@/db";
 import { chatRateEvents } from "@/db/schema";
-import { limitMessage, takeChatTurn, visitorId } from "@/lib/http/rate-limit";
+import { clientIp, limitMessage, takeChatTurn, visitorId } from "@/lib/http/rate-limit";
 
 const AT = new Date("2026-07-20T12:00:00Z");
 const minutes = (n: number) => new Date(AT.getTime() + n * 60_000);
@@ -50,11 +50,29 @@ describe("chat rate limit", () => {
     expect(await db.select().from(chatRateEvents)).toHaveLength(1);
   });
 
-  it("identifies a visitor by a hash of their IP, never the IP itself", () => {
-    const one = visitorId(new Headers({ "x-forwarded-for": "203.0.113.7, 10.0.0.1" }));
+  it("identifies a visitor by a keyed hash of their IP, never the IP itself", () => {
+    const h = (ip: string) => new Headers({ "x-real-ip": ip });
+    const one = visitorId(h("203.0.113.7"), "secret");
     expect(one).toMatch(/^[0-9a-f]{64}$/);
     expect(one).not.toContain("203.0.113.7");
-    expect(visitorId(new Headers({ "x-forwarded-for": "203.0.113.7" }))).toBe(one);
-    expect(visitorId(new Headers({ "x-forwarded-for": "198.51.100.4" }))).not.toBe(one);
+    expect(visitorId(h("203.0.113.7"), "secret")).toBe(one);
+    expect(visitorId(h("198.51.100.4"), "secret")).not.toBe(one);
+    expect(visitorId(h("203.0.113.7"), "other-secret")).not.toBe(one);
+  });
+
+  it("reads the IP only from headers the platform sets", () => {
+    expect(clientIp(new Headers({ "x-vercel-forwarded-for": "203.0.113.7", "x-real-ip": "10.0.0.1" }))).toBe("203.0.113.7");
+    expect(clientIp(new Headers({ "x-real-ip": "203.0.113.7" }))).toBe("203.0.113.7");
+    // A visitor can prepend to x-forwarded-for; only the proxy-appended last entry counts.
+    expect(clientIp(new Headers({ "x-forwarded-for": "1.2.3.4, 203.0.113.7" }))).toBe("203.0.113.7");
+    // Junk can't mint a fresh identity: it all lands in one shared bucket.
+    expect(clientIp(new Headers({ "x-forwarded-for": "not-an-ip" }))).toBe("unknown");
+    expect(clientIp(new Headers())).toBe("unknown");
+  });
+
+  it("never lets concurrent turns slip past the limit", async () => {
+    const results = await Promise.all(Array.from({ length: 8 }, () => takeChatTurn("a", minutes(1), LIMITS)));
+    expect(results.filter((r) => r.ok)).toHaveLength(3);
+    expect(await db.select().from(chatRateEvents)).toHaveLength(3);
   });
 });

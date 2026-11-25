@@ -1,5 +1,6 @@
 import { createHmac } from "node:crypto";
-import { and, asc, count, eq, gte, lt } from "drizzle-orm";
+import { isIP } from "node:net";
+import { and, asc, count, eq, gte, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { chatRateEvents } from "@/db/schema";
 
@@ -35,17 +36,45 @@ export function rateLimitEnabled(): boolean {
 }
 
 /**
- * A stable, non-reversible id for the visitor: an HMAC of their IP address.
- * On Vercel the first x-forwarded-for entry is the client address. The key is
- * RATE_LIMIT_SECRET, falling back to OPENAI_API_KEY so a deploy works without
- * extra setup; either way it stays on the server, so the stored value can't be
- * turned back into an IP by trying every address.
+ * The client's IP address, read only from headers the platform sets.
+ * Vercel sets x-vercel-forwarded-for and x-real-ip itself; a visitor can add
+ * entries to x-forwarded-for, so only its LAST entry (appended by the proxy in
+ * front of the app) is used, never the first. Anything that isn't a valid IP
+ * becomes "unknown", a single shared bucket, so a junk header can't mint a fresh
+ * identity per request. The daily cap bounds the total either way.
  */
-export function visitorId(headers: Headers): string {
-  const forwarded = headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  const ip = forwarded || headers.get("x-real-ip")?.trim() || "unknown";
-  const secret = process.env.RATE_LIMIT_SECRET || process.env.OPENAI_API_KEY || "freshcrate-local";
-  return createHmac("sha256", secret).update(ip).digest("hex");
+export function clientIp(headers: Headers): string {
+  const candidates = [
+    headers.get("x-vercel-forwarded-for")?.split(",")[0],
+    headers.get("x-real-ip"),
+    headers.get("x-forwarded-for")?.split(",").pop(),
+  ];
+  for (const c of candidates) {
+    const ip = c?.trim();
+    if (ip && isIP(ip)) return ip;
+  }
+  return "unknown";
+}
+
+/**
+ * The HMAC key for visitor ids: RATE_LIMIT_SECRET, a value used for nothing
+ * else. Required in production (null there means misconfigured, and the chat
+ * route refuses turns rather than run without a limit); local development
+ * falls back to a fixed key.
+ */
+export function rateLimitSecret(): string | null {
+  const secret = process.env.RATE_LIMIT_SECRET;
+  if (secret) return secret;
+  return process.env.NODE_ENV === "production" ? null : "freshcrate-local-dev";
+}
+
+/**
+ * A stable, non-reversible id for the visitor: an HMAC of their IP address keyed
+ * with a server-side secret, so the stored value can't be turned back into an IP
+ * by trying every address.
+ */
+export function visitorId(headers: Headers, secret: string): string {
+  return createHmac("sha256", secret).update(clientIp(headers)).digest("hex");
 }
 
 export type RateDecision =
@@ -57,6 +86,21 @@ export type RateDecision =
  * allowed. A denied turn is not recorded, so retrying doesn't push the wait out.
  */
 export async function takeChatTurn(visitor: string, at: Date, limits: RateLimits): Promise<RateDecision> {
+  // Check-then-insert runs under one transaction-scoped advisory lock, so
+  // concurrent turns are counted one at a time and can't all slip under a limit.
+  // The lock is held for a few small queries per chat turn.
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(${RATE_LIMIT_LOCK})`);
+    return check(tx, visitor, at, limits);
+  });
+}
+
+/** Arbitrary constant naming the advisory lock the limiter takes. */
+const RATE_LIMIT_LOCK = 7_310_201;
+
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+async function check(db: Tx, visitor: string, at: Date, limits: RateLimits): Promise<RateDecision> {
   const hourAgo = new Date(at.getTime() - HOUR_MS);
   const dayAgo = new Date(at.getTime() - DAY_MS);
 

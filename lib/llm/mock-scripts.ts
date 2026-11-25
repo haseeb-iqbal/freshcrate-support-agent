@@ -15,10 +15,9 @@ const call = (name: string, args: object): AgentStreamEvent => ({
 /**
  * Keyed on the normalized latest user message. Order numbers match db/seed.ts.
  *
- * The four `lib/example-prompts.ts` suggestion chips must each have an entry, or
- * clicking one in MOCK_LLM demo mode answers "(mock) No script for this input".
- * Those four are written for Marcus Bell, who has a processing order, a shipped
- * order and two delivered ones. Fixture text must not state a delivery DATE:
+ * Several `lib/demo-prompts.ts` things-to-try prompts reuse these keys word for
+ * word, so they also work in MOCK_LLM demo mode; the others answer "(mock) No
+ * script for this input" there. Fixture text must not state a delivery DATE:
  * seed dates are relative to seeding time, so a hard-coded one would rot.
  */
 export const MOCK_SCRIPTS: Record<string, Script> = {

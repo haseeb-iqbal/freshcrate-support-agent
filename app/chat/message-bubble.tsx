@@ -39,8 +39,8 @@ export function MessageBubble({
       <div
         className={
           isUser
-            ? "max-w-[80%] rounded-2xl rounded-br-sm bg-brand px-4 py-2.5 text-sm text-white"
-            : "max-w-[85%] rounded-2xl rounded-bl-sm border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm"
+            ? "max-w-[80%] rounded-2xl rounded-br-[4px] bg-brand px-4 py-2.5 text-[15px] text-white"
+            : "w-full max-w-[62ch] text-[15px] leading-relaxed text-ink"
         }
       >
         {showThinking && <Thinking />}
@@ -85,8 +85,8 @@ export function MessageBubble({
           })}
 
         {!isUser && showResults && message.sources && message.sources.length > 0 && (
-          <div className="mt-3 border-t border-slate-100 pt-2">
-            <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-slate-400">Sources</p>
+          <div className="mt-2.5">
+            <p className="mb-1 text-[13px] text-muted">Sources</p>
             <div className="flex flex-wrap gap-1.5">
               {message.sources.map((s, i) => (
                 <a
@@ -95,7 +95,7 @@ export function MessageBubble({
                   target="_blank"
                   rel="noopener noreferrer"
                   title="Open the source article"
-                  className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600 transition hover:bg-brand/10 hover:text-brand"
+                  className="rounded-md border border-mist bg-paper px-2 py-0.5 text-[13px] text-brand transition hover:border-brand"
                 >
                   {s.slug} › {s.heading}
                 </a>

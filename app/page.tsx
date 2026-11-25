@@ -6,7 +6,7 @@ import Chat, { type CustomerOption } from "./chat";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export default async function Page() {
+export default async function Page({ searchParams }: { searchParams: { try?: string } }) {
   const rows: CustomerOption[] = await db
     .select({
       id: customers.id,
@@ -21,5 +21,5 @@ export default async function Page() {
     .from(customers)
     .orderBy(asc(customers.name));
 
-  return <Chat customers={rows} />;
+  return <Chat customers={rows} initialPromptId={searchParams.try} />;
 }

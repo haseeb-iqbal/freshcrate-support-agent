@@ -1,6 +1,7 @@
 "use client";
 
 import { money } from "@/lib/money";
+import { CrateCard, CrateOutcome } from "./crate";
 import { PromptActions } from "./prompt-actions";
 import type { ProposalState, ReactivateProposal } from "../types";
 
@@ -18,26 +19,25 @@ export function ReactivateCard({
   const fee = proposal.signup_fee_cents;
   const total = money(proposal.total_cents);
   return (
-    <div className="mt-3 rounded-lg border border-violet-200 bg-violet-50 p-3">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-700">Reactivation</p>
+    <CrateCard title="Reactivate your subscription" state={state}>
       {proposal.plan_changed && (
-        <p className="text-[11px] text-slate-500">Switching from {proposal.previous_plan} to {proposal.plan}.</p>
+        <p className="text-[13px] text-muted">Switching from {proposal.previous_plan} to {proposal.plan}.</p>
       )}
       {proposal.free ? (
-        <p className="mt-1 text-sm text-slate-800">
-          Restart your <span className="font-semibold">{proposal.plan}</span> plan{" "}
-          <span className="font-semibold text-emerald-600">for free</span> — you&apos;re still within your billing period, so there&apos;s no charge.
+        <p>
+          Restart your <span className="font-bold">{proposal.plan}</span> plan{" "}
+          <span className="font-bold text-brand">for free</span>. You&apos;re still within your billing period, so there&apos;s no charge.
         </p>
       ) : (
-        <p className="mt-1 text-sm text-slate-800">
-          Restart on <span className="font-semibold">{proposal.plan}</span>? First charge is{" "}
-          <span className="font-semibold">{money(proposal.monthly_cents)}</span>
+        <p>
+          Restart on <span className="font-bold">{proposal.plan}</span>? First charge is{" "}
+          <span className="font-bold">{money(proposal.monthly_cents)}</span>
           {fee > 0 ? (
             <>
-              {" "}+ <span className="font-semibold">{money(fee)}</span> sign-up fee
+              {" "}+ <span className="font-bold">{money(fee)}</span> sign-up fee
             </>
           ) : null}{" "}
-          = <span className="font-semibold">{total}</span>.
+          = <span className="font-bold">{total}</span>.
         </p>
       )}
 
@@ -49,12 +49,12 @@ export function ReactivateCard({
         onDecline={onDecline}
       />
       {state === "approved" && (
-        <p className="mt-2 text-xs font-medium text-emerald-700">
-          ✓ Reactivated on {proposal.plan}{proposal.free ? " (free)" : ` — ${total} charged`}.
-        </p>
+        <CrateOutcome tone="done">
+          Reactivated on {proposal.plan}{proposal.free ? " (free)" : `, ${total} charged`}.
+        </CrateOutcome>
       )}
-      {state === "declined" && <p className="mt-2 text-xs font-medium text-slate-500">No problem — your subscription stays cancelled.</p>}
-      {state === "error" && <p className="mt-2 text-xs font-medium text-red-600">Couldn&apos;t reactivate — please try again.</p>}
-    </div>
+      {state === "declined" && <CrateOutcome tone="neutral">No problem, your subscription stays cancelled.</CrateOutcome>}
+      {state === "error" && <CrateOutcome tone="error">Couldn&apos;t reactivate. Please try again.</CrateOutcome>}
+    </CrateCard>
   );
 }

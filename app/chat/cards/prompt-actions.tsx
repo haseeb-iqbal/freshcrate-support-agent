@@ -36,22 +36,23 @@ export function PromptActions({
   const submitting = state === "submitting";
   const disabled = submitting || state === "locked";
   return (
-    <div className="mt-2 flex gap-2">
+    <div className="mt-3.5 flex flex-wrap items-center gap-2.5">
       <button
         onClick={onConfirm}
         disabled={disabled}
         aria-busy={submitting || undefined}
-        className={`rounded-md px-3 py-1.5 text-xs font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-60 ${confirmClassName}`}
+        className={`min-h-[44px] rounded-lg px-4 text-[15px] font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-60 ${confirmClassName}`}
       >
         {submitting ? "Processing…" : confirmLabel}
       </button>
       <button
         onClick={onDecline}
         disabled={disabled}
-        className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+        className="min-h-[44px] rounded-lg border border-[#C9D6CE] bg-white px-4 text-[15px] text-ink transition hover:bg-paper disabled:cursor-not-allowed disabled:opacity-60"
       >
         {declineLabel}
       </button>
+      {state === "pending" && <span className="text-[13px] text-muted">Nothing changes until you confirm.</span>}
     </div>
   );
 }

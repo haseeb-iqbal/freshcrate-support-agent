@@ -1,36 +1,24 @@
 "use client";
 
-import { EXAMPLE_PROMPTS } from "@/lib/example-prompts";
 import { formatLongDate } from "@/lib/date";
 import { fmtDate, TOOL_LABELS } from "./format";
 import { OrderRow, TxnRow } from "./order-views";
 import type { AccountData, CustomerOption, Step } from "./types";
 
-export function Welcome({ customer, onPick }: { customer?: CustomerOption; onPick: (text: string) => void }) {
+export function Welcome({ customer }: { customer?: CustomerOption }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-      <h2 className="text-base font-semibold text-slate-800">
-        Hi{customer ? `, ${customer.name.split(" ")[0]}` : ""} - I&apos;m Cratelyn 👋
+    <div className="max-w-[62ch]">
+      <h2 className="font-display text-xl font-bold tracking-tight">
+        Hi{customer ? `, ${customer.name.split(" ")[0]}` : ""}. I&apos;m Cratelyn.
       </h2>
-      <p className="mt-1 text-sm text-slate-500">
-        I can answer FreshCrate policy questions (with sources) and take actions on your account —
-        look up orders, pause or resume your plan, issue refunds, or escalate to a human.
+      <p className="mt-1.5 text-[15px] leading-relaxed text-muted">
+        I answer FreshCrate policy questions, with sources, and take actions on your account: look up orders, pause or
+        resume your plan, issue refunds, or hand you to a person. Type a question, or pick one from things to try.
       </p>
-      <p className="mt-2 rounded-md bg-slate-100 px-3 py-2 text-xs text-slate-500">
-        🛈 Demo app — actions (pauses, refunds, escalations) run against sample data. Escalations
-        are simulated: no real human will reply, but you can keep chatting with the assistant.
+      <p className="mt-3 rounded-lg bg-paper px-3 py-2 text-[13px] leading-relaxed text-muted">
+        Actions run against sample data. Hand-offs to a person are simulated: nobody will reply, but you can keep
+        chatting with the assistant.
       </p>
-      <div className="mt-4 flex flex-wrap gap-2">
-        {EXAMPLE_PROMPTS.map((p) => (
-          <button
-            key={p}
-            onClick={() => onPick(p)}
-            className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-600 transition hover:border-brand hover:text-brand"
-          >
-            {p}
-          </button>
-        ))}
-      </div>
     </div>
   );
 }

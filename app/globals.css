@@ -12,5 +12,27 @@ body {
 }
 
 body {
-  @apply bg-slate-50 text-slate-900 antialiased;
+  @apply bg-paper text-ink antialiased;
+}
+
+:focus-visible {
+  outline: 3px solid theme("colors.brand.DEFAULT");
+  outline-offset: 2px;
+}
+
+/* Home page: intro, then the try-it panel, then the chat on a phone; the panel
+   moves to its own column beside the intro and chat from lg up. */
+.home-grid {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "intro" "panel" "chat";
+}
+@media (min-width: 1024px) {
+  .home-grid {
+    column-gap: 2.5rem;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    grid-template-areas: "intro panel" "chat panel";
+    grid-template-rows: auto 1fr;
+  }
 }

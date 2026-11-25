@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { collectDecisions } from "@/lib/decisions";
+import { promptById, type DemoPrompt } from "@/lib/demo-prompts";
+import { GITHUB_URL } from "./site-nav";
 import { Composer } from "./chat/composer";
 import { ChatHeader } from "./chat/header";
 import { MessageBubble } from "./chat/message-bubble";
@@ -9,11 +11,23 @@ import { AccountPanel, Welcome } from "./chat/panels";
 import { toDecisionSources } from "./chat/decisions";
 import { PROPOSALS, lockPendingProposals, setProposalEntryState } from "./chat/proposals";
 import { applyStreamEvent, parseSseEvent, updateLast } from "./chat/stream";
+import { TryPanel } from "./chat/try-panel";
 import type { AccountData, CustomerOption, Message, ProposalKind, ProposalState } from "./chat/types";
 
 export type { CustomerOption } from "./chat/types";
 
-export default function Chat({ customers: initialCustomers }: { customers: CustomerOption[] }) {
+/** localStorage key for the prompts this viewer has tried. A convenience only:
+ *  if storage is blocked the ticks simply start empty on each visit. */
+const TRIED_KEY = "freshcrate:tried";
+
+export default function Chat({
+  customers: initialCustomers,
+  initialPromptId,
+}: {
+  customers: CustomerOption[];
+  /** From /?try=<id>, the /tour page's "Try it" links. */
+  initialPromptId?: string;
+}) {
   const [customers, setCustomers] = useState(initialCustomers);
   const [customerId, setCustomerId] = useState(initialCustomers[0]?.id ?? "");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -23,7 +37,9 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
   const [busy, setBusy] = useState(false);
   const [showAccount, setShowAccount] = useState(false);
   const [account, setAccount] = useState<AccountData | null>(null);
+  const [tried, setTried] = useState<ReadonlySet<string>>(() => new Set());
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   // Keys of confirm requests currently in flight, so a double-click on a card's
   // Confirm button cannot fire the write endpoint twice.
   const confirming = useRef<Set<string>>(new Set());
@@ -44,6 +60,59 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
     setInput("");
     setConversationId(crypto.randomUUID());
   }
+
+  function markTried(id: string) {
+    setTried((prev) => {
+      if (prev.has(id)) return prev;
+      const next = new Set(prev).add(id);
+      try {
+        localStorage.setItem(TRIED_KEY, JSON.stringify([...next]));
+      } catch {
+        // storage blocked: ticks just won't survive a reload
+      }
+      return next;
+    });
+  }
+
+  // Sign in as the prompt's customer (a fresh chat only if that changes who is
+  // signed in) and put the prompt in the message box, ready to send.
+  function pickPrompt(p: DemoPrompt) {
+    if (busy) return;
+    const customer = customers.find((c) => c.name === p.customer);
+    if (customer && customer.id !== customerId) switchCustomer(customer.id);
+    setShowAccount(false);
+    setInput(p.text);
+    markTried(p.id);
+    inputRef.current?.focus();
+  }
+
+  // Reset demo clears the ticks and the chat and signs back in as the first
+  // customer. It cannot undo changes already confirmed: the sample data only
+  // resets when the database is reseeded.
+  function resetDemo() {
+    if (busy) return;
+    setTried(new Set());
+    try {
+      localStorage.removeItem(TRIED_KEY);
+    } catch {
+      // storage blocked: nothing to clear
+    }
+    setShowAccount(false);
+    switchCustomer(initialCustomers[0]?.id ?? "");
+  }
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(TRIED_KEY) ?? "[]");
+      if (Array.isArray(saved)) setTried((prev) => new Set([...prev, ...saved.filter((x): x is string => typeof x === "string")]));
+    } catch {
+      // storage blocked or corrupt: start with no ticks
+    }
+    const p = initialPromptId ? promptById(initialPromptId) : undefined;
+    if (p) pickPrompt(p);
+    // Runs once on mount: later picks come from the panel.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function refreshCustomers() {
     try {
@@ -185,7 +254,7 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
 
 
   return (
-    <div className="mx-auto flex h-screen max-w-3xl flex-col px-4">
+    <div className="min-h-screen">
       <ChatHeader
         customers={customers}
         customerId={customerId}
@@ -197,27 +266,56 @@ export default function Chat({ customers: initialCustomers }: { customers: Custo
         onSwitchCustomer={switchCustomer}
       />
 
-      <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto py-6">
-        {showAccount ? (
-          <AccountPanel account={account} />
-        ) : (
-          <>
-            {messages.length === 0 && <Welcome customer={activeCustomer} onPick={send} />}
-            {messages.map((m, i) => (
-              <MessageBubble
-                key={i}
-                message={m}
-                streaming={busy && i === messages.length - 1}
-                paymentMethod={activeCustomer?.paymentMethod}
-                onConfirm={(kind, entryIndex) => confirmProposal(i, kind, entryIndex)}
-                onDecline={(kind, entryIndex) => setProposalState(i, kind, entryIndex, "declined")}
-              />
-            ))}
-          </>
-        )}
-      </div>
+      <main className="home-grid mx-auto max-w-[1280px] px-4 pb-8 pt-8 sm:px-6 lg:pt-10">
+        <div className="[grid-area:intro]">
+          <h1 className="max-w-[15ch] font-display text-[40px] font-extrabold leading-[1.02] tracking-[-0.035em] sm:text-5xl lg:text-[56px]">
+            A support agent that asks before it acts.
+          </h1>
+          <p className="mt-4 max-w-[60ch] text-[17px] leading-relaxed text-muted">
+            A portfolio project by Haseeb Iqbal. FreshCrate is a made-up meal-kit company and every customer is sample
+            data, so try anything.<span className="hidden lg:inline"> Ideas to try are on the right.</span>
+          </p>
+        </div>
 
-      <Composer input={input} busy={busy} onInput={setInput} onSend={send} />
+        <section
+          aria-label="Chat"
+          className="flex h-[72vh] min-h-[480px] flex-col self-start rounded-[18px] border border-mist bg-white [grid-area:chat] lg:h-[calc(100vh-5rem)] lg:max-h-[820px]"
+        >
+          <div ref={scrollRef} className="flex-1 space-y-5 overflow-y-auto p-4 sm:p-6">
+            {showAccount ? (
+              <AccountPanel account={account} />
+            ) : (
+              <>
+                {messages.length === 0 && <Welcome customer={activeCustomer} />}
+                {messages.map((m, i) => (
+                  <MessageBubble
+                    key={i}
+                    message={m}
+                    streaming={busy && i === messages.length - 1}
+                    paymentMethod={activeCustomer?.paymentMethod}
+                    onConfirm={(kind, entryIndex) => confirmProposal(i, kind, entryIndex)}
+                    onDecline={(kind, entryIndex) => setProposalState(i, kind, entryIndex, "declined")}
+                  />
+                ))}
+              </>
+            )}
+          </div>
+
+          <Composer inputRef={inputRef} input={input} busy={busy} onInput={setInput} onSend={send} />
+        </section>
+
+        <TryPanel tried={tried} disabled={busy} onPick={pickPrompt} onReset={resetDemo} />
+      </main>
+
+      <footer className="mx-auto max-w-[1280px] px-4 pb-8 text-sm text-muted sm:px-6">
+        <p>
+          Built by Haseeb Iqbal. 91 of 92 required test conversations pass with the real model, and a chat turn costs
+          about $0.0016.{" "}
+          <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className="rounded text-brand underline underline-offset-4 hover:text-brand-dark">
+            Code on GitHub
+          </a>
+        </p>
+      </footer>
     </div>
   );
 }

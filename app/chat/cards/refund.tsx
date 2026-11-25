@@ -1,7 +1,8 @@
 "use client";
 
 import { money } from "@/lib/money";
-import { PromptActions, isPromptActive } from "./prompt-actions";
+import { CrateCard, CrateFacts, CrateOutcome } from "./crate";
+import { PromptActions } from "./prompt-actions";
 import type { ProposalState, RefundProposal } from "../types";
 
 export function RefundCard({
@@ -19,37 +20,27 @@ export function RefundCard({
 }) {
   const amount = money(proposal.amount_cents);
   const card = paymentMethod ?? "your card on file";
+  const rows: [string, string][] = [["Order", proposal.order_number]];
+  if (proposal.items && proposal.items.length > 0) rows.push(["Meal", proposal.items.join(", ")]);
+  rows.push(["Refund", `${amount} to ${card}`], ["Reason", proposal.reason]);
   return (
-    <div data-testid="refund-card" className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-700">Refund request</p>
-      <p className="mt-1 text-sm text-slate-800">
-        This order can be refunded. Order <span className="font-mono text-xs">{proposal.order_number}</span>{" "}
-        will be refunded <span className="font-semibold">{amount}</span> to {card}.
-      </p>
-      {proposal.items && proposal.items.length > 0 && (
-        <p className="mt-1 text-[11px] text-slate-500">{proposal.items.join(" · ")}</p>
-      )}
-      <p className="mt-0.5 text-xs text-slate-500">Reason: {proposal.reason}</p>
+    <CrateCard testId="refund-card" title="Refund this order" state={state}>
+      <CrateFacts rows={rows} />
 
-      {isPromptActive(state) && (
-        <>
-          <p className="mt-2 text-sm text-slate-700">Do you wish to initiate the refund?</p>
-          <PromptActions
-            state={state}
-            confirmLabel="Yes, refund my order"
-            declineLabel="Not now"
-            onConfirm={onConfirm}
-            onDecline={onDecline}
-          />
-        </>
-      )}
+      <PromptActions
+        state={state}
+        confirmLabel="Yes, refund my order"
+        declineLabel="Not now"
+        onConfirm={onConfirm}
+        onDecline={onDecline}
+      />
       {state === "approved" && (
-        <p className="mt-2 text-xs font-medium text-emerald-700">✓ Refund of {amount} initiated to {card}.</p>
+        <CrateOutcome tone="done">
+          Refund of {amount} initiated to {card}.
+        </CrateOutcome>
       )}
-      {state === "declined" && <p className="mt-2 text-xs font-medium text-slate-500">No problem — no refund was made.</p>}
-      {state === "error" && (
-        <p className="mt-2 text-xs font-medium text-red-600">Couldn&apos;t process the refund — please try again.</p>
-      )}
-    </div>
+      {state === "declined" && <CrateOutcome tone="neutral">No problem, no refund was made.</CrateOutcome>}
+      {state === "error" && <CrateOutcome tone="error">Couldn&apos;t process the refund. Please try again.</CrateOutcome>}
+    </CrateCard>
   );
 }

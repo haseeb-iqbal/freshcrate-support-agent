@@ -43,31 +43,30 @@ export default function AboutPage() {
       </HeaderShell>
 
       <main className="mx-auto max-w-[1280px] px-4 sm:px-6">
-        <section className="grid items-center gap-8 py-8 lg:grid-cols-[minmax(0,1fr)_420px] lg:py-12">
+        <section className="grid items-start gap-6 py-6 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-10 lg:py-8">
           <div>
             <h1 className="font-display text-[30px] font-extrabold leading-[1.05] tracking-[-0.03em] sm:text-[36px] lg:text-[44px]">
               FreshCrate Support Agent
             </h1>
-            <p className="mt-3 max-w-[60ch] text-base leading-relaxed text-muted">
+            <p className="mt-2.5 max-w-[60ch] text-base leading-relaxed text-muted">
               A portfolio project by Haseeb Iqbal. FreshCrate is a made-up meal-kit company. Its assistant answers from a
               help center, looks up orders, and proposes real account changes, like pauses, refunds and plan switches,
               that only happen when you confirm. Everything runs on sample data, so try anything.
             </p>
-            <div className="mt-5 flex flex-wrap gap-3">
-              <a href="#steps" className="inline-flex min-h-[48px] items-center rounded-[10px] bg-brand px-5 font-bold text-white hover:bg-brand-dark">
+            <div className="mt-4 flex flex-wrap gap-3">
+              <a href="#steps" className="inline-flex min-h-[44px] items-center rounded-[10px] bg-brand px-5 font-bold text-white hover:bg-brand-dark">
                 Take the 3-minute tour
               </a>
-              <Link href="/" className="inline-flex min-h-[48px] items-center rounded-[10px] border border-[#C9D6CE] bg-white px-5 font-bold text-ink hover:border-brand">
+              <Link href="/" className="inline-flex min-h-[44px] items-center rounded-[10px] border border-[#C9D6CE] bg-white px-5 font-bold text-ink hover:border-brand">
                 Go straight to the demo
               </Link>
             </div>
           </div>
 
-          <figure aria-label="Example: the assistant proposing a pause" className="rounded-[18px] border border-mist bg-white p-5 sm:p-6">
+          <figure aria-label="Example: the assistant proposing a pause" className="rounded-[18px] border border-mist bg-white p-4">
             <div className="flex justify-end">
-              <p className="max-w-[80%] rounded-2xl rounded-br-[4px] bg-brand px-4 py-2.5 text-[15px] text-white">pause my subscription for 2 weeks</p>
+              <p className="max-w-[80%] rounded-2xl rounded-br-[4px] bg-brand px-3.5 py-2 text-[15px] text-white">pause my subscription for 2 weeks</p>
             </div>
-            <p className="mt-4 text-[15px] leading-relaxed">Here&apos;s a 2-week pause from next week. Please confirm below to go ahead.</p>
             <CrateCard title="Pause your subscription" state="pending">
               <CrateFacts
                 rows={[
@@ -76,12 +75,12 @@ export default function AboutPage() {
                   ["Charged now", "nothing"],
                 ]}
               />
-              <div aria-hidden className="mt-3.5 flex flex-wrap items-center gap-2.5">
-                <span className="inline-flex min-h-[44px] items-center rounded-lg bg-brand px-4 text-[15px] font-bold text-white">Yes, pause it</span>
-                <span className="inline-flex min-h-[44px] items-center rounded-lg border border-[#C9D6CE] px-4 text-[15px]">Not now</span>
+              <div aria-hidden className="mt-3 flex flex-wrap items-center gap-2">
+                <span className="inline-flex min-h-[36px] items-center rounded-lg bg-brand px-3.5 text-sm font-bold text-white">Yes, pause it</span>
+                <span className="inline-flex min-h-[36px] items-center rounded-lg border border-[#C9D6CE] px-3.5 text-sm">Not now</span>
               </div>
             </CrateCard>
-            <figcaption className="mt-4 text-sm text-muted">
+            <figcaption className="mt-3 text-sm text-muted">
               Nothing changes until you click yes.{" "}
               <Link href={tryHref("pause-two-weeks")} className={link}>
                 Try this one

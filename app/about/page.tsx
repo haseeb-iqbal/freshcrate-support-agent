@@ -32,7 +32,7 @@ export default function AboutPage() {
     <div className="min-h-screen">
       <HeaderShell
         brand={
-          <Link href="/" className="whitespace-nowrap rounded font-display text-[17px] font-extrabold tracking-tight text-brand hover:text-brand-dark sm:text-[18px]">
+          <Link href="/about" title="About this demo" className="whitespace-nowrap rounded font-display text-[17px] font-extrabold tracking-tight text-brand hover:text-brand-dark sm:text-[18px]">
             FreshCrate support
           </Link>
         }

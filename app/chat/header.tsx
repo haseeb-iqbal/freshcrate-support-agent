@@ -123,10 +123,7 @@ export function ChatHeader({
           <button
             onClick={onToggleAccount}
             className={
-              "min-h-[40px] rounded-lg border px-3 text-sm transition " +
-              (showAccount
-                ? "border-brand bg-brand text-white"
-                : "border-mist bg-white text-ink hover:border-brand hover:text-brand")
+              "btn " + (showAccount ? "btn-primary" : "btn-secondary")
             }
           >
             {showAccount ? "Chat" : "My Account"}
@@ -135,13 +132,13 @@ export function ChatHeader({
             <button
               onClick={onNewChat}
               disabled={busy}
-              className="min-h-[40px] rounded-lg border border-mist bg-white px-3 text-sm text-ink transition hover:border-brand hover:text-brand disabled:opacity-50"
+              className="btn btn-secondary"
             >
               + New chat
             </button>
           )}
           <label className="flex items-center gap-2 text-sm">
-            <span className="text-muted">Signed in as</span>
+            <span className="text-[13px] text-muted">Signed in as</span>
             <select
               // The wrapping <label> already associates the text, but because
               // the <select> sits inside it, the label's text content pulls in
@@ -151,7 +148,7 @@ export function ChatHeader({
               value={customerId}
               onChange={(e) => onSwitchCustomer(e.target.value)}
               disabled={busy}
-              className="min-h-[40px] rounded-lg border border-mist bg-white px-2 text-sm text-ink focus:border-brand disabled:opacity-50"
+              className="min-h-[36px] rounded-lg border border-[#C9D6CE] bg-white px-2 text-[13px] text-ink focus:border-brand disabled:opacity-50"
             >
               {customers.map((c) => (
                 <option key={c.id} value={c.id}>

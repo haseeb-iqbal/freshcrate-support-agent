@@ -15,6 +15,27 @@ body {
   @apply bg-paper text-ink antialiased;
 }
 
+/* Shared button sizes: 13px text, 36px tall. On a touch screen an invisible
+   strip above and below grows the tap target to 44px without changing the look. */
+@layer components {
+  .btn {
+    @apply relative inline-flex min-h-[36px] items-center justify-center rounded-lg px-3 text-[13px] font-bold transition disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .btn-primary {
+    @apply bg-brand text-white hover:bg-brand-dark;
+  }
+  .btn-secondary {
+    @apply border border-[#C9D6CE] bg-white font-normal text-ink hover:border-brand hover:text-brand;
+  }
+  @media (pointer: coarse) {
+    .btn::after {
+      content: "";
+      position: absolute;
+      inset: -4px 0;
+    }
+  }
+}
+
 :focus-visible {
   outline: 3px solid theme("colors.brand.DEFAULT");
   outline-offset: 2px;

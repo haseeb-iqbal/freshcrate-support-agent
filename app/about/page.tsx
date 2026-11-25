@@ -57,10 +57,10 @@ export default function AboutPage() {
               that only happen when you confirm. Everything runs on sample data, so try anything.
             </p>
             <div className="mt-4 flex flex-wrap gap-3">
-              <a href="#steps" className="inline-flex min-h-[44px] items-center rounded-[10px] bg-brand px-5 font-bold text-white hover:bg-brand-dark">
+              <a href="#steps" className="btn btn-primary">
                 Take the 3-minute tour
               </a>
-              <Link href="/" className="inline-flex min-h-[44px] items-center rounded-[10px] border border-[#C9D6CE] bg-white px-5 font-bold text-ink hover:border-brand">
+              <Link href="/" className="btn btn-secondary font-bold">
                 Go straight to the demo
               </Link>
             </div>
@@ -79,8 +79,8 @@ export default function AboutPage() {
                 ]}
               />
               <div aria-hidden className="mt-3 flex flex-wrap items-center gap-2">
-                <span className="inline-flex min-h-[36px] items-center rounded-lg bg-brand px-3.5 text-sm font-bold text-white">Yes, pause it</span>
-                <span className="inline-flex min-h-[36px] items-center rounded-lg border border-[#C9D6CE] px-3.5 text-sm">Not now</span>
+                <span className="btn btn-primary">Yes, pause it</span>
+                <span className="btn btn-secondary">Not now</span>
               </div>
             </CrateCard>
             <figcaption className="mt-3 text-sm text-muted">
@@ -124,7 +124,7 @@ export default function AboutPage() {
                 </div>
                 <p className="mt-2 font-bold">&ldquo;{s.text}&rdquo;</p>
                 <p className="mt-1.5 flex-1 text-[15px] leading-[1.45] text-muted">{s.expect}</p>
-                <Link href={tryHref(s.id)} className={`${link} mt-4 self-start font-bold`}>
+                <Link href={tryHref(s.id)} className={`${link} mt-3 self-start text-[13px] font-bold`}>
                   Try it
                 </Link>
               </li>

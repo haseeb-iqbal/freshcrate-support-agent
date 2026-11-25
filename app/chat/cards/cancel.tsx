@@ -32,7 +32,7 @@ export function CancelCard({
         state={state}
         confirmLabel="Yes, cancel"
         declineLabel="Keep my subscription"
-        confirmClassName="bg-red-700 hover:bg-red-800"
+        confirmClassName="btn-primary bg-red-700 hover:bg-red-800"
         onConfirm={onConfirm}
         onDecline={onDecline}
       />

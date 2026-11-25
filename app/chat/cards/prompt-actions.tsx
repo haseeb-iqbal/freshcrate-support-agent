@@ -23,7 +23,7 @@ export function PromptActions({
   declineLabel,
   onConfirm,
   onDecline,
-  confirmClassName = "bg-brand hover:bg-brand-dark",
+  confirmClassName = "btn-primary",
 }: {
   state: ProposalState;
   confirmLabel: string;
@@ -41,14 +41,14 @@ export function PromptActions({
         onClick={onConfirm}
         disabled={disabled}
         aria-busy={submitting || undefined}
-        className={`min-h-[44px] rounded-lg px-4 text-[15px] font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-60 ${confirmClassName}`}
+        className={`btn ${confirmClassName}`}
       >
         {submitting ? "Processing…" : confirmLabel}
       </button>
       <button
         onClick={onDecline}
         disabled={disabled}
-        className="min-h-[44px] rounded-lg border border-[#C9D6CE] bg-white px-4 text-[15px] text-ink transition hover:bg-paper disabled:cursor-not-allowed disabled:opacity-60"
+        className="btn btn-secondary"
       >
         {declineLabel}
       </button>

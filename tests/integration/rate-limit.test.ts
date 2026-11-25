@@ -70,7 +70,7 @@ describe("chat rate limit", () => {
     expect(clientIp(new Headers())).toBe("unknown");
   });
 
-  it("never lets concurrent turns slip past the limit", async () => {
+  it("never lets one visitor's concurrent turns slip past their limit", async () => {
     const results = await Promise.all(Array.from({ length: 8 }, () => takeChatTurn("a", minutes(1), LIMITS)));
     expect(results.filter((r) => r.ok)).toHaveLength(3);
     expect(await db.select().from(chatRateEvents)).toHaveLength(3);

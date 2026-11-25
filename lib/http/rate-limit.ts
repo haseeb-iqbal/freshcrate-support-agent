@@ -37,11 +37,13 @@ export function rateLimitEnabled(): boolean {
 
 /**
  * The client's IP address, read only from headers the platform sets.
- * Vercel sets x-vercel-forwarded-for and x-real-ip itself; a visitor can add
- * entries to x-forwarded-for, so only its LAST entry (appended by the proxy in
- * front of the app) is used, never the first. Anything that isn't a valid IP
- * becomes "unknown", a single shared bucket, so a junk header can't mint a fresh
- * identity per request. The daily cap bounds the total either way.
+ * This app is deployed on Vercel, whose edge sets x-vercel-forwarded-for and
+ * x-real-ip itself and overwrites any value a visitor sends, so those come
+ * first. The last x-forwarded-for entry (the one the nearest proxy appended,
+ * never the visitor-controlled first one) is a fallback for other hosts.
+ * Anything that isn't a valid IP becomes "unknown": on Vercel that never
+ * happens, and locally it is just one shared bucket. The daily cap bounds the
+ * total either way.
  */
 export function clientIp(headers: Headers): string {
   const candidates = [
@@ -86,26 +88,27 @@ export type RateDecision =
  * allowed. A denied turn is not recorded, so retrying doesn't push the wait out.
  */
 export async function takeChatTurn(visitor: string, at: Date, limits: RateLimits): Promise<RateDecision> {
-  // Check-then-insert runs under one transaction-scoped advisory lock, so
-  // concurrent turns are counted one at a time and can't all slip under a limit.
-  // The lock is held for a few small queries per chat turn.
+  // Housekeeping outside the lock: nothing older than a day is ever counted.
+  await db.delete(chatRateEvents).where(lt(chatRateEvents.createdAt, new Date(at.getTime() - DAY_MS)));
+
+  // Check-then-insert runs under a transaction-scoped advisory lock for this
+  // visitor only, so one visitor's concurrent turns are counted one at a time
+  // and can't slip past their hourly limit, while different visitors never wait
+  // on each other. The daily cap can therefore overshoot by at most the turns
+  // that arrive in the same instant, which is fine for a spend backstop. A lock
+  // wait over 3 seconds errors out instead of piling up connections.
   return db.transaction(async (tx) => {
-    await tx.execute(sql`select pg_advisory_xact_lock(${RATE_LIMIT_LOCK})`);
+    await tx.execute(sql`set local lock_timeout = '3s'`);
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${visitor}))`);
     return check(tx, visitor, at, limits);
   });
 }
-
-/** Arbitrary constant naming the advisory lock the limiter takes. */
-const RATE_LIMIT_LOCK = 7_310_201;
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 async function check(db: Tx, visitor: string, at: Date, limits: RateLimits): Promise<RateDecision> {
   const hourAgo = new Date(at.getTime() - HOUR_MS);
   const dayAgo = new Date(at.getTime() - DAY_MS);
-
-  // Nothing older than a day is ever counted, so drop it.
-  await db.delete(chatRateEvents).where(lt(chatRateEvents.createdAt, dayAgo));
 
   const mine = and(eq(chatRateEvents.visitor, visitor), gte(chatRateEvents.createdAt, hourAgo));
   const [{ n: visitorTurns }] = await db.select({ n: count() }).from(chatRateEvents).where(mine);
